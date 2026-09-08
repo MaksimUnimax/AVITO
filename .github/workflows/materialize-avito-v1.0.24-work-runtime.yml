@@ -1,0 +1,60 @@
+name: Materialize Avito Finder v1.0.24 WORK runtime
+
+on:
+  push:
+    paths:
+      - '.github/avito-v124-runtime-upload/READY'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reassemble exact runtime archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/avito-v124-runtime-upload/part-* > /tmp/avito-v124-runtime.b64
+          base64 -d /tmp/avito-v124-runtime.b64 > /tmp/AVITO_FINDER_v1.0.24_RUNTIME_ONLY_2026-09-08.tar.xz
+          echo '351761265fcf1a251a2b8223dd19154958533af8146045334d9e8cea4561d7f6  /tmp/AVITO_FINDER_v1.0.24_RUNTIME_ONLY_2026-09-08.tar.xz' | sha256sum -c -
+
+      - name: Materialize installable unpacked extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET='подбор авито расширение/extension_v1.0.24'
+          rm -rf "$TARGET"
+          mkdir -p "$TARGET"
+          tar -xJf /tmp/AVITO_FINDER_v1.0.24_RUNTIME_ONLY_2026-09-08.tar.xz -C "$TARGET"
+          cp /tmp/AVITO_FINDER_v1.0.24_RUNTIME_ONLY_2026-09-08.tar.xz 'подбор авито расширение/AVITO_FINDER_v1.0.24_RUNTIME_ONLY_2026-09-08.tar.xz'
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('подбор авито расширение/extension_v1.0.24/manifest.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          assert data['manifest_version'] == 3
+          assert data['version'] == '1.0.24'
+          assert data['version_name'] == '1.0.24-ui-plan-ip-block-recovery'
+          print('manifest PASS', data['version'], data['version_name'])
+          PY
+          for f in core.js proxy_manager.js service_worker.js chatgpt_content.js avito_content.js popup.js; do node --check "$TARGET/$f"; done
+
+      - name: Commit materialized runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'подбор авито расширение/extension_v1.0.24' 'подбор авито расширение/AVITO_FINDER_v1.0.24_RUNTIME_ONLY_2026-09-08.tar.xz'
+          if git diff --cached --quiet; then
+            echo 'Runtime already materialized.'
+            exit 0
+          fi
+          git commit -m 'build: materialize Avito Finder v1.0.24 WORK runtime'
+          git push
