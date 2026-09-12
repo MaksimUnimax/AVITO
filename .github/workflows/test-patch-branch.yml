@@ -1,0 +1,12 @@
+name: Test patch branch
+
+on:
+  push:
+    branches:
+      - 'fix/prompt-capture-contract-2026-09-12'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo OK
