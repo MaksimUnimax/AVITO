@@ -1,6 +1,6 @@
 # Patch report — ordinary assistant response capture contract
 
-Status: **BACKPORT CANDIDATE / LIVE UNVERIFIED**
+Status: **BACKPORT CANDIDATE / LOCAL RED-GREEN PASS / LIVE UNVERIFIED**
 
 ## Live defect
 
@@ -22,29 +22,45 @@ The capture loop nevertheless stayed in `PROMPT_WAIT_WRITING_BLOCK` forever. The
 - If exactly one code block exists in the completed ordinary assistant turn, its body is used structurally as the command payload; otherwise the completed assistant-turn body is used.
 - The infinite `PROMPT_WAIT_WRITING_BLOCK` state is removed for completed ordinary assistant turns.
 
+## Local proof
+
+GitHub Actions run `34684111354` completed successfully.
+
+The job proved:
+
+1. the regression checker **fails on the pre-patch `origin/main` source** (`RED CONFIRMED`);
+2. the same checker **passes after the patch**;
+3. `node --check` passes on the patched `chatgpt_content.js`;
+4. the patched source was committed as `8b579da9e0fc83a32e2e56a0c6fef9f12a4853ec`.
+
+This is local/backport evidence only. It is not installed/live acceptance.
+
 ## Rules compliance
 
 | Rule | PASS/FAIL | Evidence |
 | --- | --- | --- |
 | Root cause доказан | PASS | Live state and unconditional `!writing_block` branch match exactly |
-| Падающий тест до патча есть | PASS | Regression checker is required to fail against pre-patch `origin/main` |
-| Проверяется правильный уровень | PASS | Finality requires generic assistant-turn Copy, not arbitrary local Copy |
+| Падающий тест до патча есть | PASS | Actions run 34684111354: checker fails on `origin/main` before patch |
+| Проверяется правильный уровень | PASS | Finality requires generic assistant-turn Copy, not arbitrary local/code-block Copy |
 | Working baseline не затронут | PASS by scope | Writing-block path remains; patch changes capture/form acceptance only |
-| Diff минимален | PASS | ChatGPT capture adapter only, plus test/report/tooling |
+| Diff минимален | PASS | Runtime change limited to ChatGPT capture adapter; remaining files are test/report/tooling |
+| Новый regression-тест после патча | PASS | Same checker passes on patched source in Actions run 34684111354 |
+| JS syntax | PASS | `node --check` passed in Actions run 34684111354 |
 | Старые реальные regression-сценарии пройдены | NOT YET | Full historical suite is not present in the current Git tree |
-| Конечный билд перепроверен | FAIL | No new installable ZIP produced yet |
+| Конечный билд перепроверен | FAIL | No new exact installable ZIP produced yet |
 | Installed/live E2E пройден | FAIL | Requires exact installed source/build and Chrome run |
-| Exact-source rule соблюдён | FAIL for live release | Git main is v1.0.24; live log comes from later content-script 0.6.13 |
+| Exact-source rule соблюдён | FAIL for live release | Git main is v1.0.24 / content adapter 0.6.9; live log comes from later content adapter 0.6.13 |
 
 ## НАРУШЕННЫЕ ПРАВИЛА
 
-Previous code violated:
+Previous code / previous release process violated:
 
 1. **Не чинить ближайший симптом / весь state machine** — validator allowed ordinary next text, capture state still required writing block.
-2. **Проверять правильный уровень** — writing-block presence and arbitrary Copy controls were conflated with assistant-turn finality.
+2. **Проверять правильный уровень** — writing-block presence and generic/local Copy controls were conflated with assistant-turn finality.
 3. **Локальный PASS != live E2E** — previous large regression suite did not include the exact ordinary-response-after-validator-error handoff.
 4. **Baseline / protocol contract** — assistant response format was treated as an implicit invariant although validator explicitly permitted ordinary text.
+5. **Exact-source rule** — current repository lags the actually installed later build; therefore this branch must not be called a live-ready release.
 
 ## Release boundary
 
-This Git branch is a **backport candidate against the currently published GitHub source tree**. It is not called live-ready because the repository still publishes v1.0.24 while the installed build that produced the 2026-09-12 log is later. The same fix must be applied to the exact installed source, then the final installable build must pass full installed E2E before release.
+This Git branch is a **backport candidate against the currently published GitHub source tree**. It is not called live-ready because the repository still publishes v1.0.24 while the installed build that produced the 2026-09-12 log is later (content adapter 0.6.13). The same fix must be applied to the exact installed source, then the final installable build must pass full installed E2E before release.
