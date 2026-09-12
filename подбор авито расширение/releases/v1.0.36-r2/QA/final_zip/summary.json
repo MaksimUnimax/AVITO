@@ -191,9 +191,16 @@
       "status": "PASS",
       "duration_seconds": 8.635,
       "deadline_seconds": 115
+    },
+    {
+      "name": "queue_removed_listing_is_negative_observation",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 9.839,
+      "deadline_seconds": 115
     }
   ],
-  "pass": 26,
+  "pass": 27,
   "fail": 1,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
