@@ -1,0 +1,15 @@
+{
+  "test_source_changed": false,
+  "timeout_changed": false,
+  "results": [
+    {
+      "repeat": 1,
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 9.754,
+      "deadline_seconds": 30
+    }
+  ],
+  "status": "INCOMPLETE_OR_FAIL",
+  "original_timeout_root_cause": "NOT_ESTABLISHED"
+}
