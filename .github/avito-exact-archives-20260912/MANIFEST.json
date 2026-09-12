@@ -1,0 +1,39 @@
+{
+  "format": 1,
+  "algorithm": "UTF-8 compact JSON; LZMA/XZ preset=9; Base64 chunks=16000",
+  "transport_bytes": 300976,
+  "transport_sha256": "bf89642eb4120fbebd70b45432ea0c6939591f0eb25527f352ae32d1b7a8ba07",
+  "part_count": 26,
+  "parts": [
+    {"path":"part-000.b64","bytes":16000,"git_blob_sha":"8a6a94fc8793c8469a002c58d87b1e27d1ce0a18","sha256":"60cd9ff09e6a4d564e2bed4592d1cf07cf6a565abce1cb378ad6356c2a186037"},
+    {"path":"part-001.b64","bytes":16000,"git_blob_sha":"86d92cf38e344d9a5bd652f1565b3e20ef7474d9","sha256":"790e718e70f86ec71c0637c5c1031e63924cf6801d823f52083878ca31d35cc7"},
+    {"path":"part-002.b64","bytes":16000,"git_blob_sha":"6e4e67285e16df962ef018ef3d99ccc156183da5","sha256":"679f4f5278e342b7fbd60e69823f61ce3bbfb58d31d910a95ba9509e95611c3d"},
+    {"path":"part-003.b64","bytes":16000,"git_blob_sha":"f1fc72eb453a1f59ca0d6ec677894e3fa24067a5","sha256":"fe85b66b36cd95a45272dbbf1cc42a4c1b2db8e4c74750f2f971da5ae21fe875"},
+    {"path":"part-004.b64","bytes":16000,"git_blob_sha":"b3a0302413570f2d087341a6421d641d6ce2c534","sha256":"911290ffc0cd77cb71d8eecce1ddaa133ab8ee080591d903aa0c0cd450e7576c"},
+    {"path":"part-005.b64","bytes":16000,"git_blob_sha":"7375f289cd0f1cd2853c0d13add4bcd9e830ad44","sha256":"0021bf66a290b7a05bd2492fd72a24ef9558e94ed44e0b3cd34aafbeaed27b1c"},
+    {"path":"part-006.b64","bytes":16000,"git_blob_sha":"cde08917cb2d3874484d4164281eec7d54698bd8","sha256":"74250617def5deed08df208c91bf4b1e5c860063d16b967e2cdd596606913508"},
+    {"path":"part-007.b64","bytes":16000,"git_blob_sha":"89f1cd872e7d59a0a32c8b3f8e9e6d58b193eac8","sha256":"901f2ad1ee74d3c3915a2aa3486a3976e400267b380581c447d6880f5c640888"},
+    {"path":"part-008.b64","bytes":16000,"git_blob_sha":"7c83271b8fe4a020c53cd6b251328b813e75c984","sha256":"e54dddd95463093dc036817ea26d12664f8cad72186aa248bb40dedd19d6ee88"},
+    {"path":"part-009.b64","bytes":16000,"git_blob_sha":"fb6e38d65cbb1b994d73cb6f3050bb7e131d9dfa","sha256":"4b2e3f337d69891ae69d8d56301d04dc5b2a479f3e611f65c7df8cda871dc4ca"},
+    {"path":"part-010.b64","bytes":16000,"git_blob_sha":"a39087e3803a15bbbf7a52cc06bf75e701ac46fd","sha256":"3bc3e519d9f1269cb6fd08c9da7957b9995ca07c1f4e291de1e2b2e921f4ce66"},
+    {"path":"part-011.b64","bytes":16000,"git_blob_sha":"4aebaa9d865c548520f8dd5320e01509dd3bc07f","sha256":"555086c5be8851a4f7c275019a804c8bd482cc553005fdd2fb9168d5b1a4b2d2"},
+    {"path":"part-012.b64","bytes":16000,"git_blob_sha":"c48604d590a50424a5ac59e3adffd8f3fa618d3d","sha256":"d591fe678932181726d063988aba64e71a4a464d54671c38a7aef14d1f8dd3eb"},
+    {"path":"part-013.b64","bytes":16000,"git_blob_sha":"6f2b7d0a42f286d5f878d5ec447aa8bea0217cc5","sha256":"ac4d0c2bd7a20cad2d747d8b3222fd51aedcbeee45c8c2844ed083403fecada5"},
+    {"path":"part-014.b64","bytes":16000,"git_blob_sha":"5ff5886dc61c50b9e31d7ad83fd6bfe60c0a61ed","sha256":"d266dd93c97e7a4ba00508072ce6f8f259d9f77a59cc879e1cfe41e6a35ae412"},
+    {"path":"part-015.b64","bytes":16000,"git_blob_sha":"cc1723d555ad0931c058118e7872595d04b16cc2","sha256":"dc9ee8ff4ab9aadf02727019538f86e2011f4715f46dc1bce5020f1dc1b19cca"},
+    {"path":"part-016.b64","bytes":16000,"git_blob_sha":"50762d6535dbf53160df493b0a73516641c76947","sha256":"e960465425bba8947c332d6002be013a4124d32dee24d806981a4da5e2ae27de"},
+    {"path":"part-017.b64","bytes":16000,"git_blob_sha":"69cca33e6fc0fc3fe638eaa2821cface62765e79","sha256":"b8e6533b8666c05c2e7948e7a7e4e3cb6f3dae262ae074f2fbfb97ec1e1997d1"},
+    {"path":"part-018.b64","bytes":16000,"git_blob_sha":"8ba2a82cb9daf19d5d647c07319cfa3ddca5fb15","sha256":"f6b8187cb238de31d5f535ed4cd476fa01a2731a4667f8f15c575a69914141b4"},
+    {"path":"part-019.b64","bytes":16000,"git_blob_sha":"2eb40b052547121f45a35bcd53a6028d7389907b","sha256":"db37b68d9fe9513f2d6369e160a3e8d178426da31bcc665cf3d5e7a5d74c78b8"},
+    {"path":"part-020.b64","bytes":16000,"git_blob_sha":"b359bf64fe87cecb9ef7f5b2c6cdd1c3d4434a73","sha256":"3bf36c73644ccb557fd5f89924a82eb0173b2b2462651f394095748d65eacbb0"},
+    {"path":"part-021.b64","bytes":16000,"git_blob_sha":"7d0f675819a6442b36742b5f08a567baed236bce","sha256":"f9f4b3abd76cb010041727d6a9373d38444e0bf496067665b0bce146186cad1c"},
+    {"path":"part-022.b64","bytes":16000,"git_blob_sha":"7e8c76966f21f05ee8be3a5c35bd16d491c945ca","sha256":"1c415822eeaa4291937bd4fda14047fbffe01a5c6b453128b55a6eafd1375893"},
+    {"path":"part-023.b64","bytes":16000,"git_blob_sha":"7c345e9d64141f15815a060f2abf9b2fb1c799db","sha256":"32e054979efca4d19ca5c80b44511d1e32c4f3d086edd9eca6cbd0707077df79"},
+    {"path":"part-024.b64","bytes":16000,"git_blob_sha":"5c35e7832873eb2660106040fce7c97a4fd4d822","sha256":"bda1db86379d0910dd7fbd6828a2530209bcc5521a51c5fd8c68a29796d7e651"},
+    {"path":"part-025.b64","bytes":1304,"git_blob_sha":"a1cfcc15b89ef9b3499bd578dd0ad6ab6550c75a","sha256":"41db775ed0f99c6e0acc0753c8ea368efc09825c990782a2c170080e26f7faa9"}
+  ],
+  "archives": [
+    {"name":"AVITO_FINDER_v1.0.34_WRITING_BLOCK_BODY_STABILITY_2026-09-12.zip","sha256":"27e2049522663bc3d2925c7bc847ad04304979e166e8428fafaaa91d37085f5d","size":495534,"root":"v134_work"},
+    {"name":"AVITO_FINDER_v1.0.35_ASSISTANT_FORM_TERMINAL_GATE_2026-09-12.zip","sha256":"3a1de9f67af1554038193adb9bf6a63f0e7ca5ef7c26690236e2fd57a287abd3","size":511868,"root":"v135_work"}
+  ]
+}
