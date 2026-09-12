@@ -1,0 +1,30 @@
+{
+  "scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+  "installed_extension": false,
+  "live_chatgpt": false,
+  "tests": [
+    {
+      "test": "read-only reconciliation: missing_anchor",
+      "status": "PASS",
+      "ms": 177
+    },
+    {
+      "test": "focus/selection alone is not a user edit",
+      "status": "PASS",
+      "ms": 2134
+    },
+    {
+      "test": "different simultaneous reports cannot take over the same composer",
+      "status": "PASS",
+      "ms": 2127
+    },
+    {
+      "test": "hash equality cannot coalesce a different Unicode payload",
+      "status": "PASS",
+      "ms": 2134
+    }
+  ],
+  "pass": 4,
+  "fail": 0,
+  "page_errors": []
+}
