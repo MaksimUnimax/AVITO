@@ -12,20 +12,23 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Verify and inspect saved contiguous prefix
+      - name: Verify saved parts and export complete metadata from partial stream
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import base64, hashlib, json, lzma, re
+          import base64, hashlib, json, lzma, shutil
           from pathlib import Path
           folder = Path('.github/avito-exact-archives-20260912')
           cursor = json.loads(Path('подбор авито расширение/PUBLICATION_CURSOR_2026-09-12.json').read_text())
+          out = Path('transport-inspection')
+          out.mkdir()
           for row in cursor['transport']['observed_parts']:
               p = folder / row['path']
               b = p.read_bytes()
               blob = hashlib.sha1(b'blob ' + str(len(b)).encode() + b'\0' + b).hexdigest()
               assert len(b) == row['bytes'] and blob == row['git_blob_sha'], p
+              shutil.copy2(p, out / p.name)
           parts = []
           i = 0
           while (folder / f'part-{i:03d}.b64').exists():
@@ -34,53 +37,24 @@ jobs:
           packed = base64.b64decode(b''.join(parts), validate=True)
           dec = lzma.LZMADecompressor()
           raw = dec.decompress(packed)
-          text = raw.decode('utf-8', errors='replace')
-          print('CONTIGUOUS_PARTS', i, 'PACKED_BYTES', len(packed), 'DECOMPRESSED_BYTES', len(raw), 'EOF', dec.eof)
-          # Enumerate object member names by nesting depth without printing file bodies.
-          depth = 0
-          in_string = False
-          escape = False
-          start = 0
-          members = []
-          for j, c in enumerate(text):
-              if in_string:
-                  if escape:
-                      escape = False
-                  elif c == '\\':
-                      escape = True
-                  elif c == '"':
-                      in_string = False
-                      k = j + 1
-                      while k < len(text) and text[k].isspace(): k += 1
-                      if k < len(text) and text[k] == ':' and depth <= 4:
-                          key = text[start + 1:j]
-                          if len(key) < 100:
-                              members.append((depth, key, start))
-                  continue
-              if c == '"': in_string = True; start = j
-              elif c in '{[': depth += 1
-              elif c in '}]': depth -= 1
-          seen = set()
-          for d, k, off in members:
-              if (d, k) in seen: continue
-              seen.add((d,k))
-              print('MEMBER', d, k, off)
+          text = raw.decode('utf-8', errors='strict')
+          (out / 'remote-prefix.bin').write_bytes(raw)
           decoder = json.JSONDecoder()
           idx = text.find('"archives":[') + len('"archives":')
-          try:
-              archives, end = decoder.raw_decode(text, idx)
-              print('ARCHIVES_COMPLETE', len(archives), 'END', end)
-              for a in archives:
-                  print('ARCHIVE_KEYS', a['name'], list(a))
-                  for key, value in a.items():
-                      if key == 'files': continue
-                      if isinstance(value, str): print('FIELD', key, 'len', len(value), 'prefix', value[:100])
-                      elif isinstance(value, (list, dict)):
-                          print('FIELD', key, 'type', type(value).__name__, 'len', len(value))
-                          if value: print('FIRST', repr(value[0] if isinstance(value,list) else next(iter(value.items())))[:600])
-                      else: print('FIELD', key, repr(value))
-              print('AFTER_ARCHIVES', text[end:end+1500])
-          except json.JSONDecodeError as e:
-              print('ARCHIVES_INCOMPLETE', e.pos, str(e))
-          print('TAIL', text[-1000:])
+          archives, end = decoder.raw_decode(text, idx)
+          (out / 'archives.json').write_text(json.dumps(archives, ensure_ascii=False, separators=(',', ':')))
+          report = {'parts': i, 'packed_bytes': len(packed), 'decoded_bytes': len(raw), 'complete_stream': dec.eof, 'decoded_prefix_sha256': hashlib.sha256(raw).hexdigest(), 'archives_count': len(archives)}
+          (out / 'inspection.json').write_text(json.dumps(report, indent=2))
+          print(json.dumps(report))
+          for a in archives:
+              print(a['name'], 'RECIPES', len(a['recipe']))
+              print('RECIPE_1', a['recipe'][1])
+              print('RECIPE_2', a['recipe'][2])
+              print('LAST_RECIPE_KEYS', list(a['recipe'][-1]))
           PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exact-transport-recovery-evidence
+          path: transport-inspection/
+          retention-days: 30
+          if-no-files-found: error
