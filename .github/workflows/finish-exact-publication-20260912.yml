@@ -1,0 +1,127 @@
+name: Finish byte-exact Avito publication
+on:
+  push:
+    paths:
+      - '.github/workflows/finish-exact-publication-20260912.yml'
+      - '.github/avito-exact-archives-20260912/part-*.b64'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: avito-exact-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      complete: ${{ steps.inventory.outputs.complete }}
+      published_sha: ${{ steps.persist.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Inventory actual bytes against immutable manifest
+        id: inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          folder=Path('.github/avito-exact-archives-20260912')
+          spec=json.loads((folder/'MANIFEST.json').read_text())
+          rows=[]
+          for r in spec['parts']:
+              p=folder/r['path']; b=p.read_bytes() if p.exists() else None
+              digest=hashlib.sha256(b).hexdigest() if b is not None else None
+              blob=hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest() if b is not None else None
+              ok=b is not None and len(b)==r['bytes'] and digest==r['sha256'] and blob==r['git_blob_sha']
+              rows.append({'path':r['path'],'status':'PASS' if ok else 'MISSING' if b is None else 'CORRUPT','actual_bytes':None if b is None else len(b),'actual_sha256':digest,'actual_git_blob_sha':blob,'expected_sha256':r['sha256']})
+          complete=len(rows)==26 and all(r['status']=='PASS' for r in rows)
+          report={'status':'ALL_PARTS_VERIFIED_PENDING_MATERIALIZATION' if complete else 'INCOMPLETE_DO_NOT_PUBLISH','verified_parts':sum(r['status']=='PASS' for r in rows),'expected_parts':26,'first_unverified':next((r['path'] for r in rows if r['status']!='PASS'),None),'transport_sha256':spec['transport_sha256'],'rows':rows,'runtime_acceptance':'V135_REJECTED','live_acceptance':'NOT_RUN'}
+          Path('подбор авито расширение/PUBLICATION_CURSOR_2026-09-12.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps({'status':report['status'],'verified_parts':report['verified_parts'],'first_unverified':report['first_unverified']}))
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('complete='+str(complete).lower()+'\n')
+          PY
+      - name: Materialize only fully verified transport
+        if: steps.inventory.outputs.complete == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/exact_archive_transport.py materialize --parts .github/avito-exact-archives-20260912 --manifest .github/avito-exact-archives-20260912/MANIFEST.json --output 'подбор авито расширение'
+      - name: Persist current cursor and exact artifacts
+        id: persist
+        shell: bash
+        env:
+          COMPLETE: ${{ steps.inventory.outputs.complete }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          BASE='подбор авито расширение'
+          git add "$BASE/PUBLICATION_CURSOR_2026-09-12.json"
+          if [ "$COMPLETE" = true ]; then
+            git add "$BASE/v134_work" "$BASE/v135_work" "$BASE/PUBLICATION_VERIFIED.json" "$BASE/AVITO_FINDER_v1.0.34_WRITING_BLOCK_BODY_STABILITY_2026-09-12.zip" "$BASE/AVITO_FINDER_v1.0.35_ASSISTANT_FORM_TERMINAL_GATE_2026-09-12.zip"
+          fi
+          if ! git diff --cached --quiet; then
+            git commit -m "publication: checkpoint verified parts; exact artifacts complete=$COMPLETE"
+            git push origin HEAD:main
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  remote-readback:
+    needs: publish
+    if: needs.publish.outputs.complete == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.publish.outputs.published_sha }}
+          fetch-depth: 1
+      - name: Verify fresh checkout against original archives and every source file
+        shell: bash
+        env:
+          VERIFIED_COMMIT: ${{ needs.publish.outputs.published_sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,zipfile,os
+          from pathlib import Path
+          root=Path('подбор авито расширение')
+          spec=json.loads(Path('.github/avito-exact-archives-20260912/MANIFEST.json').read_text())
+          results=[]
+          for a in spec['archives']:
+              p=root/a['name'];b=p.read_bytes();assert len(b)==a['size'];assert hashlib.sha256(b).hexdigest()==a['sha256']
+              count=0
+              with zipfile.ZipFile(p) as z:
+                  assert z.testzip() is None
+                  for i in z.infolist():
+                      if i.is_dir():continue
+                      assert (root/i.filename).read_bytes()==z.read(i),i.filename
+                      count+=1
+              results.append({'archive':a['name'],'sha256':a['sha256'],'bytes':len(b),'source_files_byte_equal':count,'status':'PASS'})
+          report={'scope':'FRESH_GITHUB_CHECKOUT_EXACT_BYTES','commit':os.environ['VERIFIED_COMMIT'],'results':results,'runtime_acceptance':'V135_REJECTED','live_acceptance':'NOT_RUN'}
+          (root/'PUBLICATION_REMOTE_READBACK_2026-09-12.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report))
+          PY
+      - name: Persist remote readback receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'подбор авито расширение/PUBLICATION_REMOTE_READBACK_2026-09-12.json'
+          git commit -m 'publication: confirm both exact ZIPs and 267 source files from fresh GitHub checkout'
+          git push origin HEAD:main
+      - uses: actions/upload-artifact@v4
+        with:
+          name: byte-exact-archives-remote-readback
+          path: |
+            подбор авито расширение/AVITO_FINDER_v1.0.34_WRITING_BLOCK_BODY_STABILITY_2026-09-12.zip
+            подбор авито расширение/AVITO_FINDER_v1.0.35_ASSISTANT_FORM_TERMINAL_GATE_2026-09-12.zip
+            подбор авито расширение/PUBLICATION_VERIFIED.json
+            подбор авито расширение/PUBLICATION_REMOTE_READBACK_2026-09-12.json
+          if-no-files-found: error
+          retention-days: 30
