@@ -1,7 +1,12 @@
 {
   "version": "1.0.36",
   "revision": "R2",
-  "status": "EXACT_ZIP_PERSISTED_QA_PENDING",
+  "status": "NOT_READY_QA_FAILED_OR_INCOMPLETE",
+  "groups_pass": 34,
+  "groups_fail": 1,
+  "qa_complete": true,
+  "wrong_form_to_two_commands": "NOT_RUN",
   "runtime_changes_from_R1": [],
-  "installed_live_acceptance": "NOT_RUN"
+  "installed_live_acceptance": "NOT_RUN",
+  "next": "inspect exact persisted failures"
 }
