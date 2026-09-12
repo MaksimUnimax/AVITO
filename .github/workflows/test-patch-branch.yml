@@ -1,12 +1,47 @@
-name: Test patch branch
+name: Apply and test prompt capture patch
 
 on:
   push:
     branches:
       - 'fix/prompt-capture-contract-2026-09-12'
 
+permissions:
+  contents: write
+
 jobs:
-  test:
+  patch:
     runs-on: ubuntu-latest
     steps:
-      - run: echo OK
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply deterministic patch
+        run: python3 tools/apply_prompt_capture_patch_20260912.py
+
+      - name: Prove red-before-green
+        shell: bash
+        run: |
+          SRC='подбор авито расширение/extension_v1.0.24/chatgpt_content.js'
+          TEST='подбор авито расширение/PROMPT_CAPTURE_CONTRACT_REGRESSION.py'
+          git show origin/main:"$SRC" > /tmp/pre_patch_chatgpt_content.js
+          if python3 "$TEST" /tmp/pre_patch_chatgpt_content.js; then
+            echo 'ERROR: pre-patch main unexpectedly passes regression checker'
+            exit 1
+          fi
+          echo 'RED CONFIRMED'
+          python3 "$TEST" "$SRC"
+          node --check "$SRC"
+
+      - name: Commit patched source
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'подбор авито расширение/extension_v1.0.24/chatgpt_content.js'
+          if git diff --cached --quiet; then
+            echo 'Patch already committed.'
+            exit 0
+          fi
+          git commit -m 'fix: accept completed ordinary assistant command responses'
+          git push
