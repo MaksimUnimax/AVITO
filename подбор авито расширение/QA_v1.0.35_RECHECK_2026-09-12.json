@@ -1,0 +1,61 @@
+{
+  "version": "1.0.35",
+  "archive_sha256": "3a1de9f67af1554038193adb9bf6a63f0e7ca5ef7c26690236e2fd57a287abd3",
+  "status": "REJECTED_RUNTIME_VERSION_CONTRACT",
+  "scope": "OFFLINE; production runtime + Chromium DOM fixtures + Chrome API doubles; NOT installed/live websites/providers",
+  "runner": "tests/run_all_v133.py from the exact v1.0.35 ZIP",
+  "runner_completed": true,
+  "results": [
+    {"name":"node","exit_code":0,"status":"PASS","duration_seconds":1.174},
+    {"name":"avito","exit_code":0,"status":"PASS","duration_seconds":4.484},
+    {"name":"chat","exit_code":0,"status":"PASS","duration_seconds":27.8},
+    {"name":"start_receipt","exit_code":0,"status":"PASS","duration_seconds":12.047},
+    {"name":"composer_01_15","status":"FAIL","error":"test_deadline_exceeded","duration_seconds":45.005},
+    {"name":"composer_16_28","exit_code":0,"status":"PASS","duration_seconds":21.236},
+    {"name":"receipts","exit_code":0,"status":"PASS","duration_seconds":32.21},
+    {"name":"cycle_full_three_page_folded_cycle","exit_code":1,"status":"FAIL","duration_seconds":22.827},
+    {"name":"cycle_assistant_first_start_then_three_pages","exit_code":1,"status":"FAIL","duration_seconds":22.885},
+    {"name":"cycle_ip_block_recovery_then_three_pages","status":"FAIL","error":"test_deadline_exceeded","duration_seconds":35.006},
+    {"name":"cycle_rate_limit_recovery_then_three_pages","status":"FAIL","error":"test_deadline_exceeded","duration_seconds":35.01},
+    {"name":"cycle_late_body_then_worker_restart_reconcile","exit_code":1,"status":"FAIL","duration_seconds":35.061},
+    {"name":"cycle_captcha_manual_boundary","status":"FAIL","error":"test_deadline_exceeded","duration_seconds":25.005},
+    {"name":"dom_contracts","exit_code":0,"status":"PASS","duration_seconds":3.58},
+    {"name":"popup_lifecycle","exit_code":0,"status":"PASS","duration_seconds":8.046},
+    {"name":"actions_scopes","exit_code":0,"status":"PASS","duration_seconds":4.583},
+    {"name":"proxy_transport_isolation","exit_code":1,"status":"FAIL","duration_seconds":9.992},
+    {"name":"queue_six_details_two_batches","exit_code":1,"status":"FAIL","duration_seconds":16.309},
+    {"name":"queue_rate_limit_mid_queue_restart_direct_route","exit_code":1,"status":"FAIL","duration_seconds":48.693},
+    {"name":"queue_manual_captcha_same_child_resume","exit_code":1,"status":"FAIL","duration_seconds":9.945},
+    {"name":"queue_restart_during_persisted_gap","exit_code":1,"status":"FAIL","duration_seconds":48.652},
+    {"name":"queue_stop_during_late_detail_response","exit_code":1,"status":"FAIL","duration_seconds":48.601},
+    {"name":"queue_removed_listing_is_negative_observation","exit_code":1,"status":"FAIL","duration_seconds":9.998},
+    {"name":"queue_thirty_detail_large_report","exit_code":1,"status":"FAIL","duration_seconds":9.944},
+    {"name":"installed_environment_probe","exit_code":0,"status":"PROBE_EXECUTED_NOT_ACCEPTANCE","duration_seconds":7.238}
+  ],
+  "group_pass":9,
+  "group_fail":15,
+  "environment_probe_count":1,
+  "installed_acceptance":{
+    "status":"ENVIRONMENT_BLOCKED",
+    "policy_modified":false,
+    "service_worker_observed":false,
+    "ExtensionInstallBlocklist":["*"],
+    "URLBlocklist":["*"]
+  },
+  "additional_proofs":{
+    "actual_adapter_identity_v134":{"manifest_version":"1.0.34","actual_adapter_ping_version":"1.0.34","status":"PASS"},
+    "actual_adapter_identity_v135":{"manifest_version":"1.0.35","actual_adapter_ping_version":"1.0.34","status":"FAIL","code":"AVITO_ADAPTER_VERSION_MISMATCH_RELOAD_REQUIRED"},
+    "same_avito_source_sha256_both_archives":"6bca275747e08f7e7508111342e0c33bf240762a23d608c89cb4f9f09f946d8f",
+    "baseline_v134_full_three_page_cycle":{"status":"PASS","reports":3,"rows_per_report":[30,30,30],"send_clicks_including_start":4,"final_state":"WAITING_FOR_NEXT_ASSISTANT_FORM"},
+    "form_gate_red_v134":{"exit_code":1,"command_count":0,"form_error_count":0},
+    "form_gate_green_v135":{"exit_code":0,"command_count":0,"form_error_count":1}
+  },
+  "test_gap":{
+    "unit_double":"tests/helpers/worker_vm.cjs returns manifest.version for AF_AVITO_PING instead of observing avito_content.js",
+    "isolated_dom_test":"tests/browser_fixtures_v125.py independently accepts manifest=1.0.35 and adapter=1.0.34 without comparing them",
+    "new_test":"tools/check_adapter_identity.py executes the actual packaged adapter in offline Chromium and compares its PING to the same package manifest"
+  },
+  "archive_publication":"NOT_COMPLETED",
+  "live_provider_calls":0,
+  "runtime_source_modified_in_this_recheck":false
+}
