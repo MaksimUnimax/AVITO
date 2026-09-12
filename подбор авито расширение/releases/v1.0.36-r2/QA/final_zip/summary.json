@@ -212,9 +212,16 @@
       "status": "PASS",
       "duration_seconds": 10.894,
       "deadline_seconds": 45
+    },
+    {
+      "name": "parser_block02",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 0.064,
+      "deadline_seconds": 20
     }
   ],
-  "pass": 29,
+  "pass": 30,
   "fail": 1,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"

@@ -1,0 +1,265 @@
+{
+  "block": "02 parser/validator",
+  "results": [
+    {
+      "id": "B02-S01",
+      "name": "valid collection",
+      "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104\nШаги:\nСобери до 30 видимых карточек текущей выдачи.",
+      "emulation": "production core.js parseCommandForm",
+      "expected": "valid AVITO_UI; COLLECT_LISTINGS limit 30",
+      "actual": {
+        "valid": true,
+        "errors": [],
+        "mode": "AVITO_UI",
+        "steps": [
+          {
+            "type": "COLLECT_LISTINGS",
+            "limit": 30
+          }
+        ],
+        "page": "https://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104",
+        "gap": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02-S02",
+      "name": "explicit queue 6",
+      "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nОчередь:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999865\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999866\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999867\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999868\nhtt",
+      "emulation": "production core.js parseCommandForm",
+      "expected": "valid queue; 6 URLs; batch 6",
+      "actual": {
+        "valid": true,
+        "errors": [],
+        "mode": "AVITO_UI",
+        "steps": [
+          {
+            "type": "COLLECT_EXPLICIT_LISTING_QUEUE",
+            "batch": 6,
+            "selected_urls": 6
+          }
+        ],
+        "page": "https://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864",
+        "gap": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02-S03",
+      "name": "explicit queue max 30",
+      "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nОчередь:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999865\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999866\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999867\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999868\nhtt",
+      "emulation": "production core.js parseCommandForm",
+      "expected": "valid queue 30, no truncation",
+      "actual": {
+        "valid": true,
+        "errors": [],
+        "mode": "AVITO_UI",
+        "steps": [
+          {
+            "type": "COLLECT_EXPLICIT_LISTING_QUEUE",
+            "batch": 30,
+            "selected_urls": 30
+          }
+        ],
+        "page": "https://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864",
+        "gap": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02-S04",
+      "name": "explicit queue 31",
+      "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nОчередь:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999865\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999866\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999867\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999868\nhtt",
+      "emulation": "production core.js parseCommandForm",
+      "expected": "reject UI_PLAN_EXPLICIT_QUEUE_TOO_LARGE",
+      "actual": {
+        "valid": false,
+        "errors": [
+          "UI_PLAN_EXPLICIT_QUEUE_TOO_LARGE"
+        ],
+        "mode": "AVITO_UI",
+        "steps": [
+          {
+            "type": "COLLECT_EXPLICIT_LISTING_QUEUE",
+            "batch": 30,
+            "selected_urls": 31
+          }
+        ],
+        "page": "https://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864",
+        "gap": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02-S05",
+      "name": "missing page",
+      "input": "Режим:\nAVITO_UI\nШаги:\nСобери до 30 видимых карточек.",
+      "emulation": "production core.js parseCommandForm",
+      "expected": "reject UI_PLAN_PAGE_REQUIRED",
+      "actual": {
+        "valid": false,
+        "errors": [
+          "UI_PLAN_PAGE_REQUIRED"
+        ],
+        "mode": "AVITO_UI",
+        "steps": [
+          {
+            "type": "COLLECT_LISTINGS",
+            "limit": 30
+          }
+        ],
+        "page": null,
+        "gap": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02-S06",
+      "name": "private/account path",
+      "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/profile\nШаги:\nСобери до 10 видимых карточек.",
+      "emulation": "production core.js parseCommandForm",
+      "expected": "reject page not allowed",
+      "actual": {
+        "valid": false,
+        "errors": [
+          "UI_PLAN_PAGE_NOT_ALLOWED"
+        ],
+        "mode": "AVITO_UI",
+        "steps": [
+          {
+            "type": "COLLECT_LISTINGS",
+            "limit": 10
+          }
+        ],
+        "page": "https://www.avito.ru/profile",
+        "gap": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02-S07",
+      "name": "unknown step",
+      "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104\nШаги:\nСтанцуй вокруг карточки.",
+      "emulation": "production core.js parseCommandForm",
+      "expected": "reject unsupported/step required",
+      "actual": {
+        "valid": false,
+        "errors": [
+          "UI_PLAN_UNSUPPORTED_STEP",
+          "UI_PLAN_STEP_REQUIRED"
+        ],
+        "mode": "AVITO_UI",
+        "steps": [],
+        "page": "https://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104",
+        "gap": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02-S08",
+      "name": "forbidden phone click",
+      "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104\nШаги:\nНажми «Показать телефон».",
+      "emulation": "production core.js parseCommandForm",
+      "expected": "reject forbidden action",
+      "actual": {
+        "valid": false,
+        "errors": [
+          "UI_PLAN_FORBIDDEN_ACTION",
+          "UI_PLAN_STEP_REQUIRED"
+        ],
+        "mode": "AVITO_UI",
+        "steps": [],
+        "page": "https://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104",
+        "gap": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02-S09",
+      "name": "wait 5 sec",
+      "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104\nШаги:\nПодожди 5 сек.",
+      "emulation": "production core.js parseCommandForm",
+      "expected": "accept WAIT 5000ms",
+      "actual": {
+        "valid": true,
+        "errors": [],
+        "mode": "AVITO_UI",
+        "steps": [
+          {
+            "type": "WAIT"
+          }
+        ],
+        "page": "https://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104",
+        "gap": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02-S10",
+      "name": "wait 6 sec",
+      "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104\nШаги:\nПодожди 6 сек.",
+      "emulation": "production core.js parseCommandForm",
+      "expected": "reject wait out of range",
+      "actual": {
+        "valid": false,
+        "errors": [
+          "UI_PLAN_WAIT_OUT_OF_RANGE",
+          "UI_PLAN_STEP_REQUIRED"
+        ],
+        "mode": "AVITO_UI",
+        "steps": [],
+        "page": "https://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104",
+        "gap": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02-S11",
+      "name": "card gap 5000ms",
+      "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nПауза между карточками:\n5000 мс\nОчередь:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nШаги:\nСобери публичные данные лотов из очереди пакетом 1.",
+      "emulation": "production core.js parseCommandForm",
+      "expected": "accept exact gap 5000",
+      "actual": {
+        "valid": true,
+        "errors": [],
+        "mode": "AVITO_UI",
+        "steps": [
+          {
+            "type": "COLLECT_EXPLICIT_LISTING_QUEUE",
+            "batch": 1,
+            "selected_urls": 1
+          }
+        ],
+        "page": "https://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864",
+        "gap": 5000
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02-S12",
+      "name": "card gap overflow",
+      "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nПауза между карточками:\n2147483648 мс\nОчередь:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nШаги:\nСобери публичные данные лотов из очереди пакетом 1.",
+      "emulation": "production core.js parseCommandForm",
+      "expected": "reject gap overflow",
+      "actual": {
+        "valid": false,
+        "errors": [
+          "UI_PLAN_CARD_GAP_OUT_OF_RANGE"
+        ],
+        "mode": "AVITO_UI",
+        "steps": [
+          {
+            "type": "COLLECT_EXPLICIT_LISTING_QUEUE",
+            "batch": 1,
+            "selected_urls": 1
+          }
+        ],
+        "page": "https://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864",
+        "gap": null
+      },
+      "status": "PASS"
+    }
+  ],
+  "pass": 12,
+  "fail": 0
+}
