@@ -128,9 +128,16 @@
       "status": "PASS",
       "duration_seconds": 9.79,
       "deadline_seconds": 90
+    },
+    {
+      "name": "dom_contracts",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 4.084,
+      "deadline_seconds": 30
     }
   ],
-  "pass": 18,
+  "pass": 19,
   "fail": 0,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
