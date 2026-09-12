@@ -1,0 +1,238 @@
+{
+  "scope": "OFFLINE_WRONG_FORM_SAME_CHAT_REPORT_THEN_TWO_VALID_COMMANDS",
+  "version": "1.0.36",
+  "live_provider_calls": 0,
+  "installed_live_acceptance": "NOT_RUN",
+  "status": "PASS",
+  "same_chat_reports": 3,
+  "format_reports": 1,
+  "collection_reports": 2,
+  "actual_ui_dispatches": 2,
+  "send_clicks_including_start": 4,
+  "ui_dispatch_before_format_report": false,
+  "final_state": "WAITING_FOR_NEXT_ASSISTANT_FORM",
+  "trace": [
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_START_AND_ANCHOR",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_BEGIN_PROMPT_POLL",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_SEND_REPORT",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_BEGIN_PROMPT_POLL",
+      "url": null
+    },
+    {
+      "method": "navigate",
+      "tab": 7,
+      "message": null,
+      "url": "https://www.avito.ru/all/nastolnye_kompyutery?f=ASgCAgECAUXGmgwYeyJmcm9tIjo4MDAwLCJ0byI6MTUwMDB9&q=computer&s=104"
+    },
+    {
+      "method": "execute",
+      "tab": 7,
+      "message": null,
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 7,
+      "message": "AF_AVITO_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 7,
+      "message": "AF_GET_ROUTE_CONTEXT",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 7,
+      "message": "AF_AVITO_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 7,
+      "message": "AF_EXECUTE_AVITO_UI_PLAN",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 7,
+      "message": "AF_AVITO_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 7,
+      "message": "AF_GET_ROUTE_CONTEXT",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_SEND_REPORT",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_BEGIN_PROMPT_POLL",
+      "url": null
+    },
+    {
+      "method": "navigate",
+      "tab": 7,
+      "message": null,
+      "url": "https://www.avito.ru/all/nastolnye_kompyutery?f=ASgCAgECAUXGmgwYeyJmcm9tIjo4MDAwLCJ0byI6MTUwMDB9&q=computer&s=104&p=2"
+    },
+    {
+      "method": "execute",
+      "tab": 7,
+      "message": null,
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 7,
+      "message": "AF_AVITO_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 7,
+      "message": "AF_GET_ROUTE_CONTEXT",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 7,
+      "message": "AF_AVITO_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 7,
+      "message": "AF_EXECUTE_AVITO_UI_PLAN",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 7,
+      "message": "AF_AVITO_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 7,
+      "message": "AF_GET_ROUTE_CONTEXT",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_SEND_REPORT",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_PING",
+      "url": null
+    },
+    {
+      "method": "message",
+      "tab": 1,
+      "message": "AF_CAPTURE_BEGIN_PROMPT_POLL",
+      "url": null
+    }
+  ]
+}

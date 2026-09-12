@@ -1,0 +1,17 @@
+{
+  "version": "1.0.36",
+  "revision": "R2",
+  "archive_sha256": "c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c",
+  "archive_unchanged": true,
+  "status": "CONFIRMATORY_OFFLINE_PASS_LIVE_UNVERIFIED",
+  "groups_pass": 35,
+  "groups_fail": 0,
+  "qa_complete": true,
+  "popup_confirmations": "PASS",
+  "format_recovery": "PASS",
+  "prior_ci_result": "34_PASS_1_POPUP_TIMEOUT_FAIL_PRESERVED",
+  "prior_timeout_root_cause": "NOT_ESTABLISHED",
+  "runtime_modified": false,
+  "installed_live_acceptance": "NOT_RUN",
+  "next": "independent remote byte readback and owner Chrome acceptance"
+}
