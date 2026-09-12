@@ -170,9 +170,16 @@
       "status": "PASS",
       "duration_seconds": 12.094,
       "deadline_seconds": 115
+    },
+    {
+      "name": "queue_manual_captcha_same_child_resume",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 12.141,
+      "deadline_seconds": 115
     }
   ],
-  "pass": 23,
+  "pass": 24,
   "fail": 1,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
