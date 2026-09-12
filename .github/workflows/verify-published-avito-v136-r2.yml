@@ -1,0 +1,189 @@
+name: Verify published Avito v136 R2
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-published-avito-v136-r2.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: avito-v136-build
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      checked_commit: ${{ steps.finish.outputs.commit }}
+      evidence_path: ${{ steps.finish.outputs.evidence_path }}
+      passed: ${{ steps.finish.outputs.passed }}
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify published archive before executing any test
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          export AF_ROOT="$GITHUB_WORKSPACE/подбор авито расширение/releases/v1.0.36-r2"
+          export AF_RECHECK="$AF_ROOT/QA/verification_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+          export FINAL_ROOT=$(mktemp -d)
+          mkdir -p "$AF_RECHECK"
+          python - <<'PY'
+          import hashlib,json,os,zipfile
+          from pathlib import Path,PurePosixPath
+          root=Path(os.environ['AF_ROOT']);m=json.loads((root/'BUILD_v1.0.36.json').read_text());p=root/m['archive'];data=p.read_bytes()
+          expected='c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c'
+          assert hashlib.sha256(data).hexdigest()==expected==m['archive_sha256'] and len(data)==481259
+          with zipfile.ZipFile(p) as z:
+              assert z.testzip() is None
+              files=[i for i in z.infolist() if not i.is_dir()];assert len(files)==m['source_files']==141
+              for info in z.infolist():
+                  q=PurePosixPath(info.filename);assert not q.is_absolute() and '..' not in q.parts
+              for n,h in m['source_hashes'].items():
+                  b=z.read('v136_work/'+n);assert b==(root/'v136_work'/n).read_bytes() and hashlib.sha256(b).hexdigest()==h,n
+              z.extractall(os.environ['FINAL_ROOT'])
+          out={'scope':'PUBLISHED_R2_ARCHIVE_FRESH_EXTRACTION','archive_sha256':expected,'bytes':len(data),'source_files_byte_equal':141,'status':'PASS','runtime_modified':False,'original_ci_run':34695322848,'original_ci_result':'34_PASS_1_POPUP_TIMEOUT_FAIL','old_results_preserved':True,'installed_live_acceptance':'NOT_RUN'}
+          (Path(os.environ['AF_RECHECK'])/'preflight.json').write_text(json.dumps(out,indent=2)+'\n')
+          print(json.dumps(out))
+          PY
+          echo "AF_ROOT=$AF_ROOT" >> "$GITHUB_ENV"
+          echo "AF_RECHECK=$AF_RECHECK" >> "$GITHUB_ENV"
+          echo "FINAL_SOURCE=$FINAL_ROOT/v136_work" >> "$GITHUB_ENV"
+          git add -- "$AF_RECHECK"
+          git commit -m 'checkpoint: exact R2 ZIP verified before confirmatory tests'
+          git push origin HEAD:main
+      - name: Prepare offline browser test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          echo "CHROMIUM=$BROWSER" >> "$GITHUB_ENV"
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+      - name: Full unchanged final-ZIP suite with remote checkpoint after every group
+        env:
+          AF_QA_GIT_CHECKPOINT: '1'
+          PYTHONUNBUFFERED: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export AF_QA_OUTPUT="$AF_RECHECK/full_suite"
+          python -u "$FINAL_SOURCE/tests/run_all_v136.py"
+      - name: Three bounded popup confirmations using unchanged tests and deadline
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${FINAL_SOURCE:-}"
+          python - <<'PY'
+          import json,os,signal,subprocess,sys,time
+          from pathlib import Path
+          root=Path(os.environ['FINAL_SOURCE']);out=Path(os.environ['AF_RECHECK']);rows=[]
+          for index in range(1,4):
+              env=dict(os.environ);env['AF_SOURCE_ROOT']=str(root);env['AF_POPUP_LIFECYCLE_REPORT']=str(out/f'popup_repeat_{index}.json');start=time.monotonic()
+              with (out/f'popup_repeat_{index}.log').open('w') as log:
+                  p=subprocess.Popen([sys.executable,'-u',str(root/'tests/v129/browser_popup_lifecycle.py')],env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+                  try:
+                      code=p.wait(timeout=30);row={'repeat':index,'exit_code':code,'status':'PASS' if code==0 else 'FAIL'}
+                  except subprocess.TimeoutExpired:
+                      os.killpg(p.pid,signal.SIGKILL);p.wait();row={'repeat':index,'status':'FAIL','error':'test_deadline_exceeded'}
+              row['seconds']=round(time.monotonic()-start,3);row['deadline_seconds']=30;rows.append(row)
+              (out/'popup_confirmations.json').write_text(json.dumps({'test_source_changed':False,'timeout_changed':False,'results':rows,'status':'PASS' if len(rows)==3 and all(r['status']=='PASS' for r in rows) else 'INCOMPLETE_OR_FAIL','original_timeout_root_cause':'NOT_ESTABLISHED'},indent=2)+'\n')
+              print(json.dumps(row),flush=True)
+              subprocess.run(['git','add','--',str(out)],check=True);subprocess.run(['git','commit','-m',f'qa checkpoint R2: popup confirmation {index} '+row['status']],check=True);subprocess.run(['git','push','origin','HEAD:main'],check=True)
+          assert all(r['status']=='PASS' for r in rows)
+          PY
+      - name: Wrong-format report then two valid commands and same-chat reports
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${FINAL_SOURCE:-}"
+          timeout -k 5s 120s python -u tools/check_v136_format_recovery_cycle.py "$FINAL_SOURCE" "$AF_RECHECK/format_recovery_cycle.json"
+      - name: Persist full result without overwriting original failing QA
+        id: finish
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${AF_RECHECK:-}"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          out=Path(os.environ['AF_RECHECK']);root=Path(os.environ['AF_ROOT'])
+          def read(n):
+              p=out/n;return json.loads(p.read_text()) if p.exists() else {}
+          q=read('full_suite/summary.json');f=read('format_recovery_cycle.json');p=read('popup_confirmations.json');m=json.loads((root/'BUILD_v1.0.36.json').read_text())
+          archive_unchanged=hashlib.sha256((root/m['archive']).read_bytes()).hexdigest()==m['archive_sha256']
+          passed=q.get('complete') is True and q.get('pass')==35 and q.get('fail')==0 and f.get('status')=='PASS' and p.get('status')=='PASS' and archive_unchanged
+          r={'version':'1.0.36','revision':'R2','archive_sha256':m['archive_sha256'],'archive_unchanged':archive_unchanged,'status':'CONFIRMATORY_OFFLINE_PASS_LIVE_UNVERIFIED' if passed else 'CONFIRMATORY_QA_FAIL_OR_INCOMPLETE','groups_pass':q.get('pass',0),'groups_fail':q.get('fail',0),'qa_complete':q.get('complete',False),'popup_confirmations':p.get('status','NOT_RUN'),'format_recovery':f.get('status','NOT_RUN'),'prior_ci_result':'34_PASS_1_POPUP_TIMEOUT_FAIL_PRESERVED','prior_timeout_root_cause':'NOT_ESTABLISHED','runtime_modified':False,'installed_live_acceptance':'NOT_RUN','next':'independent remote byte readback and owner Chrome acceptance' if passed else 'inspect persisted exact failure'}
+          (out/'RESULT.json').write_text(json.dumps(r,indent=2)+'\n');print(json.dumps(r))
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('passed='+str(passed).lower()+'\n')
+          PY
+          git add -- "$AF_RECHECK"
+          if ! git diff --cached --quiet; then git commit -m 'checkpoint: complete R2 confirmatory QA including original timeout history'; git push origin HEAD:main; fi
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "evidence_path=${AF_RECHECK#$GITHUB_WORKSPACE/}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: avito-v136-r2-confirmatory-qa
+          path: подбор авито расширение/releases/v1.0.36-r2/
+          if-no-files-found: error
+  remote-readback:
+    needs: verify
+    if: ${{ always() && needs.verify.outputs.passed == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      EVIDENCE_PATH: ${{ needs.verify.outputs.evidence_path }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.checked_commit }}
+          fetch-depth: 0
+      - name: Independently verify final ZIP, source files and completed evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,os,subprocess,zipfile
+          from pathlib import Path
+          base=Path('подбор авито расширение');root=base/'releases/v1.0.36-r2';out=Path(os.environ['EVIDENCE_PATH']);m=json.loads((root/'BUILD_v1.0.36.json').read_text());r=json.loads((out/'RESULT.json').read_text())
+          assert r['status']=='CONFIRMATORY_OFFLINE_PASS_LIVE_UNVERIFIED'
+          data=(root/m['archive']).read_bytes();assert hashlib.sha256(data).hexdigest()==m['archive_sha256']=='c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c' and len(data)==481259
+          with zipfile.ZipFile(root/m['archive']) as z:
+              assert z.testzip() is None
+              assert len([i for i in z.infolist() if not i.is_dir()])==141
+              for n,h in m['source_hashes'].items():
+                  a=z.read('v136_work/'+n);assert a==(root/'v136_work'/n).read_bytes() and hashlib.sha256(a).hexdigest()==h,n
+          origin=json.loads((root/'v136_work/BUILD_ORIGIN_v1.0.36.json').read_text())
+          for n,hashes in origin['runtime_hashes'].items():
+              a=(root/'v136_work'/n).read_bytes();assert a==(base/'v136_work'/n).read_bytes(),n
+              assert hashlib.sha256(a).hexdigest()==hashes['after'];assert hashlib.sha256((base/'v135_work'/n).read_bytes()).hexdigest()==hashes['before']
+          receipt={'scope':'INDEPENDENT_FRESH_CHECKOUT_PUBLISHED_ZIP_SOURCE_AND_QA','verified_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'version':'1.0.36','revision':'R2','archive':m['archive'],'sha256':m['archive_sha256'],'bytes':len(data),'source_files_byte_equal':141,'runtime_changed_from_v135':origin['runtime_changed'],'runtime_changed_from_R1':[],'groups_pass':35,'groups_fail':0,'format_recovery':'PASS','popup_confirmations':'PASS','status':'PASS','prior_ci_timeout_preserved':True,'prior_timeout_root_cause':'NOT_ESTABLISHED','installed_live_acceptance':'NOT_RUN'}
+          (out/'REMOTE_READBACK.json').write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$EVIDENCE_PATH/REMOTE_READBACK.json"
+          git commit -m 'qa: independent R2 final ZIP readback after complete confirmatory suite'
+          git push origin HEAD:main
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-v136-r2-final-delivery-verified
+          path: подбор авито расширение/releases/v1.0.36-r2/
+          if-no-files-found: error
