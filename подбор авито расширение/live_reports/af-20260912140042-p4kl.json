@@ -1,0 +1,55 @@
+{
+  "schema": "avito_live_report_checkpoint_v1",
+  "date": "2026-09-12",
+  "repository_head_read_before_persistence": "25d77e972a3164686ddc2c1d7363f6d49b848476",
+  "evidence_source": "Finder report supplied in the current user message; no independent browser inspection in this checkpoint",
+  "task_id": "af-20260912140042-p4kl",
+  "reported_stage": "AVITO_NAVIGATION",
+  "reported_reason": "CAPTCHA_MANUAL_REQUIRED",
+  "reported_automatic_recovery_attempts": 1,
+  "reported_mutation_replay": "FORBIDDEN",
+  "reported_queue_cursor_text": "не используется",
+  "reported_cards_read": 0,
+  "reported_extension_version": "1.0.36",
+  "reported_same_chat_delivery": true,
+  "reported_waiting_for_next_form": true,
+  "reported_ip_change": "NOT_CLAIMED_WITHOUT_SEPARATE_EVIDENCE",
+  "installed_archive_sha256": null,
+  "installed_revision_R2_verified": false,
+  "search_state": {
+    "scope": "WORK_ONLY",
+    "stage": "TOP_REVALIDATE_PRE_PAUSED_FOR_MANUAL_CAPTCHA",
+    "prepared_command_record": "SEARCH_RESUME_2026-09-12_AFTER_V136_R2.json",
+    "queue_definition_persisted_in_git": true,
+    "queue_runtime_cursor": null,
+    "runtime_queue_initialization": "NOT_CONFIRMED_BY_REPORT",
+    "requested_queue": [
+      {"id":"4750223208","url":"https://www.avito.ru/yuzhno-sahalinsk/nastolnye_kompyutery/dell_vostro_3470_4750223208","observation":"NOT_READ_IN_THIS_RUN"},
+      {"id":"8156773014","url":"https://www.avito.ru/novosibirsk/nastolnye_kompyutery/minikompyuter_itx_i5-8400tddr4_16ssd_m2_256_nas_8156773014","observation":"NOT_READ_IN_THIS_RUN"},
+      {"id":"8375159229","url":"https://www.avito.ru/vladimir/nastolnye_kompyutery/mini_pk_lenovo_m715s_8375159229","observation":"NOT_READ_IN_THIS_RUN"}
+    ],
+    "new_listing_observations": 0,
+    "previous_baseline_query_positions": 150,
+    "baseline_modified_in_this_checkpoint": false,
+    "previous_top_modified": false,
+    "current_active_top_revalidated": false
+  },
+  "acceptance": {
+    "navigation_stop_and_report": "OBSERVED_IN_SUPPLIED_FINDER_REPORT",
+    "successful_listing_collection": "NOT_COMPLETED",
+    "full_user_chrome_e2e": "BLOCKED_MANUAL_CAPTCHA_NOT_ACCEPTED",
+    "runtime_defect_proven_by_this_report": "NOT_ESTABLISHED",
+    "release_live_status": "LIVE_UNVERIFIED",
+    "note": "A reported CAPTCHA stop and same-chat report do not establish a successful collection cycle or exact installed R2 identity. The report is not a basis to weaken safeguards or invent an extension fix."
+  },
+  "actions_in_this_response": {
+    "new_avito_command_issued": false,
+    "captcha_solved_automatically": false,
+    "automatic_retry_started": false,
+    "proxy_or_ip_changes_requested": false,
+    "runtime_code_changed": false,
+    "storage_or_baseline_reset": false
+  },
+  "resume_gate": "User must complete the verification manually in the existing Avito tab and confirm that the normal listing page is visible. Until then, do not emit an executable Writing Block, repeat navigation, rotate a proxy, replay mutations, or advance to a fresh 3x50 collection. After confirmation, continue revalidation of the saved queue according to the actual Finder state; do not assume a runtime cursor exists.",
+  "raw_report": "Avito Finder: действие на Avito остановлено безопасно.\n\nЗадача: af-20260912140042-p4kl\nЭтап: AVITO_NAVIGATION\nПричина: CAPTCHA_MANUAL_REQUIRED\n\nАвтоматические попытки восстановления: 1. Повтор мутаций запрещён.\nСохранённый курсор очереди: не используется; карточек прочитано: 0.\nВерсия: 1.0.36. Смена IP Avito не заявляется без отдельного доказательства.\nРасширение вернуло этот отчёт в тот же чат и продолжает ожидать следующую форму."
+}
