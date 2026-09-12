@@ -205,9 +205,16 @@
       "status": "PASS",
       "duration_seconds": 14.521,
       "deadline_seconds": 115
+    },
+    {
+      "name": "writing_body_stability",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 11.344,
+      "deadline_seconds": 45
     }
   ],
-  "pass": 29,
+  "pass": 30,
   "fail": 0,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
