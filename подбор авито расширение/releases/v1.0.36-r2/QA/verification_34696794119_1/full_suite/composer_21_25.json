@@ -1,0 +1,35 @@
+{
+  "scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+  "installed_extension": false,
+  "live_chatgpt": false,
+  "tests": [
+    {
+      "test": "unsupported editor transformation fails with readback diagnostics, not user blame",
+      "status": "PASS",
+      "ms": 2201
+    },
+    {
+      "test": "read-only reconciliation: confirmed",
+      "status": "PASS",
+      "ms": 155
+    },
+    {
+      "test": "read-only reconciliation: staged",
+      "status": "PASS",
+      "ms": 140
+    },
+    {
+      "test": "read-only reconciliation: unrelated",
+      "status": "PASS",
+      "ms": 1650
+    },
+    {
+      "test": "read-only reconciliation: prefix",
+      "status": "PASS",
+      "ms": 1648
+    }
+  ],
+  "pass": 5,
+  "fail": 0,
+  "page_errors": []
+}
