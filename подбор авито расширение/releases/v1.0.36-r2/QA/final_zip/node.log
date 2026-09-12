@@ -1,0 +1,2116 @@
+TAP version 13
+# Subtest: assistant supplies exact collection URLs; the extension preserves order and does not select or rank
+ok 1 - assistant supplies exact collection URLs; the extension preserves order and does not select or rank
+  ---
+  duration_ms: 5.992308
+  type: 'test'
+  ...
+# Subtest: queue URLs never become an implicit page-navigation target
+ok 2 - queue URLs never become an implicit page-navigation target
+  ---
+  duration_ms: 2.119765
+  type: 'test'
+  ...
+# Subtest: an explicit queue is mandatory for detail collection and an assistant-owned selection command is rejected
+ok 3 - an explicit queue is mandatory for detail collection and an assistant-owned selection command is rejected
+  ---
+  duration_ms: 1.171624
+  type: 'test'
+  ...
+# Subtest: generic visible UI commands remain available for search, filters and sorting
+ok 4 - generic visible UI commands remain available for search, filters and sorting
+  ---
+  duration_ms: 2.339652
+  type: 'test'
+  ...
+# Subtest: runtime has no product-domain evaluator, automatic retry selector, ranking or full-result discovery path
+ok 5 - runtime has no product-domain evaluator, automatic retry selector, ranking or full-result discovery path
+  ---
+  duration_ms: 3.422263
+  type: 'test'
+  ...
+# Subtest: completed collected payload is transient; only an unfinished technical checkpoint can remain
+ok 6 - completed collected payload is transient; only an unfinished technical checkpoint can remain
+  ---
+  duration_ms: 0.340557
+  type: 'test'
+  ...
+# Subtest: one child tab, visible-page readiness and manual CAPTCHA boundary remain in the generic collector
+ok 7 - one child tab, visible-page readiness and manual CAPTCHA boundary remain in the generic collector
+  ---
+  duration_ms: 0.715926
+  type: 'test'
+  ...
+# Subtest: state schema records an in-flight visible Avito navigation
+ok 8 - state schema records an in-flight visible Avito navigation
+  ---
+  duration_ms: 0.84016
+  type: 'test'
+  ...
+# Subtest: opaque Avito context rewrites are equivalent and must not hard-reload the bound tab
+ok 9 - opaque Avito context rewrites are equivalent and must not hard-reload the bound tab
+  ---
+  duration_ms: 7.779919
+  type: 'test'
+  ...
+# Subtest: loading tab can be accepted by a DOM readiness probe after the new document committed
+ok 10 - loading tab can be accepted by a DOM readiness probe after the new document committed
+  ---
+  duration_ms: 2.369146
+  type: 'test'
+  ...
+# Subtest: async readiness path accepts DOM interactive even when chrome tab status stays loading
+ok 11 - async readiness path accepts DOM interactive even when chrome tab status stays loading
+  ---
+  duration_ms: 1.871095
+  type: 'test'
+  ...
+# Subtest: readiness probe cannot accidentally accept the old document while tabs.update is still pending
+ok 12 - readiness probe cannot accidentally accept the old document while tabs.update is still pending
+  ---
+  duration_ms: 1.728542
+  type: 'test'
+  ...
+# Subtest: root readiness actively polls and timeout diagnostics include pendingUrl plus the last probe
+ok 13 - root readiness actively polls and timeout diagnostics include pendingUrl plus the last probe
+  ---
+  duration_ms: 0.269972
+  type: 'test'
+  ...
+# Subtest: fixed readiness probe is local DOM state only and sequential cards use the same fallback
+ok 14 - fixed readiness probe is local DOM state only and sequential cards use the same fallback
+  ---
+  duration_ms: 0.435999
+  type: 'test'
+  ...
+# Subtest: CAPTCHA manual user turn re-anchors without reading user text and without starting Avito action
+ok 15 - CAPTCHA manual user turn re-anchors without reading user text and without starting Avito action
+  ---
+  duration_ms: 17.540274
+  type: 'test'
+  ...
+# Subtest: v1.0.32 waiting state migrates back into CAPTCHA manual gate from visible CAPTCHA without navigation
+ok 16 - v1.0.32 waiting state migrates back into CAPTCHA manual gate from visible CAPTCHA without navigation
+  ---
+  duration_ms: 5.837167
+  type: 'test'
+  ...
+# Subtest: conversation identity survives nested ChatGPT project routes that still contain /c/<id>
+ok 17 - conversation identity survives nested ChatGPT project routes that still contain /c/<id>
+  ---
+  duration_ms: 1.33085
+  type: 'test'
+  ...
+# Subtest: same conversation ID is authoritative even when ChatGPT rewrites the route path
+ok 18 - same conversation ID is authoritative even when ChatGPT rewrites the route path
+  ---
+  duration_ms: 0.193738
+  type: 'test'
+  ...
+# Subtest: temporary project/root route becomes a recoverable pause instead of a terminal conversation block
+ok 19 - temporary project/root route becomes a recoverable pause instead of a terminal conversation block
+  ---
+  duration_ms: 0.38929
+  type: 'test'
+  ...
+# Subtest: return to the pinned chat automatically restores prompt polling after SPA navigation
+ok 20 - return to the pinned chat automatically restores prompt polling after SPA navigation
+  ---
+  duration_ms: 0.368488
+  type: 'test'
+  ...
+# Subtest: generic pinned-chat assertions also pause recoverably on same-tab same-origin route drift
+ok 21 - generic pinned-chat assertions also pause recoverably on same-tab same-origin route drift
+  ---
+  duration_ms: 0.306135
+  type: 'test'
+  ...
+# Subtest: context-check handshake accepts a ChatGPT project route with no conversation id so it can pause instead of crashing
+ok 22 - context-check handshake accepts a ChatGPT project route with no conversation id so it can pause instead of crashing
+  ---
+  duration_ms: 0.346255
+  type: 'test'
+  ...
+# Subtest: child handoff accepts the same public listing pathname despite rewritten query context
+ok 23 - child handoff accepts the same public listing pathname despite rewritten query context
+  ---
+  duration_ms: 12.979847
+  type: 'test'
+  ...
+# Subtest: child handoff rejects another listing and a non-Avito URL
+ok 24 - child handoff rejects another listing and a non-Avito URL
+  ---
+  duration_ms: 3.309886
+  type: 'test'
+  ...
+# Subtest: only a recorded same-window child of the clicked source tab is eligible
+ok 25 - only a recorded same-window child of the clicked source tab is eligible
+  ---
+  duration_ms: 2.872284
+  type: 'test'
+  ...
+# Subtest: same-tab visible form submit without href is accepted only after its URL changes
+ok 26 - same-tab visible form submit without href is accepted only after its URL changes
+  ---
+  duration_ms: 2.964822
+  type: 'test'
+  ...
+# Subtest: visible anchor handoff still requires the expected public pathname
+ok 27 - visible anchor handoff still requires the expected public pathname
+  ---
+  duration_ms: 2.624586
+  type: 'test'
+  ...
+# Subtest: queue explicit count 1 preserved
+ok 28 - queue explicit count 1 preserved
+  ---
+  duration_ms: 5.95344
+  type: 'test'
+  ...
+# Subtest: queue explicit count 3 preserved
+ok 29 - queue explicit count 3 preserved
+  ---
+  duration_ms: 1.136336
+  type: 'test'
+  ...
+# Subtest: queue explicit count 6 preserved
+ok 30 - queue explicit count 6 preserved
+  ---
+  duration_ms: 0.516228
+  type: 'test'
+  ...
+# Subtest: queue explicit count 7 preserved
+ok 31 - queue explicit count 7 preserved
+  ---
+  duration_ms: 0.512392
+  type: 'test'
+  ...
+# Subtest: queue explicit count 30 preserved
+ok 32 - queue explicit count 30 preserved
+  ---
+  duration_ms: 1.607984
+  type: 'test'
+  ...
+# Subtest: queue 31 rejects instead of dropping URLs
+ok 33 - queue 31 rejects instead of dropping URLs
+  ---
+  duration_ms: 1.228418
+  type: 'test'
+  ...
+# Subtest: queue 32 rejects instead of dropping URLs
+ok 34 - queue 32 rejects instead of dropping URLs
+  ---
+  duration_ms: 1.319143
+  type: 'test'
+  ...
+# Subtest: queue 100 rejects instead of dropping URLs
+ok 35 - queue 100 rejects instead of dropping URLs
+  ---
+  duration_ms: 2.907162
+  type: 'test'
+  ...
+# Subtest: private/foreign URL rejected https://www.avito.ru/profile/messenger
+ok 36 - private/foreign URL rejected https://www.avito.ru/profile/messenger
+  ---
+  duration_ms: 1.594473
+  type: 'test'
+  ...
+# Subtest: private/foreign URL rejected https://www.avito.ru/api/items
+ok 37 - private/foreign URL rejected https://www.avito.ru/api/items
+  ---
+  duration_ms: 1.280696
+  type: 'test'
+  ...
+# Subtest: private/foreign URL rejected https://u:secret@www.avito.ru/all
+ok 38 - private/foreign URL rejected https://u:secret@www.avito.ru/all
+  ---
+  duration_ms: 0.265635
+  type: 'test'
+  ...
+# Subtest: private/foreign URL rejected https://www.avito.ru:8443/all
+ok 39 - private/foreign URL rejected https://www.avito.ru:8443/all
+  ---
+  duration_ms: 0.661214
+  type: 'test'
+  ...
+# Subtest: private/foreign URL rejected https://www.avito.ru.evil.example/all
+ok 40 - private/foreign URL rejected https://www.avito.ru.evil.example/all
+  ---
+  duration_ms: 0.243502
+  type: 'test'
+  ...
+# Subtest: private/foreign URL rejected http://www.avito.ru/all
+ok 41 - private/foreign URL rejected http://www.avito.ru/all
+  ---
+  duration_ms: 0.16187
+  type: 'test'
+  ...
+# Subtest: command never silently changes requested semantics Подожди 25 секунд.
+ok 42 - command never silently changes requested semantics Подожди 25 секунд.
+  ---
+  duration_ms: 0.19473
+  type: 'test'
+  ...
+# Subtest: command never silently changes requested semantics Введи "aaaaaaaaaaaaaaaaaaaaaaa
+ok 43 - command never silently changes requested semantics Введи "aaaaaaaaaaaaaaaaaaaaaaa
+  ---
+  duration_ms: 0.210383
+  type: 'test'
+  ...
+# Subtest: command never silently changes requested semantics Прыгни выше.\\nСобери до 30 види
+ok 44 - command never silently changes requested semantics Прыгни выше.\\nСобери до 30 види
+  ---
+  duration_ms: 0.35607
+  type: 'test'
+  ...
+# Subtest: command never silently changes requested semantics Собери до 121 видимых объявлен
+ok 45 - command never silently changes requested semantics Собери до 121 видимых объявлен
+  ---
+  duration_ms: 0.1075
+  type: 'test'
+  ...
+# Subtest: queue evidence survives projection, persistence, JSON message, and human report
+ok 46 - queue evidence survives projection, persistence, JSON message, and human report
+  ---
+  duration_ms: 23.228779
+  type: 'test'
+  ...
+# Subtest: unread queue has zero facts and explicit pending URLs, not empty fake results
+ok 47 - unread queue has zero facts and explicit pending URLs, not empty fake results
+  ---
+  duration_ms: 4.25347
+  type: 'test'
+  ...
+# Subtest: detail and cursor are stored BEFORE close; no reread after close-before-receipt crash
+ok 48 - detail and cursor are stored BEFORE close; no reread after close-before-receipt crash
+  ---
+  duration_ms: 21.481754
+  type: 'test'
+  ...
+# Subtest: restart after persisted child creation navigates owned blank child exactly once
+ok 49 - restart after persisted child creation navigates owned blank child exactly once
+  ---
+  duration_ms: 11.761709
+  type: 'test'
+  ...
+# Subtest: batch boundary is stable after a worker restart
+ok 50 - batch boundary is stable after a worker restart
+  ---
+  duration_ms: 12.976282
+  type: 'test'
+  ...
+# Subtest: gap persists a no-earlier deadline and returns without holding a batch event
+ok 51 - gap persists a no-earlier deadline and returns without holding a batch event
+  ---
+  duration_ms: 12.661994
+  type: 'test'
+  ...
+# Subtest: failed persistence does not close the only evidence tab or advance durable cursor
+ok 52 - failed persistence does not close the only evidence tab or advance durable cursor
+  ---
+  duration_ms: 8.61775
+  type: 'test'
+  ...
+# Subtest: retained foreign child is never navigated/read/closed
+ok 53 - retained foreign child is never navigated/read/closed
+  ---
+  duration_ms: 5.539454
+  type: 'test'
+  ...
+# Subtest: negative HTTP 404 not confused with unread next URL
+ok 54 - negative HTTP 404 not confused with unread next URL
+  ---
+  duration_ms: 7.076
+  type: 'test'
+  ...
+# Subtest: negative HTTP 410 not confused with unread next URL
+ok 55 - negative HTTP 410 not confused with unread next URL
+  ---
+  duration_ms: 5.541046
+  type: 'test'
+  ...
+# Subtest: Retry-After seconds syntax 120
+ok 56 - Retry-After seconds syntax 120
+  ---
+  duration_ms: 0.152928
+  type: 'test'
+  ...
+# Subtest: Retry-After seconds syntax 0
+ok 57 - Retry-After seconds syntax 0
+  ---
+  duration_ms: 0.061842
+  type: 'test'
+  ...
+# Subtest: Retry-After seconds syntax -5
+ok 58 - Retry-After seconds syntax -5
+  ---
+  duration_ms: 0.075272
+  type: 'test'
+  ...
+# Subtest: Retry-After seconds syntax 1.2
+ok 59 - Retry-After seconds syntax 1.2
+  ---
+  duration_ms: 0.096283
+  type: 'test'
+  ...
+# Subtest: Retry-After seconds syntax garbage
+ok 60 - Retry-After seconds syntax garbage
+  ---
+  duration_ms: 0.035793
+  type: 'test'
+  ...
+# Subtest: Retry-After HTTP-date and overflow do not cause early retries
+ok 61 - Retry-After HTTP-date and overflow do not cause early retries
+  ---
+  duration_ms: 0.068823
+  type: 'test'
+  ...
+# Subtest: Retry-After longer than automatic budget is preserved, no reload/proxy/provider request
+ok 62 - Retry-After longer than automatic budget is preserved, no reload/proxy/provider request
+  ---
+  duration_ms: 4.485305
+  type: 'test'
+  ...
+# Subtest: rate-limit recovery works DIRECT and does not call Proxy.Market
+ok 63 - rate-limit recovery works DIRECT and does not call Proxy.Market
+  ---
+  duration_ms: 6.617799
+  type: 'test'
+  ...
+# Subtest: alarm scheduling never moves an existing earlier future wake later
+ok 64 - alarm scheduling never moves an existing earlier future wake later
+  ---
+  duration_ms: 2.641861
+  type: 'test'
+  ...
+# Subtest: status read is pure: no replay/proxy/navigation on GET_VIEW
+ok 65 - status read is pure: no replay/proxy/navigation on GET_VIEW
+  ---
+  duration_ms: 5.070016
+  type: 'test'
+  ...
+# Subtest: content script cannot invoke popup privilege AF_START
+ok 66 - content script cannot invoke popup privilege AF_START
+  ---
+  duration_ms: 4.093281
+  type: 'test'
+  ...
+# Subtest: content script cannot invoke popup privilege AF_STOP
+ok 67 - content script cannot invoke popup privilege AF_STOP
+  ---
+  duration_ms: 4.050718
+  type: 'test'
+  ...
+# Subtest: content script cannot invoke popup privilege AF_CONTINUE_REPORT
+ok 68 - content script cannot invoke popup privilege AF_CONTINUE_REPORT
+  ---
+  duration_ms: 3.942888
+  type: 'test'
+  ...
+# Subtest: content script cannot invoke popup privilege AF_GET_VIEW
+ok 69 - content script cannot invoke popup privilege AF_GET_VIEW
+  ---
+  duration_ms: 4.004449
+  type: 'test'
+  ...
+# Subtest: content script cannot invoke popup privilege AF_PROXY_KEY_EXPORT
+ok 70 - content script cannot invoke popup privilege AF_PROXY_KEY_EXPORT
+  ---
+  duration_ms: 4.426137
+  type: 'test'
+  ...
+# Subtest: content script cannot invoke popup privilege AF_PROXY_PROFILE_DETAILS
+ok 71 - content script cannot invoke popup privilege AF_PROXY_PROFILE_DETAILS
+  ---
+  duration_ms: 4.101304
+  type: 'test'
+  ...
+# Subtest: capture channel rejects foreignId
+ok 72 - capture channel rejects foreignId
+  ---
+  duration_ms: 6.173568
+  type: 'test'
+  ...
+# Subtest: capture channel rejects iframe
+ok 73 - capture channel rejects iframe
+  ---
+  duration_ms: 3.599677
+  type: 'test'
+  ...
+# Subtest: capture channel rejects wrongHost
+ok 74 - capture channel rejects wrongHost
+  ---
+  duration_ms: 3.831733
+  type: 'test'
+  ...
+# Subtest: same pinned chat initial command polling can recover after content reload
+ok 75 - same pinned chat initial command polling can recover after content reload
+  ---
+  duration_ms: 7.993395
+  type: 'test'
+  ...
+# Subtest: disable Finder clears only own setting and restores system proxy precedence
+ok 76 - disable Finder clears only own setting and restores system proxy precedence
+  ---
+  duration_ms: 16.756532
+  type: 'test'
+  ...
+# Subtest: proxy integer 10000x rejects instead of parseInt coercion
+ok 77 - proxy integer 10000x rejects instead of parseInt coercion
+  ---
+  duration_ms: 0.136182
+  type: 'test'
+  ...
+# Subtest: proxy integer 1.5 rejects instead of parseInt coercion
+ok 78 - proxy integer 1.5 rejects instead of parseInt coercion
+  ---
+  duration_ms: 0.044716
+  type: 'test'
+  ...
+# Subtest: proxy integer Infinity rejects instead of parseInt coercion
+ok 79 - proxy integer Infinity rejects instead of parseInt coercion
+  ---
+  duration_ms: 0.036765
+  type: 'test'
+  ...
+# Subtest: proxy integer 1e4 rejects instead of parseInt coercion
+ok 80 - proxy integer 1e4 rejects instead of parseInt coercion
+  ---
+  duration_ms: 0.036615
+  type: 'test'
+  ...
+# Subtest: proxy host invalid :
+ok 81 - proxy host invalid :
+  ---
+  duration_ms: 0.198045
+  type: 'test'
+  ...
+# Subtest: proxy host invalid ::::
+ok 82 - proxy host invalid ::::
+  ---
+  duration_ms: 0.07402
+  type: 'test'
+  ...
+# Subtest: proxy host invalid 999.1.2.3
+ok 83 - proxy host invalid 999.1.2.3
+  ---
+  duration_ms: 0.12065
+  type: 'test'
+  ...
+# Subtest: proxy host invalid -bad.example
+ok 84 - proxy host invalid -bad.example
+  ---
+  duration_ms: 0.089092
+  type: 'test'
+  ...
+# Subtest: proxy host invalid bad..example
+ok 85 - proxy host invalid bad..example
+  ---
+  duration_ms: 0.051877
+  type: 'test'
+  ...
+# Subtest: proxy host invalid aaaaaaaaaaaaaaaaaaaa
+ok 86 - proxy host invalid aaaaaaaaaaaaaaaaaaaa
+  ---
+  duration_ms: 0.042263
+  type: 'test'
+  ...
+# Subtest: password bytes survive normalization including leading/trailing spaces
+ok 87 - password bytes survive normalization including leading/trailing spaces
+  ---
+  duration_ms: 0.453585
+  type: 'test'
+  ...
+# Subtest: invalid create rotation not_rotation never silently switches to Sticky
+ok 88 - invalid create rotation not_rotation never silently switches to Sticky
+  ---
+  duration_ms: 0.433796
+  type: 'test'
+  ...
+# Subtest: invalid create rotation 3minutes never silently switches to Sticky
+ok 89 - invalid create rotation 3minutes never silently switches to Sticky
+  ---
+  duration_ms: 0.212246
+  type: 'test'
+  ...
+# Subtest: invalid create rotation 61 never silently switches to Sticky
+ok 90 - invalid create rotation 61 never silently switches to Sticky
+  ---
+  duration_ms: 0.07443
+  type: 'test'
+  ...
+# Subtest: invalid create rotation -2 never silently switches to Sticky
+ok 91 - invalid create rotation -2 never silently switches to Sticky
+  ---
+  duration_ms: 0.056254
+  type: 'test'
+  ...
+# Subtest: unknown outcome of manual endpoint POST blocks duplicate after worker restart; explicit reconciliation does not POST
+ok 92 - unknown outcome of manual endpoint POST blocks duplicate after worker restart; explicit reconciliation does not POST
+  ---
+  duration_ms: 12.497309
+  type: 'test'
+  ...
+# Subtest: bounded stream cancels on byte limit before allocating full response
+ok 93 - bounded stream cancels on byte limit before allocating full response
+  ---
+  duration_ms: 26.951149
+  type: 'test'
+  ...
+# Subtest: discard closes unused response and aborts transport without reading body
+ok 94 - discard closes unused response and aborts transport without reading body
+  ---
+  duration_ms: 0.242761
+  type: 'test'
+  ...
+# Subtest: bounded response body can only be consumed once
+ok 95 - bounded response body can only be consumed once
+  ---
+  duration_ms: 5.196674
+  type: 'test'
+  ...
+# Subtest: phone revelation rejected by command contract Нажми "Показать телефон".
+ok 96 - phone revelation rejected by command contract Нажми "Показать телефон".
+  ---
+  duration_ms: 0.553213
+  type: 'test'
+  ...
+# Subtest: phone revelation rejected by command contract Нажми "phone".
+ok 97 - phone revelation rejected by command contract Нажми "phone".
+  ---
+  duration_ms: 0.254829
+  type: 'test'
+  ...
+# Subtest: reused private Avito tab is rejected before readiness injection
+ok 98 - reused private Avito tab is rejected before readiness injection
+  ---
+  duration_ms: 5.015254
+  type: 'test'
+  ...
+# Subtest: card text truncation is explicit in recipient report
+ok 99 - card text truncation is explicit in recipient report
+  ---
+  duration_ms: 0.243332
+  type: 'test'
+  ...
+# Subtest: valid AVITO_UI plan parses as executable work
+ok 100 - valid AVITO_UI plan parses as executable work
+  ---
+  duration_ms: 7.068079
+  type: 'test'
+  ...
+# Subtest: first route observation is not a context change
+ok 101 - first route observation is not a context change
+  ---
+  duration_ms: 0.946999
+  type: 'test'
+  ...
+# Subtest: manual change produces distinct route context fingerprint
+ok 102 - manual change produces distinct route context fingerprint
+  ---
+  duration_ms: 1.219395
+  type: 'test'
+  ...
+# Subtest: direct Avito page URL is applied as visible navigation and no longer ignored
+ok 103 - direct Avito page URL is applied as visible navigation and no longer ignored
+  ---
+  duration_ms: 2.860387
+  type: 'test'
+  ...
+# Subtest: sequential next card uses the persisted runtime card-gap setting after readiness and prior-tab closure
+ok 104 - sequential next card uses the persisted runtime card-gap setting after readiness and prior-tab closure
+  ---
+  duration_ms: 3.156698
+  type: 'test'
+  ...
+# Subtest: collector returns the visible price text without a local price-quality judgement
+ok 105 - collector returns the visible price text without a local price-quality judgement
+  ---
+  duration_ms: 4.395932
+  type: 'test'
+  ...
+# Subtest: safe provider change-IP links are preserved privately but never exposed in popup summaries
+ok 106 - safe provider change-IP links are preserved privately but never exposed in popup summaries
+  ---
+  duration_ms: 1.569576
+  type: 'test'
+  ...
+# Subtest: forceChangeIpByLink performs one cache-free credential-free GET to the approved provider link
+ok 107 - forceChangeIpByLink performs one cache-free credential-free GET to the approved provider link
+  ---
+  duration_ms: 0.253968
+  type: 'test'
+  ...
+# Subtest: worker recovery reserves a bounded persisted attempt before proxy and target effects
+ok 108 - worker recovery reserves a bounded persisted attempt before proxy and target effects
+  ---
+  duration_ms: 2.547486
+  type: 'test'
+  ...
+# Subtest: recovery keeps selected profile and reserves one reconcilable endpoint creation
+ok 109 - recovery keeps selected profile and reserves one reconcilable endpoint creation
+  ---
+  duration_ms: 1.070643
+  type: 'test'
+  ...
+# Subtest: manifest grants Proxy.Market hosts plus the two explicit IP canary hosts
+ok 110 - manifest grants Proxy.Market hosts plus the two explicit IP canary hosts
+  ---
+  duration_ms: 0.230363
+  type: 'test'
+  ...
+# Subtest: state tracks same-route reload and bounded IP-block recovery counters
+ok 111 - state tracks same-route reload and bounded IP-block recovery counters
+  ---
+  duration_ms: 11.124776
+  type: 'test'
+  ...
+# Subtest: an equivalent requested route on an IP placeholder enters proxy recovery instead of being skipped
+ok 112 - an equivalent requested route on an IP placeholder enters proxy recovery instead of being skipped
+  ---
+  duration_ms: 0.444692
+  type: 'test'
+  ...
+# Subtest: all visible IP blocks use a common stateful recovery without an outer counter reset
+ok 113 - all visible IP blocks use a common stateful recovery without an outer counter reset
+  ---
+  duration_ms: 0.484121
+  type: 'test'
+  ...
+# Subtest: IP restriction is classified separately from CAPTCHA and no longer masquerades as a listing page
+ok 114 - IP restriction is classified separately from CAPTCHA and no longer masquerades as a listing page
+  ---
+  duration_ms: 0.2215
+  type: 'test'
+  ...
+# Subtest: CAPTCHA remains a manual boundary and never invokes IP-block proxy rotation
+ok 115 - CAPTCHA remains a manual boundary and never invokes IP-block proxy rotation
+  ---
+  duration_ms: 0.430761
+  type: 'test'
+  ...
+# Subtest: IP-block recovery reload explicitly bypasses local cache
+ok 116 - IP-block recovery reload explicitly bypasses local cache
+  ---
+  duration_ms: 2.066065
+  type: 'test'
+  ...
+# Subtest: main-frame diagnostics record whether Chrome served the response from cache
+ok 117 - main-frame diagnostics record whether Chrome served the response from cache
+  ---
+  duration_ms: 0.548646
+  type: 'test'
+  ...
+# Subtest: Avito readiness completion is single-flight per run so duplicate tab events cannot execute the same plan three times
+ok 118 - Avito readiness completion is single-flight per run so duplicate tab events cannot execute the same plan three times
+  ---
+  duration_ms: 0.243733
+  type: 'test'
+  ...
+# Subtest: v1.0.36 is the unified recovery build
+ok 119 - v1.0.36 is the unified recovery build
+  ---
+  duration_ms: 0.929824
+  type: 'test'
+  ...
+# Subtest: collection-first UI-plan AVITO_IP_BLOCK enters verified recovery instead of reporting immediately
+ok 120 - collection-first UI-plan AVITO_IP_BLOCK enters verified recovery instead of reporting immediately
+  ---
+  duration_ms: 0.357102
+  type: 'test'
+  ...
+# Subtest: UI-plan replay preserves the bounded IP-block recovery counter
+ok 121 - UI-plan replay preserves the bounded IP-block recovery counter
+  ---
+  duration_ms: 0.253457
+  type: 'test'
+  ...
+# Subtest: terminal UI recovery failures use the common pinned-chat report boundary
+ok 122 - terminal UI recovery failures use the common pinned-chat report boundary
+  ---
+  duration_ms: 0.263332
+  type: 'test'
+  ...
+# Subtest: v1.0.36 retains bounded diagnostic host permissions without all-URL access
+ok 123 - v1.0.36 retains bounded diagnostic host permissions without all-URL access
+  ---
+  duration_ms: 1.009052
+  type: 'test'
+  ...
+# Subtest: diagnostic PAC proxies only Avito plus explicitly requested canary hosts
+ok 124 - diagnostic PAC proxies only Avito plus explicitly requested canary hosts
+  ---
+  duration_ms: 0.601175
+  type: 'test'
+  ...
+# Subtest: transport-cut PAC fails Avito/canary closed instead of leaking them direct
+ok 125 - transport-cut PAC fails Avito/canary closed instead of leaking them direct
+  ---
+  duration_ms: 1.057314
+  type: 'test'
+  ...
+# Subtest: egress parser accepts valid IPv4/IPv6 and rejects malformed values
+ok 126 - egress parser accepts valid IPv4/IPv6 and rejects malformed values
+  ---
+  duration_ms: 0.687784
+  type: 'test'
+  ...
+# Subtest: recovery applies only selected or explicitly reconciled newly created profile
+ok 127 - recovery applies only selected or explicitly reconciled newly created profile
+  ---
+  duration_ms: 0.253266
+  type: 'test'
+  ...
+# Subtest: provider rotation acknowledgment is separated from proof and precedes bounded create
+ok 128 - provider rotation acknowledgment is separated from proof and precedes bounded create
+  ---
+  duration_ms: 0.183052
+  type: 'test'
+  ...
+# Subtest: Avito reload follows verified PAC application, not an unrelated external-IP oracle
+ok 129 - Avito reload follows verified PAC application, not an unrelated external-IP oracle
+  ---
+  duration_ms: 0.249792
+  type: 'test'
+  ...
+# Subtest: reload readiness treats an in-flight reload as transient and retries after activation
+ok 130 - reload readiness treats an in-flight reload as transient and retries after activation
+  ---
+  duration_ms: 0.28279
+  type: 'test'
+  ...
+# Subtest: recoverable proxy transport errors trigger the same verified recovery path under a single-flight lock
+ok 131 - recoverable proxy transport errors trigger the same verified recovery path under a single-flight lock
+  ---
+  duration_ms: 0.425834
+  type: 'test'
+  ...
+# Subtest: login text no longer triggers the CAPTCHA stop before generic CLICK target resolution
+ok 132 - login text no longer triggers the CAPTCHA stop before generic CLICK target resolution
+  ---
+  duration_ms: 0.889984
+  type: 'test'
+  ...
+# Subtest: manual CAPTCHA boundary remains explicit and no bypass primitive is added
+ok 133 - manual CAPTCHA boundary remains explicit and no bypass primitive is added
+  ---
+  duration_ms: 0.371312
+  type: 'test'
+  ...
+# Subtest: assistant p1 to p2 navigation persists intent before navigation and collects p2 instead of manual-change report
+ok 134 - assistant p1 to p2 navigation persists intent before navigation and collects p2 instead of manual-change report
+  ---
+  duration_ms: 52.525299
+  type: 'test'
+  ...
+# Subtest: unrequested route change remains reported: missing_intent
+ok 135 - unrequested route change remains reported: missing_intent
+  ---
+  duration_ms: 17.606822
+  type: 'test'
+  ...
+# Subtest: unrequested route change remains reported: wrong_operation
+ok 136 - unrequested route change remains reported: wrong_operation
+  ---
+  duration_ms: 159.800276
+  type: 'test'
+  ...
+# Subtest: unrequested route change remains reported: wrong_tab
+ok 137 - unrequested route change remains reported: wrong_tab
+  ---
+  duration_ms: 19.675792
+  type: 'test'
+  ...
+# Subtest: unrequested route change remains reported: wrong_url
+ok 138 - unrequested route change remains reported: wrong_url
+  ---
+  duration_ms: 14.952933
+  type: 'test'
+  ...
+# Subtest: matched navigation intent is one-shot, subsequent manual change still reported
+ok 139 - matched navigation intent is one-shot, subsequent manual change still reported
+  ---
+  duration_ms: 21.292698
+  type: 'test'
+  ...
+# Subtest: expected navigation cannot bypass optional login overlay
+ok 140 - expected navigation cannot bypass optional login overlay
+  ---
+  duration_ms: 13.132383
+  type: 'test'
+  ...
+# Subtest: pending CAPTCHA does not consume the intended navigation record
+ok 141 - pending CAPTCHA does not consume the intended navigation record
+  ---
+  duration_ms: 6.069893
+  type: 'test'
+  ...
+# Subtest: ordinary login produces a nonempty assistant-facing observation report; it is not auto-closed
+ok 142 - ordinary login produces a nonempty assistant-facing observation report; it is not auto-closed
+  ---
+  duration_ms: 0.909964
+  type: 'test'
+  ...
+# Subtest: overlay preflight gates normal plans, allows only dialog diagnosis or a single generic CLICK after a current dialog snapshot
+ok 143 - overlay preflight gates normal plans, allows only dialog diagnosis or a single generic CLICK after a current dialog snapshot
+  ---
+  duration_ms: 7.12894
+  type: 'test'
+  ...
+# Subtest: worker creates and delivers the explicit nonempty report with the unchanged report-delivery function
+ok 144 - worker creates and delivers the explicit nonempty report with the unchanged report-delivery function
+  ---
+  duration_ms: 0.237513
+  type: 'test'
+  ...
+# Subtest: the required DIALOG_VISIBLE read records only a current snapshot; generic click remains assistant-directed
+ok 145 - the required DIALOG_VISIBLE read records only a current snapshot; generic click remains assistant-directed
+  ---
+  duration_ms: 0.313025
+  type: 'test'
+  ...
+# Subtest: ChatGPT capture keeps optional-login isolation while adding only pinned-context recovery
+ok 146 - ChatGPT capture keeps optional-login isolation while adding only pinned-context recovery
+  ---
+  duration_ms: 0.220218
+  type: 'test'
+  ...
+# Subtest: actual packaged literal identity matches manifest (not a manifest-derived fake)
+ok 147 - actual packaged literal identity matches manifest (not a manifest-derived fake)
+  ---
+  duration_ms: 1.695954
+  type: 'test'
+  ...
+# Subtest: persistent wrong adapter PING blocks UI execution after one reinjection
+ok 148 - persistent wrong adapter PING blocks UI execution after one reinjection
+  ---
+  duration_ms: 21.088634
+  type: 'test'
+  ...
+# Subtest: matching adapter PING permits exactly one UI dispatch
+ok 149 - matching adapter PING permits exactly one UI dispatch
+  ---
+  duration_ms: 4.018921
+  type: 'test'
+  ...
+# Subtest: fresh user run reuses visible Avito or creates exactly one active public root, then may visibly navigate to the supplied public search URL
+ok 150 - fresh user run reuses visible Avito or creates exactly one active public root, then may visibly navigate to the supplied public search URL
+  ---
+  duration_ms: 1.114238
+  type: 'test'
+  ...
+# Subtest: bootstrap cannot repeat after the run has bound a target
+ok 151 - bootstrap cannot repeat after the run has bound a target
+  ---
+  duration_ms: 0.159357
+  type: 'test'
+  ...
+# Subtest: first AVITO_UI plan is not intercepted as a separate initial report
+ok 152 - first AVITO_UI plan is not intercepted as a separate initial report
+  ---
+  duration_ms: 0.479533
+  type: 'test'
+  ...
+# Subtest: restricted debugger and no hidden-page APIs remain enforced
+ok 153 - restricted debugger and no hidden-page APIs remain enforced
+  ---
+  duration_ms: 1.640872
+  type: 'test'
+  ...
+# Subtest: uncertain report delivery is reconciled without a second Send click or new run
+ok 154 - uncertain report delivery is reconciled without a second Send click or new run
+  ---
+  duration_ms: 0.822905
+  type: 'test'
+  ...
+# Subtest: direct search-route lifecycle remains restricted to a validated public Avito URL in the selected visible tab
+ok 155 - direct search-route lifecycle remains restricted to a validated public Avito URL in the selected visible tab
+  ---
+  duration_ms: 0.170975
+  type: 'test'
+  ...
+# Subtest: ChatGPT capture preserves pinned-dialog safety and can recover after a temporary project route
+ok 156 - ChatGPT capture preserves pinned-dialog safety and can recover after a temporary project route
+  ---
+  duration_ms: 0.986568
+  type: 'test'
+  ...
+# Subtest: timing profiles keep visible-control behavior while sequential card gap is an explicit checkpoint setting
+ok 157 - timing profiles keep visible-control behavior while sequential card gap is an explicit checkpoint setting
+  ---
+  duration_ms: 2.17057
+  type: 'test'
+  ...
+# Subtest: new child tab created by an allowed visible listing click is tracked without webNavigation or hidden-page APIs
+ok 158 - new child tab created by an allowed visible listing click is tracked without webNavigation or hidden-page APIs
+  ---
+  duration_ms: 1.193656
+  type: 'test'
+  ...
+# Subtest: child handoff validates exact listing pathname and keeps the source-page lifecycle intact
+ok 159 - child handoff validates exact listing pathname and keeps the source-page lifecycle intact
+  ---
+  duration_ms: 0.42985
+  type: 'test'
+  ...
+# Subtest: popup exposes an editable operator-protocol prompt and copies the current edited value
+ok 160 - popup exposes an editable operator-protocol prompt and copies the current edited value
+  ---
+  duration_ms: 1.07532
+  type: 'test'
+  ...
+# Subtest: popup exposes one clear proxy action and hides advanced provider plumbing
+ok 161 - popup exposes one clear proxy action and hides advanced provider plumbing
+  ---
+  duration_ms: 0.504711
+  type: 'test'
+  ...
+# Subtest: completed non-Writing-Block assistant turn yields one same-chat format report and no Avito action
+ok 162 - completed non-Writing-Block assistant turn yields one same-chat format report and no Avito action
+  ---
+  duration_ms: 26.670496
+  type: 'test'
+  ...
+# Subtest: proxy auth retries are bounded but credentials are not dropped after the first challenge
+ok 163 - proxy auth retries are bounded but credentials are not dropped after the first challenge
+  ---
+  duration_ms: 1.267176
+  type: 'test'
+  ...
+# Subtest: proxy auth listener covers both http and https Avito navigation
+ok 164 - proxy auth listener covers both http and https Avito navigation
+  ---
+  duration_ms: 0.310011
+  type: 'test'
+  ...
+# Subtest: authentication is armed before PAC apply without pretending handlerBehaviorChanged flushes sockets
+ok 165 - authentication is armed before PAC apply without pretending handlerBehaviorChanged flushes sockets
+  ---
+  duration_ms: 0.399474
+  type: 'test'
+  ...
+# Subtest: unexpected proxy challenge is cancelled instead of receiving credentials or showing native auth UI
+ok 166 - unexpected proxy challenge is cancelled instead of receiving credentials or showing native auth UI
+  ---
+  duration_ms: 0.403671
+  type: 'test'
+  ...
+# Subtest: auth diagnostics never log password or login values
+ok 167 - auth diagnostics never log password or login values
+  ---
+  duration_ms: 0.342851
+  type: 'test'
+  ...
+# Subtest: low-data mode uses DNR block rules only for heavy Avito resource types
+ok 168 - low-data mode uses DNR block rules only for heavy Avito resource types
+  ---
+  duration_ms: 1.245132
+  type: 'test'
+  ...
+# Subtest: data saver is active only while proxy mode is active and stays manual
+ok 169 - data saver is active only while proxy mode is active and stays manual
+  ---
+  duration_ms: 0.182401
+  type: 'test'
+  ...
+# Subtest: Proxy.Market package usage endpoint is normalized without credentials
+ok 170 - Proxy.Market package usage endpoint is normalized without credentials
+  ---
+  duration_ms: 0.90663
+  type: 'test'
+  ...
+# Subtest: popup exposes manual traffic refresh and does not poll provider usage
+ok 171 - popup exposes manual traffic refresh and does not poll provider usage
+  ---
+  duration_ms: 1.039477
+  type: 'test'
+  ...
+# Subtest: rotation semantics match Proxy.Market API contract
+ok 172 - rotation semantics match Proxy.Market API contract
+  ---
+  duration_ms: 2.004002
+  type: 'test'
+  ...
+# Subtest: popup keeps rotation choices concise and moves them into advanced endpoint settings
+ok 173 - popup keeps rotation choices concise and moves them into advanced endpoint settings
+  ---
+  duration_ms: 1.024525
+  type: 'test'
+  ...
+# Subtest: passive proxy diagnostic is exposed without hidden Avito fetch/reload
+ok 174 - passive proxy diagnostic is exposed without hidden Avito fetch/reload
+  ---
+  duration_ms: 0.419404
+  type: 'test'
+  ...
+# Subtest: proxy application resets diagnostic epoch and direct mode clears it
+ok 175 - proxy application resets diagnostic epoch and direct mode clears it
+  ---
+  duration_ms: 0.21476
+  type: 'test'
+  ...
+# Subtest: same-host before/after probes are diagnostic and never prove the Avito exit
+ok 176 - same-host before/after probes are diagnostic and never prove the Avito exit
+  ---
+  duration_ms: 0.367136
+  type: 'test'
+  ...
+# Subtest: CAPTCHA never triggers proxy switching and recovery never buys traffic or proxies
+ok 177 - CAPTCHA never triggers proxy switching and recovery never buys traffic or proxies
+  ---
+  duration_ms: 0.771658
+  type: 'test'
+  ...
+# Subtest: manual endpoint create uses official package/create-proxy endpoint and validates body
+ok 178 - manual endpoint create uses official package/create-proxy endpoint and validates body
+  ---
+  duration_ms: 1.680822
+  type: 'test'
+  ...
+# Subtest: popup exposes manual endpoint creation controls and handler
+ok 179 - popup exposes manual endpoint creation controls and handler
+  ---
+  duration_ms: 0.880089
+  type: 'test'
+  ...
+# Subtest: worker creates endpoint only by explicit message, keeps switching manual, and syncs after creation
+ok 180 - worker creates endpoint only by explicit message, keeps switching manual, and syncs after creation
+  ---
+  duration_ms: 0.324703
+  type: 'test'
+  ...
+# Subtest: Proxy.Market key check uses the official balance endpoint without logging the key
+ok 181 - Proxy.Market key check uses the official balance endpoint without logging the key
+  ---
+  duration_ms: 2.350999
+  type: 'test'
+  ...
+# Subtest: config-file format round-trips API key, package/order IDs and optional proxy profiles
+ok 182 - config-file format round-trips API key, package/order IDs and optional proxy profiles
+  ---
+  duration_ms: 2.058614
+  type: 'test'
+  ...
+# Subtest: popup exposes key lifecycle under advanced settings and a single primary proxy action
+ok 183 - popup exposes key lifecycle under advanced settings and a single primary proxy action
+  ---
+  duration_ms: 0.320818
+  type: 'test'
+  ...
+# Subtest: sync failures are persisted and zero-endpoint traffic packages get a specific diagnosis
+ok 184 - sync failures are persisted and zero-endpoint traffic packages get a specific diagnosis
+  ---
+  duration_ms: 0.180018
+  type: 'test'
+  ...
+# Subtest: list normalization tolerates official list.data and direct data shapes
+ok 185 - list normalization tolerates official list.data and direct data shapes
+  ---
+  duration_ms: 0.480184
+  type: 'test'
+  ...
+# Subtest: key validation is isolated from package discovery failures
+ok 186 - key validation is isolated from package discovery failures
+  ---
+  duration_ms: 0.290452
+  type: 'test'
+  ...
+# Subtest: provider HTTP errors identify the failing API stage and conservative pagination is used
+ok 187 - provider HTTP errors identify the failing API stage and conservative pagination is used
+  ---
+  duration_ms: 1.107118
+  type: 'test'
+  ...
+# Subtest: Proxy.Market resident list normalization keeps credentials only in full profiles and sanitizes popup summaries
+ok 188 - Proxy.Market resident list normalization keeps credentials only in full profiles and sanitizes popup summaries
+  ---
+  duration_ms: 2.023321
+  type: 'test'
+  ...
+# Subtest: Proxy.Market API request uses package-scoped compatibility and resident fallback
+ok 189 - Proxy.Market API request uses package-scoped compatibility and resident fallback
+  ---
+  duration_ms: 2.146945
+  type: 'test'
+  ...
+# Subtest: PAC sends only Avito hosts through the selected HTTP proxy and everything else DIRECT
+ok 190 - PAC sends only Avito hosts through the selected HTTP proxy and everything else DIRECT
+  ---
+  duration_ms: 0.475147
+  type: 'test'
+  ...
+# Subtest: manual proxy switch is allowed while Finder is quiescent and blocked only during an in-flight UI step
+ok 191 - manual proxy switch is allowed while Finder is quiescent and blocked only during an in-flight UI step
+  ---
+  duration_ms: 0.218875
+  type: 'test'
+  ...
+# Subtest: proxy auth credentials are only supplied for the active proxy challenge
+ok 192 - proxy auth credentials are only supplied for the active proxy challenge
+  ---
+  duration_ms: 0.358734
+  type: 'test'
+  ...
+# Subtest: manifest exposes only the permissions needed for manual authenticated proxy profiles and Proxy.Market sync
+ok 193 - manifest exposes only the permissions needed for manual authenticated proxy profiles and Proxy.Market sync
+  ---
+  duration_ms: 0.217564
+  type: 'test'
+  ...
+# Subtest: manual endpoint creation remains explicit; automatic recovery may create one rotation=0 endpoint only inside the existing package
+ok 194 - manual endpoint creation remains explicit; automatic recovery may create one rotation=0 endpoint only inside the existing package
+  ---
+  duration_ms: 0.887331
+  type: 'test'
+  ...
+# Subtest: traffic-residential records can normalize pool host / range style without a classic IP id
+ok 195 - traffic-residential records can normalize pool host / range style without a classic IP id
+  ---
+  duration_ms: 0.206597
+  type: 'test'
+  ...
+# Subtest: safe list diagnostics expose field names but not field values
+ok 196 - safe list diagnostics expose field names but not field values
+  ---
+  duration_ms: 0.445363
+  type: 'test'
+  ...
+# Subtest: package-scoped resident sync starts with type=all and has compatibility variants
+ok 197 - package-scoped resident sync starts with type=all and has compatibility variants
+  ---
+  duration_ms: 1.699018
+  type: 'test'
+  ...
+# Subtest: manual residential traffic fallback creates a validated pool profile
+ok 198 - manual residential traffic fallback creates a validated pool profile
+  ---
+  duration_ms: 2.065584
+  type: 'test'
+  ...
+# Subtest: legacy manual fallback stays backward-compatible in worker but is removed from the primary popup
+ok 199 - legacy manual fallback stays backward-compatible in worker but is removed from the primary popup
+  ---
+  duration_ms: 0.214889
+  type: 'test'
+  ...
+# Subtest: config export/import can carry proxy credentials but runtime summaries remain sanitized
+ok 200 - config export/import can carry proxy credentials but runtime summaries remain sanitized
+  ---
+  duration_ms: 0.756856
+  type: 'test'
+  ...
+# Subtest: proxy popup exposes one obvious status, one profile selector and one primary on/off action
+ok 201 - proxy popup exposes one obvious status, one profile selector and one primary on/off action
+  ---
+  duration_ms: 1.521284
+  type: 'test'
+  ...
+# Subtest: credentials are visible per selected profile, password is masked by default and has a show/hide control
+ok 202 - credentials are visible per selected profile, password is masked by default and has a show/hide control
+  ---
+  duration_ms: 0.251604
+  type: 'test'
+  ...
+# Subtest: advanced provider plumbing is hidden behind native details and the legacy fallback form is gone
+ok 203 - advanced provider plumbing is hidden behind native details and the legacy fallback form is gone
+  ---
+  duration_ms: 0.189021
+  type: 'test'
+  ...
+# Subtest: real API profiles replace legacy traffic fallback duplicates
+ok 204 - real API profiles replace legacy traffic fallback duplicates
+  ---
+  duration_ms: 1.351651
+  type: 'test'
+  ...
+# Subtest: profile credentials persist locally for future extension updates but API key remains session-scoped
+ok 205 - profile credentials persist locally for future extension updates but API key remains session-scoped
+  ---
+  duration_ms: 0.437771
+  type: 'test'
+  ...
+# Subtest: profile removal is local, persistent across sync and recoverable without inventing an undocumented provider delete API
+ok 206 - profile removal is local, persistent across sync and recoverable without inventing an undocumented provider delete API
+  ---
+  duration_ms: 0.427646
+  type: 'test'
+  ...
+# Subtest: sensitive profile details can only be requested from an extension UI context
+ok 207 - sensitive profile details can only be requested from an extension UI context
+  ---
+  duration_ms: 0.372133
+  type: 'test'
+  ...
+# Subtest: proxy selector clearly distinguishes selected profile from active profile and no longer tells the user to stop the entire Finder run
+ok 208 - proxy selector clearly distinguishes selected profile from active profile and no longer tells the user to stop the entire Finder run
+  ---
+  duration_ms: 0.150654
+  type: 'test'
+  ...
+# Subtest: 429 is recoverable from main-frame readiness, sequential detail and visible UI result
+ok 209 - 429 is recoverable from main-frame readiness, sequential detail and visible UI result
+  ---
+  duration_ms: 1.18978
+  type: 'test'
+  ...
+# Subtest: rate-limit page is classified by both worker probe and Avito adapter
+ok 210 - rate-limit page is classified by both worker probe and Avito adapter
+  ---
+  duration_ms: 0.191284
+  type: 'test'
+  ...
+# Subtest: rate-limit retry is bounded and cancellable, never a tight reload loop
+ok 211 - rate-limit retry is bounded and cancellable, never a tight reload loop
+  ---
+  duration_ms: 0.44398
+  type: 'test'
+  ...
+# Subtest: actual owner command: default CONTROL_VISIBLE is a replayable read, not a timing predicate
+ok 212 - actual owner command: default CONTROL_VISIBLE is a replayable read, not a timing predicate
+  ---
+  duration_ms: 7.569385
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: CONTROL_VISIBLE / COLLECT_LISTINGS
+ok 213 - replay policy independent of timing: CONTROL_VISIBLE / COLLECT_LISTINGS
+  ---
+  duration_ms: 0.206827
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: CONTROL_VISIBLE / COLLECT_LISTING_DETAILS
+ok 214 - replay policy independent of timing: CONTROL_VISIBLE / COLLECT_LISTING_DETAILS
+  ---
+  duration_ms: 0.083754
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: CONTROL_VISIBLE / SNAPSHOT
+ok 215 - replay policy independent of timing: CONTROL_VISIBLE / SNAPSHOT
+  ---
+  duration_ms: 0.083144
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: CONTROL_VISIBLE / COLLECT_MENU
+ok 216 - replay policy independent of timing: CONTROL_VISIBLE / COLLECT_MENU
+  ---
+  duration_ms: 0.148341
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: CONTROL_VISIBLE / WAIT_FOR
+ok 217 - replay policy independent of timing: CONTROL_VISIBLE / WAIT_FOR
+  ---
+  duration_ms: 0.085708
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: COLLECTION_FAST / COLLECT_LISTINGS
+ok 218 - replay policy independent of timing: COLLECTION_FAST / COLLECT_LISTINGS
+  ---
+  duration_ms: 0.177474
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: COLLECTION_FAST / COLLECT_LISTING_DETAILS
+ok 219 - replay policy independent of timing: COLLECTION_FAST / COLLECT_LISTING_DETAILS
+  ---
+  duration_ms: 0.099478
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: COLLECTION_FAST / SNAPSHOT
+ok 220 - replay policy independent of timing: COLLECTION_FAST / SNAPSHOT
+  ---
+  duration_ms: 0.326506
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: COLLECTION_FAST / COLLECT_MENU
+ok 221 - replay policy independent of timing: COLLECTION_FAST / COLLECT_MENU
+  ---
+  duration_ms: 0.350742
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: COLLECTION_FAST / WAIT_FOR
+ok 222 - replay policy independent of timing: COLLECTION_FAST / WAIT_FOR
+  ---
+  duration_ms: 0.191956
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: undefined / COLLECT_LISTINGS
+ok 223 - replay policy independent of timing: undefined / COLLECT_LISTINGS
+  ---
+  duration_ms: 0.054371
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: undefined / COLLECT_LISTING_DETAILS
+ok 224 - replay policy independent of timing: undefined / COLLECT_LISTING_DETAILS
+  ---
+  duration_ms: 0.035303
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: undefined / SNAPSHOT
+ok 225 - replay policy independent of timing: undefined / SNAPSHOT
+  ---
+  duration_ms: 0.032177
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: undefined / COLLECT_MENU
+ok 226 - replay policy independent of timing: undefined / COLLECT_MENU
+  ---
+  duration_ms: 0.030495
+  type: 'test'
+  ...
+# Subtest: replay policy independent of timing: undefined / WAIT_FOR
+ok 227 - replay policy independent of timing: undefined / WAIT_FOR
+  ---
+  duration_ms: 0.028923
+  type: 'test'
+  ...
+# Subtest: no replay of CLICK at index 0 even with COLLECTION_FAST
+ok 228 - no replay of CLICK at index 0 even with COLLECTION_FAST
+  ---
+  duration_ms: 0.072978
+  type: 'test'
+  ...
+# Subtest: no replay of CLICK at index 1 even with COLLECTION_FAST
+ok 229 - no replay of CLICK at index 1 even with COLLECTION_FAST
+  ---
+  duration_ms: 0.883274
+  type: 'test'
+  ...
+# Subtest: no replay of TYPE at index 0 even with COLLECTION_FAST
+ok 230 - no replay of TYPE at index 0 even with COLLECTION_FAST
+  ---
+  duration_ms: 0.044967
+  type: 'test'
+  ...
+# Subtest: no replay of TYPE at index 1 even with COLLECTION_FAST
+ok 231 - no replay of TYPE at index 1 even with COLLECTION_FAST
+  ---
+  duration_ms: 0.052308
+  type: 'test'
+  ...
+# Subtest: no replay of SELECT_OPTION at index 0 even with COLLECTION_FAST
+ok 232 - no replay of SELECT_OPTION at index 0 even with COLLECTION_FAST
+  ---
+  duration_ms: 0.047791
+  type: 'test'
+  ...
+# Subtest: no replay of SELECT_OPTION at index 1 even with COLLECTION_FAST
+ok 233 - no replay of SELECT_OPTION at index 1 even with COLLECTION_FAST
+  ---
+  duration_ms: 0.044797
+  type: 'test'
+  ...
+# Subtest: explicit queues are checkpoint-only; unknown/empty/mixed plans never replay
+ok 234 - explicit queues are checkpoint-only; unknown/empty/mixed plans never replay
+  ---
+  duration_ms: 0.096344
+  type: 'test'
+  ...
+# Subtest: CAPTCHA > rate limit > IP block; transport errors are distinct
+ok 235 - CAPTCHA > rate limit > IP block; transport errors are distinct
+  ---
+  duration_ms: 0.201129
+  type: 'test'
+  ...
+# Subtest: rate-limit recovery has its own bounded cooldown budget
+ok 236 - rate-limit recovery has its own bounded cooldown budget
+  ---
+  duration_ms: 0.614204
+  type: 'test'
+  ...
+# Subtest: visible rate-limit and transport blocked reasons join the same interruption classifier
+ok 237 - visible rate-limit and transport blocked reasons join the same interruption classifier
+  ---
+  duration_ms: 0.117585
+  type: 'test'
+  ...
+# Subtest: malformed/private egress rejected: :
+ok 238 - malformed/private egress rejected: :
+  ---
+  duration_ms: 0.204304
+  type: 'test'
+  ...
+# Subtest: malformed/private egress rejected: ::::
+ok 239 - malformed/private egress rejected: ::::
+  ---
+  duration_ms: 0.138956
+  type: 'test'
+  ...
+# Subtest: malformed/private egress rejected: ::1
+ok 240 - malformed/private egress rejected: ::1
+  ---
+  duration_ms: 0.065487
+  type: 'test'
+  ...
+# Subtest: malformed/private egress rejected: 127.0.0.1
+ok 241 - malformed/private egress rejected: 127.0.0.1
+  ---
+  duration_ms: 0.06732
+  type: 'test'
+  ...
+# Subtest: malformed/private egress rejected: 10.1.2.3
+ok 242 - malformed/private egress rejected: 10.1.2.3
+  ---
+  duration_ms: 0.038707
+  type: 'test'
+  ...
+# Subtest: malformed/private egress rejected: 192.168.1.1
+ok 243 - malformed/private egress rejected: 192.168.1.1
+  ---
+  duration_ms: 0.036925
+  type: 'test'
+  ...
+# Subtest: malformed/private egress rejected: 172.31.1.2
+ok 244 - malformed/private egress rejected: 172.31.1.2
+  ---
+  duration_ms: 0.031517
+  type: 'test'
+  ...
+# Subtest: malformed/private egress rejected: 169.254.1.1
+ok 245 - malformed/private egress rejected: 169.254.1.1
+  ---
+  duration_ms: 0.029894
+  type: 'test'
+  ...
+# Subtest: malformed/private egress rejected: fc00::1
+ok 246 - malformed/private egress rejected: fc00::1
+  ---
+  duration_ms: 0.12045
+  type: 'test'
+  ...
+# Subtest: malformed/private egress rejected: fe80::1
+ok 247 - malformed/private egress rejected: fe80::1
+  ---
+  duration_ms: 0.083424
+  type: 'test'
+  ...
+# Subtest: malformed/private egress rejected: 999.1.1.1
+ok 248 - malformed/private egress rejected: 999.1.1.1
+  ---
+  duration_ms: 0.041552
+  type: 'test'
+  ...
+# Subtest: budget and attempts are per operation/tab and never reset on reentry
+ok 249 - budget and attempts are per operation/tab and never reset on reentry
+  ---
+  duration_ms: 0.63879
+  type: 'test'
+  ...
+# Subtest: hung provider headers time out and abort underlying fetch
+ok 250 - hung provider headers time out and abort underlying fetch
+  ---
+  duration_ms: 25.458908
+  type: 'test'
+  ...
+# Subtest: hung provider body times out separately and aborts
+ok 251 - hung provider body times out separately and aborts
+  ---
+  duration_ms: 15.747596
+  type: 'test'
+  ...
+# Subtest: cancellation also aborts pending body reads
+ok 252 - cancellation also aborts pending body reads
+  ---
+  duration_ms: 0.489799
+  type: 'test'
+  ...
+# Subtest: oversized body is rejected
+ok 253 - oversized body is rejected
+  ---
+  duration_ms: 0.338745
+  type: 'test'
+  ...
+# Subtest: concurrent logs do not overwrite one another
+ok 254 - concurrent logs do not overwrite one another
+  ---
+  duration_ms: 22.485858
+  type: 'test'
+  ...
+# Subtest: stale operation and stopped callbacks cannot revive a run
+ok 255 - stale operation and stopped callbacks cannot revive a run
+  ---
+  duration_ms: 6.057475
+  type: 'test'
+  ...
+# Subtest: auth challenge during first PAC application uses staged credentials even from DIRECT
+ok 256 - auth challenge during first PAC application uses staged credentials even from DIRECT
+  ---
+  duration_ms: 7.291391
+  type: 'test'
+  ...
+# Subtest: effective settings controlled by another extension are never reported successful
+ok 257 - effective settings controlled by another extension are never reported successful
+  ---
+  duration_ms: 3.584825
+  type: 'test'
+  ...
+# Subtest: same egress on both checks is not a false Avito-IP proof and does not prevent fresh target check
+ok 258 - same egress on both checks is not a false Avito-IP proof and does not prevent fresh target check
+  ---
+  duration_ms: 19.940625
+  type: 'test'
+  ...
+# Subtest: unreachable IP checker remains telemetry, not a permanent recovery gate
+ok 259 - unreachable IP checker remains telemetry, not a permanent recovery gate
+  ---
+  duration_ms: 7.643005
+  type: 'test'
+  ...
+# Subtest: two concurrent recovery triggers reserve one attempt and perform one navigation
+ok 260 - two concurrent recovery triggers reserve one attempt and perform one navigation
+  ---
+  duration_ms: 8.777563
+  type: 'test'
+  ...
+# Subtest: cancel in recovery restores Avito-only PAC and never reloads or sends a result
+ok 261 - cancel in recovery restores Avito-only PAC and never reloads or sends a result
+  ---
+  duration_ms: 8.033015
+  type: 'test'
+  ...
+# Subtest: recovery exhaustion becomes exactly one same-chat report
+ok 262 - recovery exhaustion becomes exactly one same-chat report
+  ---
+  duration_ms: 30.310634
+  type: 'test'
+  ...
+# Subtest: mutating plan interruption cannot trigger proxy actions or replay
+ok 263 - mutating plan interruption cannot trigger proxy actions or replay
+  ---
+  duration_ms: 8.571376
+  type: 'test'
+  ...
+# Subtest: no-navigation diagnostics preserve blocked page without proxy or reload
+ok 264 - no-navigation diagnostics preserve blocked page without proxy or reload
+  ---
+  duration_ms: 2.920577
+  type: 'test'
+  ...
+# Subtest: stale main-frame response cannot overwrite a newer navigation record
+ok 265 - stale main-frame response cannot overwrite a newer navigation record
+  ---
+  duration_ms: 2.80182
+  type: 'test'
+  ...
+# Subtest: terminal readiness failures report to same chat once, including racing callbacks
+ok 266 - terminal readiness failures report to same chat once, including racing callbacks
+  ---
+  duration_ms: 6.151124
+  type: 'test'
+  ...
+# Subtest: full worker: UI-plan block after ready preflight uses coordinator with default tempo
+ok 267 - full worker: UI-plan block after ready preflight uses coordinator with default tempo
+  ---
+  duration_ms: 39.986598
+  type: 'test'
+  ...
+# Subtest: full worker: current HTTP 429 enters bounded rate-limit recovery instead of terminal pause
+ok 268 - full worker: current HTTP 429 enters bounded rate-limit recovery instead of terminal pause
+  ---
+  duration_ms: 4.927834
+  type: 'test'
+  ...
+# Subtest: rate-limit recovery keeps one operation budget and increments instead of resetting
+ok 269 - rate-limit recovery keeps one operation budget and increments instead of resetting
+  ---
+  duration_ms: 8.986684
+  type: 'test'
+  ...
+# Subtest: rate-limit cooldown is persisted across worker wake and resumes the same reserved attempt
+ok 270 - rate-limit cooldown is persisted across worker wake and resumes the same reserved attempt
+  ---
+  duration_ms: 6.637839
+  type: 'test'
+  ...
+# Subtest: queue: rate limit recovers same child and resumes only unread cursor
+ok 271 - queue: rate limit recovers same child and resumes only unread cursor
+  ---
+  duration_ms: 9.240251
+  type: 'test'
+  ...
+# Subtest: freshness: time_origin=0 and the previous document can never acknowledge a reload
+ok 272 - freshness: time_origin=0 and the previous document can never acknowledge a reload
+  ---
+  duration_ms: 3.293181
+  type: 'test'
+  ...
+# Subtest: lost response without an exact new user-turn anchor does not masquerade as delivery
+ok 273 - lost response without an exact new user-turn anchor does not masquerade as delivery
+  ---
+  duration_ms: 6.908411
+  type: 'test'
+  ...
+# Subtest: queue: unreadable card is retained at the same cursor, not fabricated as failed
+ok 274 - queue: unreadable card is retained at the same cursor, not fabricated as failed
+  ---
+  duration_ms: 9.686696
+  type: 'test'
+  ...
+# Subtest: queue: IP block recovers same child and resumes only unread cursor
+ok 275 - queue: IP block recovers same child and resumes only unread cursor
+  ---
+  duration_ms: 18.554824
+  type: 'test'
+  ...
+# Subtest: report retains hardware, full URLs and all 120 rows instead of a silent character cutoff
+ok 276 - report retains hardware, full URLs and all 120 rows instead of a silent character cutoff
+  ---
+  duration_ms: 4.860464
+  type: 'test'
+  ...
+# Subtest: direct delivery proof survives detail report serialization
+ok 277 - direct delivery proof survives detail report serialization
+  ---
+  duration_ms: 4.179269
+  type: 'test'
+  ...
+# Subtest: partial pre-recovery records are labelled separately and not merged into a fictional current order
+ok 278 - partial pre-recovery records are labelled separately and not merged into a fictional current order
+  ---
+  duration_ms: 4.108143
+  type: 'test'
+  ...
+# Subtest: a closed response channel never repeats a command after it may have clicked
+ok 279 - a closed response channel never repeats a command after it may have clicked
+  ---
+  duration_ms: 7.247105
+  type: 'test'
+  ...
+# Subtest: an adapter version mismatch prevents dispatch rather than guessing command compatibility
+ok 280 - an adapter version mismatch prevents dispatch rather than guessing command compatibility
+  ---
+  duration_ms: 3.126143
+  type: 'test'
+  ...
+# Subtest: deleting an inactive proxy does not disable the active proxy or discard its auth
+ok 281 - deleting an inactive proxy does not disable the active proxy or discard its auth
+  ---
+  duration_ms: 4.579105
+  type: 'test'
+  ...
+# Subtest: adding an inactive manual profile does not silently switch selection/auth
+ok 282 - adding an inactive manual profile does not silently switch selection/auth
+  ---
+  duration_ms: 3.818282
+  type: 'test'
+  ...
+# Subtest: empty provider discovery preserves the last usable credentials/profile
+ok 283 - empty provider discovery preserves the last usable credentials/profile
+  ---
+  duration_ms: 4.617492
+  type: 'test'
+  ...
+# Subtest: startup repairs an interrupted proxy transaction even when the run was cancelled
+ok 284 - startup repairs an interrupted proxy transaction even when the run was cancelled
+  ---
+  duration_ms: 3.793215
+  type: 'test'
+  ...
+# Subtest: startup recovery resumes safe reads with the existing attempt count
+ok 285 - startup recovery resumes safe reads with the existing attempt count
+  ---
+  duration_ms: 6.722625
+  type: 'test'
+  ...
+# Subtest: startup never replays a mutating plan left in-flight
+ok 286 - startup never replays a mutating plan left in-flight
+  ---
+  duration_ms: 6.472042
+  type: 'test'
+  ...
+# Subtest: startup queue recovery preserves cursor and replaces full collection with explicit resume
+ok 287 - startup queue recovery preserves cursor and replaces full collection with explicit resume
+  ---
+  duration_ms: 3.204569
+  type: 'test'
+  ...
+# Subtest: startup uncertain report is reconciled without another Send message
+ok 288 - startup uncertain report is reconciled without another Send message
+  ---
+  duration_ms: 4.673295
+  type: 'test'
+  ...
+# Subtest: an ambiguous provider create is reserved durably and never blindly repeated
+ok 289 - an ambiguous provider create is reserved durably and never blindly repeated
+  ---
+  duration_ms: 6.473474
+  type: 'test'
+  ...
+# Subtest: v1.0.24 profile upgrade preserves selected profile, credentials and proxy mode
+ok 290 - v1.0.24 profile upgrade preserves selected profile, credentials and proxy mode
+  ---
+  duration_ms: 3.085182
+  type: 'test'
+  ...
+# Subtest: explicit Continue retries one proven pre-click report from staged
+ok 291 - explicit Continue retries one proven pre-click report from staged
+  ---
+  duration_ms: 22.055243
+  type: 'test'
+  ...
+# Subtest: explicit Continue retries one proven pre-click report from empty
+ok 292 - explicit Continue retries one proven pre-click report from empty
+  ---
+  duration_ms: 12.413794
+  type: 'test'
+  ...
+# Subtest: Continue never retries sent/uncertain report attempt=true
+ok 293 - Continue never retries sent/uncertain report attempt=true
+  ---
+  duration_ms: 8.053625
+  type: 'test'
+  ...
+# Subtest: Continue never retries sent/uncertain report attempt=null
+ok 294 - Continue never retries sent/uncertain report attempt=null
+  ---
+  duration_ms: 8.827437
+  type: 'test'
+  ...
+# Subtest: watchdog reconciliation stays read-only even for proven pre-click failure
+ok 295 - watchdog reconciliation stays read-only even for proven pre-click failure
+  ---
+  duration_ms: 9.54165
+  type: 'test'
+  ...
+# Subtest: legacy v125 failure proof survives read-only reconciliation then explicit Continue
+ok 296 - legacy v125 failure proof survives read-only reconciliation then explicit Continue
+  ---
+  duration_ms: 18.174608
+  type: 'test'
+  ...
+# Subtest: foreign composer never overwritten; saved report retained
+ok 297 - foreign composer never overwritten; saved report retained
+  ---
+  duration_ms: 8.967806
+  type: 'test'
+  ...
+# Subtest: exact confirmed user turn reconciles without second Send
+ok 298 - exact confirmed user turn reconciles without second Send
+  ---
+  duration_ms: 10.643821
+  type: 'test'
+  ...
+# Subtest: adapter pre-click return persists code and false, no guessed success
+ok 299 - adapter pre-click return persists code and false, no guessed success
+  ---
+  duration_ms: 11.247008
+  type: 'test'
+  ...
+# Subtest: unknown reply is not promoted to pre-click certainty
+ok 300 - unknown reply is not promoted to pre-click certainty
+  ---
+  duration_ms: 7.306654
+  type: 'test'
+  ...
+# Subtest: report occupied pause has priority over continuing collection queue
+ok 301 - report occupied pause has priority over continuing collection queue
+  ---
+  duration_ms: 12.206185
+  type: 'test'
+  ...
+# Subtest: wake includes live failure REPORT_DELIVERY_BLOCKED: reconcile receipt and start next poll, no Send
+ok 302 - wake includes live failure REPORT_DELIVERY_BLOCKED: reconcile receipt and start next poll, no Send
+  ---
+  duration_ms: 25.357914
+  type: 'test'
+  ...
+# Subtest: send intent persists baseline BEFORE dispatch acknowledgement
+ok 303 - send intent persists baseline BEFORE dispatch acknowledgement
+  ---
+  duration_ms: 6.170213
+  type: 'test'
+  ...
+# Subtest: send intent rejects tab mismatch without modifying receipt
+ok 304 - send intent rejects tab mismatch without modifying receipt
+  ---
+  duration_ms: 6.198154
+  type: 'test'
+  ...
+# Subtest: send intent rejects conversation mismatch without modifying receipt
+ok 305 - send intent rejects conversation mismatch without modifying receipt
+  ---
+  duration_ms: 5.868944
+  type: 'test'
+  ...
+# Subtest: send intent rejects run mismatch without modifying receipt
+ok 306 - send intent rejects run mismatch without modifying receipt
+  ---
+  duration_ms: 5.139329
+  type: 'test'
+  ...
+# Subtest: send intent rejects delivery mismatch without modifying receipt
+ok 307 - send intent rejects delivery mismatch without modifying receipt
+  ---
+  duration_ms: 5.082584
+  type: 'test'
+  ...
+# Subtest: send intent rejects baseline mismatch without modifying receipt
+ok 308 - send intent rejects baseline mismatch without modifying receipt
+  ---
+  duration_ms: 5.716006
+  type: 'test'
+  ...
+# Subtest: persisted receipt handed to adapter across worker restart with old predecessor removed
+ok 309 - persisted receipt handed to adapter across worker restart with old predecessor removed
+  ---
+  duration_ms: 12.00117
+  type: 'test'
+  ...
+# Subtest: late hydration automatically rechecked without operator or repeat collection
+ok 310 - late hydration automatically rechecked without operator or repeat collection
+  ---
+  duration_ms: 70.405938
+  type: 'test'
+  ...
+# Subtest: concurrent watchdog/Continue share one read-only reconciliation
+ok 311 - concurrent watchdog/Continue share one read-only reconciliation
+  ---
+  duration_ms: 30.905194
+  type: 'test'
+  ...
+# Subtest: ACK budget exhaustion retains result and no retries or Send
+ok 312 - ACK budget exhaustion retains result and no retries or Send
+  ---
+  duration_ms: 6.638429
+  type: 'test'
+  ...
+# Subtest: explicit Continue can re-open only ACK budget, never repeat an uncertain Send
+ok 313 - explicit Continue can re-open only ACK budget, never repeat an uncertain Send
+  ---
+  duration_ms: 10.869646
+  type: 'test'
+  ...
+# Subtest: late reconciliation after stop cannot resurrect old operation
+ok 314 - late reconciliation after stop cannot resurrect old operation
+  ---
+  duration_ms: 12.256925
+  type: 'test'
+  ...
+# Subtest: late reconciliation after new_operation cannot resurrect old operation
+ok 315 - late reconciliation after new_operation cannot resurrect old operation
+  ---
+  duration_ms: 7.053537
+  type: 'test'
+  ...
+# Subtest: sender in-flight is not reconciled by watchdog/Continue while it owns delivery
+ok 316 - sender in-flight is not reconciled by watchdog/Continue while it owns delivery
+  ---
+  duration_ms: 13.370347
+  type: 'test'
+  ...
+# Subtest: new command admitted during poll-start cannot be overwritten by old delivery snapshot
+ok 317 - new command admitted during poll-start cannot be overwritten by old delivery snapshot
+  ---
+  duration_ms: 10.670981
+  type: 'test'
+  ...
+# Subtest: old read request cannot alter a newer operation before context check
+ok 318 - old read request cannot alter a newer operation before context check
+  ---
+  duration_ms: 4.333799
+  type: 'test'
+  ...
+# Subtest: v132 wake reconciles operator manual Send after pre-click button-missing failure and starts next poll without a second Send
+ok 319 - v132 wake reconciles operator manual Send after pre-click button-missing failure and starts next poll without a second Send
+  ---
+  duration_ms: 8.740067
+  type: 'test'
+  ...
+# Subtest: v132 pre-click staged report keeps bounded read-only reconciliation alive until operator manual Send appears
+ok 320 - v132 pre-click staged report keeps bounded read-only reconciliation alive until operator manual Send appears
+  ---
+  duration_ms: 86.864072
+  type: 'test'
+  ...
+# Subtest: explicit card gap accepts zero and is carried into the generic explicit queue plan
+ok 321 - explicit card gap accepts zero and is carried into the generic explicit queue plan
+  ---
+  duration_ms: 4.599785
+  type: 'test'
+  ...
+# Subtest: explicit card gap accepts a later manual slowdown on resume
+ok 322 - explicit card gap accepts a later manual slowdown on resume
+  ---
+  duration_ms: 1.147528
+  type: 'test'
+  ...
+# Subtest: omitted card gap preserves the unfinished checkpoint setting
+ok 323 - omitted card gap preserves the unfinished checkpoint setting
+  ---
+  duration_ms: 0.427707
+  type: 'test'
+  ...
+# Subtest: malformed and implementation-unsafe gaps are rejected locally
+ok 324 - malformed and implementation-unsafe gaps are rejected locally
+  ---
+  duration_ms: 0.536228
+  type: 'test'
+  ...
+# Subtest: worker applies command gap only between processed children
+ok 325 - worker applies command gap only between processed children
+  ---
+  duration_ms: 1.277922
+  type: 'test'
+  ...
+# Subtest: new sequential item creates child directly at target URL; no about:blank trampoline
+ok 326 - new sequential item creates child directly at target URL; no about:blank trampoline
+  ---
+  duration_ms: 28.446595
+  type: 'test'
+  ...
+# Subtest: returned target pendingUrl is navigation-in-progress and is not redispatched
+ok 327 - returned target pendingUrl is navigation-in-progress and is not redispatched
+  ---
+  duration_ms: 8.632798
+  type: 'test'
+  ...
+# Subtest: usable target DOM while tab is loading satisfies sequential readiness like pre-proxy contract
+ok 328 - usable target DOM while tab is loading satisfies sequential readiness like pre-proxy contract
+  ---
+  duration_ms: 4.329002
+  type: 'test'
+  ...
+# Subtest: crash after tabs.create before child id persistence adopts exactly one owned exact-target tab
+ok 329 - crash after tabs.create before child id persistence adopts exactly one owned exact-target tab
+  ---
+  duration_ms: 7.165233
+  type: 'test'
+  ...
+# Subtest: ambiguous owned target tabs pause safely and never create/navigate a third tab
+ok 330 - ambiguous owned target tabs pause safely and never create/navigate a third tab
+  ---
+  duration_ms: 5.113189
+  type: 'test'
+  ...
+# Subtest: legacy persisted owned about:blank tab migrates once without creating another child
+ok 331 - legacy persisted owned about:blank tab migrates once without creating another child
+  ---
+  duration_ms: 6.516448
+  type: 'test'
+  ...
+# Subtest: proxy ON and DIRECT use identical target-tab creation lifecycle
+ok 332 - proxy ON and DIRECT use identical target-tab creation lifecycle
+  ---
+  duration_ms: 18.136861
+  type: 'test'
+  ...
+# Subtest: explicit queue path contains no normal about:blank child create primitive
+ok 333 - explicit queue path contains no normal about:blank child create primitive
+  ---
+  duration_ms: 1.418951
+  type: 'test'
+  ...
+# Subtest: explicit-queue checkpoint persists only for an active collection or manual CAPTCHA pause
+ok 334 - explicit-queue checkpoint persists only for an active collection or manual CAPTCHA pause
+  ---
+  duration_ms: 0.965277
+  type: 'test'
+  ...
+# Subtest: manual CAPTCHA remains a user-only boundary
+ok 335 - manual CAPTCHA remains a user-only boundary
+  ---
+  duration_ms: 0.64524
+  type: 'test'
+  ...
+# Subtest: only run-owned child tabs are closed
+ok 336 - only run-owned child tabs are closed
+  ---
+  duration_ms: 0.187259
+  type: 'test'
+  ...
+# Subtest: uncertain start reconciles late exact user turn and starts prompt poll without new Send
+ok 337 - uncertain start reconciles late exact user turn and starts prompt poll without new Send
+  ---
+  duration_ms: 20.573317
+  type: 'test'
+  ...
+# Subtest: assistant-first reconciliation binds exact new assistant to prior safe anchor
+ok 338 - assistant-first reconciliation binds exact new assistant to prior safe anchor
+  ---
+  duration_ms: 6.663437
+  type: 'test'
+  ...
+# Subtest: pressing Start again while receipt pending performs read-only reconciliation and never sends second Ищи
+ok 339 - pressing Start again while receipt pending performs read-only reconciliation and never sends second Ищи
+  ---
+  duration_ms: 6.274538
+  type: 'test'
+  ...
+# Subtest: worker wake reconciles uncertain start instead of creating a new operation
+ok 340 - worker wake reconciles uncertain start instead of creating a new operation
+  ---
+  duration_ms: 6.08762
+  type: 'test'
+  ...
+# Subtest: STOP fences an uncertain start and later wake cannot reconcile or send it
+ok 341 - STOP fences an uncertain start and later wake cannot reconcile or send it
+  ---
+  duration_ms: 5.898438
+  type: 'test'
+  ...
+# Subtest: missing pinned chat consumes bounded reconciliation budget and never sends Start
+ok 342 - missing pinned chat consumes bounded reconciliation budget and never sends Start
+  ---
+  duration_ms: 5.628657
+  type: 'test'
+  ...
+# Subtest: absent timing profile preserves CONTROL_VISIBLE
+ok 343 - absent timing profile preserves CONTROL_VISIBLE
+  ---
+  duration_ms: 9.901947
+  type: 'test'
+  ...
+# Subtest: COLLECTION_FAST is an explicit fixed allowlisted profile
+ok 344 - COLLECTION_FAST is an explicit fixed allowlisted profile
+  ---
+  duration_ms: 2.391028
+  type: 'test'
+  ...
+# Subtest: arbitrary timing values are rejected instead of becoming milliseconds
+ok 345 - arbitrary timing values are rejected instead of becoming milliseconds
+  ---
+  duration_ms: 2.469515
+  type: 'test'
+  ...
+# Subtest: v1.0.36 preserves zero-media Traffic Lite alongside unified recovery
+ok 346 - v1.0.36 preserves zero-media Traffic Lite alongside unified recovery
+  ---
+  duration_ms: 1.28987
+  type: 'test'
+  ...
+# Subtest: Finder Avito tabs receive tab-scoped session blocking rules
+ok 347 - Finder Avito tabs receive tab-scoped session blocking rules
+  ---
+  duration_ms: 0.797166
+  type: 'test'
+  ...
+# Subtest: CAPTCHA gets a higher-priority per-tab media allow override and exactly bounded reload path
+ok 348 - CAPTCHA gets a higher-priority per-tab media allow override and exactly bounded reload path
+  ---
+  duration_ms: 0.444732
+  type: 'test'
+  ...
+# Subtest: popup explains zero-media behavior
+ok 349 - popup explains zero-media behavior
+  ---
+  duration_ms: 0.151015
+  type: 'test'
+  ...
+# Subtest: runtime has no product-domain scoring or carried completed inventory
+ok 350 - runtime has no product-domain scoring or carried completed inventory
+  ---
+  duration_ms: 3.384166
+  type: 'test'
+  ...
+# Subtest: a terminated worker fixture cannot re-arm a timer from a late continuation
+ok 351 - a terminated worker fixture cannot re-arm a timer from a late continuation
+  ---
+  duration_ms: 50.462858
+  type: 'test'
+  ...
+1..351
+# tests 351
+# suites 0
+# pass 351
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1381.929552
