@@ -226,9 +226,16 @@
       "status": "PASS",
       "duration_seconds": 0.114,
       "deadline_seconds": 30
+    },
+    {
+      "name": "ordinary_form_terminal_gate",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 1.418,
+      "deadline_seconds": 20
     }
   ],
-  "pass": 31,
+  "pass": 32,
   "fail": 1,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
