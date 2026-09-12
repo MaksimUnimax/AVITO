@@ -1,0 +1,9 @@
+HOST_STARTED
+CHAT_READY
+AVITO_READY
+STATE WAITING_FOR_ASSISTANT_WRITING_BLOCK
+STATE COMMAND_CAPTURED
+STATE AVITO_TAB_ACTIVE
+STATE REPORT_DELIVERY_IN_PROGRESS
+STATE WAITING_FOR_NEXT_ASSISTANT_FORM
+{"name": "thirty_detail_large_report", "status": "PASS", "send_clicks_including_start": 2, "reports": 1, "last_report_characters": 233804, "cursor": 30, "state": "WAITING_FOR_NEXT_ASSISTANT_FORM", "duration_seconds": 13.656}
