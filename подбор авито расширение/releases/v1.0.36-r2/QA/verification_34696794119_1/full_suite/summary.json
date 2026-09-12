@@ -135,9 +135,16 @@
       "status": "PASS",
       "duration_seconds": 4.084,
       "deadline_seconds": 30
+    },
+    {
+      "name": "popup_lifecycle",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 24.238,
+      "deadline_seconds": 30
     }
   ],
-  "pass": 19,
+  "pass": 20,
   "fail": 0,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
