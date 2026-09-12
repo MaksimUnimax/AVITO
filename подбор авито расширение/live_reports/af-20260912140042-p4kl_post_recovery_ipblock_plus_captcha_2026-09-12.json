@@ -1,0 +1,26 @@
+{
+  "date": "2026-09-12",
+  "task_id": "af-20260912140042-p4kl",
+  "source": "Finder diagnostic DOM snapshot supplied by owner in chat",
+  "url": "https://www.avito.ru/yuzhno-sahalinsk/nastolnye_kompyutery/dell_vostro_3470_4750223208#block",
+  "reported_status": "BLOCKED_LOGIN_OR_CAPTCHA",
+  "snapshot_fingerprint": "3053:def76143",
+  "root": "body via body_visible_fallback",
+  "visible_h2": "Доступ ограничен: проблема с IP",
+  "visible_captcha_instruction": "Иногда такое случается, чтобы вернуться на сайт нажмите на кнопку Продолжить для решения капчи",
+  "visible_captcha_container_id": "geetest_captcha",
+  "visible_button": "Продолжить",
+  "ip_block": true,
+  "captcha": true,
+  "rate_limit": false,
+  "normal_avito": false,
+  "cards_read": 0,
+  "preceding_finder_report": {
+    "reason": "CAPTCHA_MANUAL_REQUIRED",
+    "automatic_recovery_attempts": 3,
+    "mutation_replay": "FORBIDDEN"
+  },
+  "interpretation": "The third observed surface is not a pure classifier false positive: both explicit IP restriction and a real CAPTCHA gate are visible. The hard CAPTCHA boundary is therefore applicable once this surface exists. The relevant defect is earlier in the recovery strategy: the first pure-IP-block attempt does not force provider rotation even when the selected provider profile exposes a safe change_ip_link, so a fresh Avito request can escalate to CAPTCHA before stronger rotation is attempted.",
+  "runtime_patch_applied": false,
+  "baseline_modified": false
+}
