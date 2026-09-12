@@ -163,9 +163,16 @@
       "status": "PASS",
       "duration_seconds": 16.503,
       "deadline_seconds": 115
+    },
+    {
+      "name": "queue_rate_limit_mid_queue_restart_direct_route",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 12.094,
+      "deadline_seconds": 115
     }
   ],
-  "pass": 22,
+  "pass": 23,
   "fail": 1,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
