@@ -1,0 +1,35 @@
+{
+  "scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+  "installed_extension": false,
+  "live_chatgpt": false,
+  "tests": [
+    {
+      "test": "13,247-character synthetic report delivers in rich editor",
+      "status": "PASS",
+      "ms": 2218
+    },
+    {
+      "test": "blank lines, tabs, double spaces, NBSP, ZWJ and zero-width text preserved",
+      "status": "PASS",
+      "ms": 2155
+    },
+    {
+      "test": "concurrent duplicate and repeated delivery ID yield one click",
+      "status": "PASS",
+      "ms": 2154
+    },
+    {
+      "test": "protect against edit during staging: real_input",
+      "status": "PASS",
+      "ms": 2145
+    },
+    {
+      "test": "protect against edit during staging: no_button",
+      "status": "PASS",
+      "ms": 8147
+    }
+  ],
+  "pass": 5,
+  "fail": 0,
+  "page_errors": []
+}
