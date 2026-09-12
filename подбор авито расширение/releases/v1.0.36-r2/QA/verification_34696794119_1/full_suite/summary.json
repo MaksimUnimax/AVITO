@@ -79,9 +79,16 @@
       "status": "PASS",
       "duration_seconds": 7.387,
       "deadline_seconds": 45
+    },
+    {
+      "name": "receipts",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 32.763,
+      "deadline_seconds": 60
     }
   ],
-  "pass": 11,
+  "pass": 12,
   "fail": 0,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
