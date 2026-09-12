@@ -1,0 +1,46 @@
+{
+  "scope": "OFFLINE_ACTUAL_PACKAGED_WORKER_WITH_CHROME_API_DOUBLES",
+  "kind": "STATE_CHARACTERIZATION_NOT_FIX_ACCEPTANCE",
+  "source_archive_sha256": "c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c",
+  "input_md_sha256": "12f5f2c8cb52b52434bef187a359ed626b45bf247877902445d47e6375082a02",
+  "task_id": "af-20260912140042-p4kl",
+  "cases": [
+    {
+      "http_status": 429,
+      "network_evidence_recorded": true,
+      "status_after": "WAITING_FOR_NEXT_ASSISTANT_FORM",
+      "phase_after": "CAPTCHA_MANUAL_WAIT"
+    },
+    {
+      "http_status": 403,
+      "network_evidence_recorded": true,
+      "status_after": "WAITING_FOR_NEXT_ASSISTANT_FORM",
+      "phase_after": "CAPTCHA_MANUAL_WAIT"
+    }
+  ],
+  "result": "OBSERVED_WAIT_STATE_DOES_NOT_RESTART_ON_REFRESH",
+  "process_exit_code": 0,
+  "automatic_navigation_or_proxy_mutations": [],
+  "network_calls": 0,
+  "installed_user_chrome": "NOT_TESTED",
+  "actual_proxy_route": "NOT_TESTED",
+  "original_input_event_counts": {
+    "CAPTURE_ACTIVITY": 76,
+    "CAPTURE_PROMPT_WAIT_WRITING_BLOCK": 15,
+    "AVITO_MAIN_FRAME_COMPLETED": 9,
+    "http_403": 7,
+    "http_429": 2
+  },
+  "production_files_confirmed_byte_equal_to_v135": {
+    "service_worker.js": "415b2ca3c3c196c059dee33587c2572c5d310c1e44c3404d0859f9707242e88a",
+    "proxy_manager.js": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66",
+    "popup.js": "a107c7094dab8b2d8e3f568bdfb5a496db94ccd332457d4d6aff54b7d3b73990",
+    "core.js": "b00830e8e2971186bf4a725725aa4676e29b09a7e32cc296b7ccf24c5e36ee9b",
+    "chatgpt_content.js": "64eedf07f07fb69ba87d91bc51d49273237e577de770d48a97e2368dd7a39d18"
+  },
+  "runtime_patch_created": false,
+  "captcha_classification_independently_verified": false,
+  "proxy_failure_cause": "NOT_ESTABLISHED",
+  "no_progress_on_refresh_mechanism": "PRODUCTION_READINESS_HANDLER_RETURNS_WHEN_STATUS_IS_NOT_WAITING_FOR_AVITO_PAGE_READY",
+  "next_required_evidence": "Read-only proxy diagnostic output from the affected Avito tab and screenshot of the visible page; no credential disclosure."
+}
