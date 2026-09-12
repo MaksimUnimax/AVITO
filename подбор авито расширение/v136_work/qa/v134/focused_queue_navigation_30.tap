@@ -1,0 +1,190 @@
+TAP version 13
+# Subtest: assistant supplies exact collection URLs; the extension preserves order and does not select or rank
+ok 1 - assistant supplies exact collection URLs; the extension preserves order and does not select or rank
+  ---
+  duration_ms: 4.821368
+  type: 'test'
+  ...
+# Subtest: queue URLs never become an implicit page-navigation target
+ok 2 - queue URLs never become an implicit page-navigation target
+  ---
+  duration_ms: 1.49874
+  type: 'test'
+  ...
+# Subtest: an explicit queue is mandatory for detail collection and an assistant-owned selection command is rejected
+ok 3 - an explicit queue is mandatory for detail collection and an assistant-owned selection command is rejected
+  ---
+  duration_ms: 0.776946
+  type: 'test'
+  ...
+# Subtest: generic visible UI commands remain available for search, filters and sorting
+ok 4 - generic visible UI commands remain available for search, filters and sorting
+  ---
+  duration_ms: 1.662285
+  type: 'test'
+  ...
+# Subtest: runtime has no product-domain evaluator, automatic retry selector, ranking or full-result discovery path
+ok 5 - runtime has no product-domain evaluator, automatic retry selector, ranking or full-result discovery path
+  ---
+  duration_ms: 4.123409
+  type: 'test'
+  ...
+# Subtest: completed collected payload is transient; only an unfinished technical checkpoint can remain
+ok 6 - completed collected payload is transient; only an unfinished technical checkpoint can remain
+  ---
+  duration_ms: 0.611427
+  type: 'test'
+  ...
+# Subtest: one child tab, visible-page readiness and manual CAPTCHA boundary remain in the generic collector
+ok 7 - one child tab, visible-page readiness and manual CAPTCHA boundary remain in the generic collector
+  ---
+  duration_ms: 0.756296
+  type: 'test'
+  ...
+# Subtest: CAPTCHA manual user turn re-anchors without reading user text and without starting Avito action
+ok 8 - CAPTCHA manual user turn re-anchors without reading user text and without starting Avito action
+  ---
+  duration_ms: 12.866193
+  type: 'test'
+  ...
+# Subtest: v1.0.32 waiting state migrates back into CAPTCHA manual gate from visible CAPTCHA without navigation
+ok 9 - v1.0.32 waiting state migrates back into CAPTCHA manual gate from visible CAPTCHA without navigation
+  ---
+  duration_ms: 4.21025
+  type: 'test'
+  ...
+# Subtest: assistant p1 to p2 navigation persists intent before navigation and collects p2 instead of manual-change report
+ok 10 - assistant p1 to p2 navigation persists intent before navigation and collects p2 instead of manual-change report
+  ---
+  duration_ms: 39.568936
+  type: 'test'
+  ...
+# Subtest: unrequested route change remains reported: missing_intent
+ok 11 - unrequested route change remains reported: missing_intent
+  ---
+  duration_ms: 9.342594
+  type: 'test'
+  ...
+# Subtest: unrequested route change remains reported: wrong_operation
+ok 12 - unrequested route change remains reported: wrong_operation
+  ---
+  duration_ms: 7.417855
+  type: 'test'
+  ...
+# Subtest: unrequested route change remains reported: wrong_tab
+ok 13 - unrequested route change remains reported: wrong_tab
+  ---
+  duration_ms: 6.258334
+  type: 'test'
+  ...
+# Subtest: unrequested route change remains reported: wrong_url
+ok 14 - unrequested route change remains reported: wrong_url
+  ---
+  duration_ms: 7.004845
+  type: 'test'
+  ...
+# Subtest: matched navigation intent is one-shot, subsequent manual change still reported
+ok 15 - matched navigation intent is one-shot, subsequent manual change still reported
+  ---
+  duration_ms: 8.343174
+  type: 'test'
+  ...
+# Subtest: expected navigation cannot bypass optional login overlay
+ok 16 - expected navigation cannot bypass optional login overlay
+  ---
+  duration_ms: 6.220277
+  type: 'test'
+  ...
+# Subtest: pending CAPTCHA does not consume the intended navigation record
+ok 17 - pending CAPTCHA does not consume the intended navigation record
+  ---
+  duration_ms: 3.385822
+  type: 'test'
+  ...
+# Subtest: explicit card gap accepts zero and is carried into the generic explicit queue plan
+ok 18 - explicit card gap accepts zero and is carried into the generic explicit queue plan
+  ---
+  duration_ms: 5.110862
+  type: 'test'
+  ...
+# Subtest: explicit card gap accepts a later manual slowdown on resume
+ok 19 - explicit card gap accepts a later manual slowdown on resume
+  ---
+  duration_ms: 1.171809
+  type: 'test'
+  ...
+# Subtest: omitted card gap preserves the unfinished checkpoint setting
+ok 20 - omitted card gap preserves the unfinished checkpoint setting
+  ---
+  duration_ms: 0.499019
+  type: 'test'
+  ...
+# Subtest: malformed and implementation-unsafe gaps are rejected locally
+ok 21 - malformed and implementation-unsafe gaps are rejected locally
+  ---
+  duration_ms: 0.48636
+  type: 'test'
+  ...
+# Subtest: worker applies command gap only between processed children
+ok 22 - worker applies command gap only between processed children
+  ---
+  duration_ms: 1.241614
+  type: 'test'
+  ...
+# Subtest: new sequential item creates child directly at target URL; no about:blank trampoline
+ok 23 - new sequential item creates child directly at target URL; no about:blank trampoline
+  ---
+  duration_ms: 26.697374
+  type: 'test'
+  ...
+# Subtest: returned target pendingUrl is navigation-in-progress and is not redispatched
+ok 24 - returned target pendingUrl is navigation-in-progress and is not redispatched
+  ---
+  duration_ms: 7.192887
+  type: 'test'
+  ...
+# Subtest: usable target DOM while tab is loading satisfies sequential readiness like pre-proxy contract
+ok 25 - usable target DOM while tab is loading satisfies sequential readiness like pre-proxy contract
+  ---
+  duration_ms: 3.992343
+  type: 'test'
+  ...
+# Subtest: crash after tabs.create before child id persistence adopts exactly one owned exact-target tab
+ok 26 - crash after tabs.create before child id persistence adopts exactly one owned exact-target tab
+  ---
+  duration_ms: 6.67526
+  type: 'test'
+  ...
+# Subtest: ambiguous owned target tabs pause safely and never create/navigate a third tab
+ok 27 - ambiguous owned target tabs pause safely and never create/navigate a third tab
+  ---
+  duration_ms: 5.8823
+  type: 'test'
+  ...
+# Subtest: legacy persisted owned about:blank tab migrates once without creating another child
+ok 28 - legacy persisted owned about:blank tab migrates once without creating another child
+  ---
+  duration_ms: 7.318586
+  type: 'test'
+  ...
+# Subtest: proxy ON and DIRECT use identical target-tab creation lifecycle
+ok 29 - proxy ON and DIRECT use identical target-tab creation lifecycle
+  ---
+  duration_ms: 19.68608
+  type: 'test'
+  ...
+# Subtest: explicit queue path contains no normal about:blank child create primitive
+ok 30 - explicit queue path contains no normal about:blank child create primitive
+  ---
+  duration_ms: 1.102305
+  type: 'test'
+  ...
+1..30
+# tests 30
+# suites 0
+# pass 30
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 208.651631

@@ -1,0 +1,14 @@
+{
+  "scope": "OFFLINE_PRODUCTION_ADAPTER_PING_VS_EXACT_MANIFEST",
+  "manifest_version": "1.0.35",
+  "actual_adapter_ping": {
+    "ok": true,
+    "version": "1.0.34",
+    "busy": false
+  },
+  "status": "FAIL",
+  "code": "AVITO_ADAPTER_VERSION_MISMATCH_RELOAD_REQUIRED",
+  "avito_content_sha256": "6bca275747e08f7e7508111342e0c33bf240762a23d608c89cb4f9f09f946d8f",
+  "live_provider_calls": 0,
+  "installed_live_acceptance": "NOT_RUN"
+}

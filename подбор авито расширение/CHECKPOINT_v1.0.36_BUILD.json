@@ -1,0 +1,9 @@
+{
+  "version": "1.0.36",
+  "status": "SOURCE_AND_ZIP_SAVED_FULL_ZIP_QA_PENDING",
+  "runtime_changed": [
+    "manifest.json",
+    "avito_content.js"
+  ],
+  "live_acceptance": "NOT_RUN"
+}

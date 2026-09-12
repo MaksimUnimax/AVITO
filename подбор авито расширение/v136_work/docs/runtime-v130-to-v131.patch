@@ -1,0 +1,225 @@
+--- v1.0.30/manifest.json
++++ v1.0.31/manifest.json
+@@ -2,8 +2,8 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "1.0.30",
+-  "version_name": "1.0.30-durable-start-receipt",
++  "version": "1.0.31",
++  "version_name": "1.0.31-pre-proxy-sequential-lifecycle-restoration",
+   "description": "Avito Finder: bounded, cancellable visible-UI execution, same-chat reports, verified proxy configuration and fresh-document recovery; manual CAPTCHA.",
+   "minimum_chrome_version": "120",
+   "permissions": [
+--- v1.0.30/core.js
++++ v1.0.31/core.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.30 — assistant-directed visible-UI executor with unified bounded connection recovery and evidence-preserving reports. */
++/* Avito Finder v1.0.31 — assistant-directed visible-UI executor with unified bounded connection recovery and evidence-preserving reports. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+   const STORAGE = Object.freeze({
+--- v1.0.30/recovery.js
++++ v1.0.31/recovery.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.30 — shared recovery policy, persisted rate-limit backoff and bounded async primitives.
++/* Avito Finder v1.0.31 — shared recovery policy, persisted rate-limit backoff and bounded async primitives.
+  * No Avito APIs, selectors, product scoring or network side effects live here.
+  */
+ (function(root, factory) {
+@@ -7,7 +7,7 @@
+   root.AvitoFinderRecovery = api;
+ })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
+   'use strict';
+-  const VERSION = '1.0.30';
++  const VERSION = '1.0.31';
+   const MAX_ATTEMPTS = 4;
+   const RECOVERY_BUDGET_MS = 90000;
+   const RATE_LIMIT_RECOVERY_BUDGET_MS = 120000;
+--- v1.0.30/proxy_manager.js
++++ v1.0.31/proxy_manager.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.30 — Proxy.Market adapter for bounded unified connection recovery; egress probes are diagnostic, fresh Avito DOM is authoritative. */
++/* Avito Finder v1.0.31 — Proxy.Market adapter for bounded unified connection recovery; egress probes are diagnostic, fresh Avito DOM is authoritative. */
+ "use strict";
+ (function(root, factory) {
+   const api = factory();
+--- v1.0.30/service_worker.js
++++ v1.0.31/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.30 — unified connection recovery with persisted rate-limit cooldown, operation fencing and fresh public-document verification. */
++/* Avito Finder v1.0.31 — unified connection recovery with persisted rate-limit cooldown, operation fencing and fresh public-document verification. */
+ "use strict";
+ importScripts("core.js", "proxy_manager.js", "recovery.js");
+ const Recovery = globalThis.AvitoFinderRecovery;
+@@ -2066,6 +2066,107 @@
+   await log("SEQUENTIAL_PARENT_REBOUND_SAME_RESULTS", { search_id: state.search_id, parent_tab_id: parentTab.id, parent_url: rebound.parent_url });
+   return rebound;
+ }
++function sequentialBlankUrl(value) {
++  const url = String(value || "");
++  return !url || /^(?:about:blank|chrome:\/\/newtab\/?)(?:#.*)?$/iu.test(url);
++}
++function sequentialTabExactTarget(tab, expectedHref) {
++  const expected = canonicalPublicListingUrl(expectedHref);
++  if (!tab || !expected) return false;
++  return [tab.url, tab.pendingUrl].some((value) => Core.isAvitoUrl(String(value || "")) && canonicalPublicListingUrl(value) === expected);
++}
++function sequentialTabBootstrapOnly(tab) {
++  if (!tab) return false;
++  return sequentialBlankUrl(tab.url) && sequentialBlankUrl(tab.pendingUrl);
++}
++async function ownedSequentialChildren(parentTab) {
++  const rows = await tabsQuery({ windowId: parentTab.windowId });
++  return (Array.isArray(rows) ? rows : []).filter((tab) => tab?.id !== parentTab.id && tab.windowId === parentTab.windowId && Number(tab.openerTabId) === Number(parentTab.id));
++}
++async function adoptSequentialChild(parentTab, expectedHref, { allowBootstrap = false } = {}) {
++  const owned = await ownedSequentialChildren(parentTab);
++  const exact = owned.filter((tab) => sequentialTabExactTarget(tab, expectedHref));
++  if (exact.length > 1) throw new Error(`SEQUENTIAL_TARGET_TAB_AMBIGUOUS:${exact.map((tab) => tab.id).join(",")}`);
++  if (exact.length === 1) return { tab: exact[0], source: "exact_target" };
++  if (!allowBootstrap) return { tab: null, source: "none" };
++  const blank = owned.filter(sequentialTabBootstrapOnly);
++  if (blank.length > 1) throw new Error(`SEQUENTIAL_BOOTSTRAP_TAB_AMBIGUOUS:${blank.map((tab) => tab.id).join(",")}`);
++  if (blank.length === 1) return { tab: blank[0], source: "legacy_bootstrap" };
++  return { tab: null, source: "none" };
++}
++async function configureSequentialTrafficLite(tabId) {
++  try {
++    await prepareTrafficLiteForNavigation(tabId);
++    return true;
++  } catch (error) {
++    // Navigation ownership/readiness must not depend on an optional tab-scoped
++    // traffic-saving rule. The global Avito initiator rule remains independent.
++    await log("SEQUENTIAL_TRAFFIC_LITE_PREPARE_FAILED", { tab_id: tabId, error: Recovery.redactedError(error) });
++    return false;
++  }
++}
++async function ensureSequentialOwnedTargetTab(state, parentTab, checkpoint, summary, cursor) {
++  const expectedHref = canonicalPublicListingUrl(summary?.href || "");
++  if (!expectedHref) throw new Error("SEQUENTIAL_TARGET_URL_INVALID");
++  let retained = checkpoint.in_flight || checkpoint.captcha || checkpoint.connection || null;
++  let child = null;
++
++  if (retained && Number(retained.cursor) === cursor && retained.child_tab_id) {
++    child = await getTab(retained.child_tab_id);
++    if (!child) throw new Error("SEQUENTIAL_RETAINED_TAB_CLOSED_BY_USER");
++    if (child.windowId !== parentTab.windowId || Number(child.openerTabId) !== Number(parentTab.id)) throw new Error("SEQUENTIAL_RETAINED_TAB_OWNERSHIP_CHANGED");
++    if (!sequentialTabExactTarget(child, expectedHref)) {
++      // One-time migration/recovery for checkpoints produced by v1.0.30 and
++      // earlier proxy-era builds that persisted an owned about:blank child.
++      // New v1.0.31 runs never create this bootstrap tab.
++      if (!sequentialTabBootstrapOnly(child)) throw new Error(`SEQUENTIAL_RETAINED_TAB_URL_MISMATCH:${child.id}`);
++      checkpoint.in_flight = { ...retained, child_tab_id: child.id, cursor, href: expectedHref, stage: "LEGACY_BOOTSTRAP_TARGET_DISPATCH", navigation_requested_at: Date.now() };
++      checkpoint.captcha = null; checkpoint.connection = null;
++      await persistSequentialCheckpoint(state, checkpoint, "AVITO_TAB_ACTIVE", "EXECUTING_EXPLICIT_PUBLIC_QUEUE");
++      await assertCurrentOperation(state);
++      child = await tabsUpdate(child.id, { url: expectedHref, active: true });
++      await log("SEQUENTIAL_LEGACY_BOOTSTRAP_MIGRATED", { search_id: state.search_id, cursor, child_tab_id: child.id, target_url: expectedHref });
++    }
++    await configureSequentialTrafficLite(child.id);
++    return child;
++  }
++
++  // Persist intent BEFORE tabs.create. If the MV3 worker is terminated after
++  // Chrome creates the tab but before its id is saved, the next wake can adopt
++  // exactly one owned tab whose pending/committed route is the requested listing.
++  const startedAt = retained?.started_at || Date.now();
++  checkpoint.in_flight = { child_tab_id: null, cursor, href: expectedHref, started_at: startedAt, stage: "TARGET_TAB_CREATE_INTENT" };
++  checkpoint.captcha = null; checkpoint.connection = null;
++  await persistSequentialCheckpoint(state, checkpoint, "AVITO_TAB_ACTIVE", "EXECUTING_EXPLICIT_PUBLIC_QUEUE");
++
++  const adopted = await adoptSequentialChild(parentTab, expectedHref, { allowBootstrap: true });
++  if (adopted.tab) {
++    child = adopted.tab;
++    if (adopted.source === "legacy_bootstrap") {
++      checkpoint.in_flight = { ...checkpoint.in_flight, child_tab_id: child.id, stage: "CRASH_BOOTSTRAP_TARGET_DISPATCH", navigation_requested_at: Date.now() };
++      await persistSequentialCheckpoint(state, checkpoint);
++      await assertCurrentOperation(state);
++      child = await tabsUpdate(child.id, { url: expectedHref, active: true });
++    }
++    checkpoint.in_flight = { ...checkpoint.in_flight, child_tab_id: child.id, stage: "TARGET_TAB_ADOPTED" };
++    await persistSequentialCheckpoint(state, checkpoint);
++    await log("SEQUENTIAL_TARGET_TAB_ADOPTED", { search_id: state.search_id, cursor, child_tab_id: child.id, source: adopted.source, target_url: expectedHref });
++    await configureSequentialTrafficLite(child.id);
++    return child;
++  }
++
++  await assertCurrentOperation(state);
++  // Pre-proxy lifecycle restored: create the owned child at the target listing
++  // directly. Proxy/PAC and traffic-saving rules are transport concerns and do
++  // not own the navigation handshake.
++  child = await tabsCreate({ url: expectedHref, active: true, windowId: parentTab.windowId, openerTabId: parentTab.id });
++  if (!child?.id) throw new Error("SEQUENTIAL_TARGET_TAB_CREATE_FAILED");
++  checkpoint.in_flight = { ...checkpoint.in_flight, child_tab_id: child.id, stage: "TARGET_NAVIGATION_DISPATCHED", navigation_requested_at: Date.now() };
++  await persistSequentialCheckpoint(state, checkpoint);
++  await log("SEQUENTIAL_TARGET_TAB_CREATED", { search_id: state.search_id, cursor, child_tab_id: child.id, target_url: expectedHref, pending_url: child.pendingUrl || null, committed_url: child.url || null });
++  await configureSequentialTrafficLite(child.id);
++  return child;
++}
+ async function readSequentialCardWithRecovery(state, child, expectedHref, checkpoint) {
+   let readyState = null;
+   while (true) {
+@@ -2148,29 +2249,10 @@
+     checkpoint.resume_after = null;
+     const cursor = Number(checkpoint.cursor || 0), summary = checkpoint.candidates[cursor];
+     let child = null;
+-    const retained = checkpoint.in_flight || checkpoint.captcha || checkpoint.connection;
+     try {
+-      if (retained?.child_tab_id && Number(retained.cursor) === cursor) {
+-        child = await getTab(retained.child_tab_id);
+-        if (!child) throw new Error('SEQUENTIAL_RETAINED_TAB_CLOSED_BY_USER');
+-        if (child.windowId !== parentTab.windowId || child.openerTabId !== parentTab.id) throw new Error('SEQUENTIAL_RETAINED_TAB_OWNERSHIP_CHANGED');
+-        await log('SEQUENTIAL_RETAINED_CARD_RECONCILED',{search_id:state.search_id,cursor,child_tab_id:child.id,source:checkpoint.captcha?'explicit_queue_captcha_manual_recheck':'checkpoint_resume'});
+-      } else {
+-        child = await tabsCreate({url:'about:blank',active:true,windowId:parentTab.windowId,openerTabId:parentTab.id});
+-      }
+-      checkpoint.in_flight = {child_tab_id:child.id,cursor,href:summary.href,started_at:retained?.started_at || Date.now(),stage:retained?.stage || 'CREATED'};
+-      checkpoint.captcha = null; checkpoint.connection = null;
+-      await persistSequentialCheckpoint(state,checkpoint,'AVITO_TAB_ACTIVE','EXECUTING_EXPLICIT_PUBLIC_QUEUE');
++      child = await ensureSequentialOwnedTargetTab(state, parentTab, checkpoint, summary, cursor);
++      await log('SEQUENTIAL_RETAINED_CARD_RECONCILED',{search_id:state.search_id,cursor,child_tab_id:child.id,source:checkpoint.captcha?'explicit_queue_captcha_manual_recheck':(checkpoint.in_flight?.stage || 'target_navigation')});
+       armRuntimeWatchdog();
+-      // A persisted owned blank tab is not a completed navigation. This read-only
+-      // dispatch may be retried after a crash without opening another child.
+-      if (!child.pendingUrl && (!child.url || child.url === 'about:blank')) {
+-        await prepareTrafficLiteForNavigation(child.id);
+-        await assertCurrentOperation(state);
+-        checkpoint.in_flight.stage = 'NAVIGATION_REQUESTED';
+-        await persistSequentialCheckpoint(state,checkpoint);
+-        child = await tabsUpdate(child.id,{url:summary.href,active:true});
+-      }
+       const captured = await readSequentialCardWithRecovery(state,child,summary.href,checkpoint);
+       if(captured?.deferred_recovery===true) {
+         const deferredState=await getState();
+@@ -3477,7 +3559,7 @@
+     maybeCreateRecoveryEndpoint,reserveRecoveryEndpoint,recoverAvitoIpBlockAndReload,recoverRuntimeOnWake,
+     completeAvitoTask,blockAvitoPageReady,stop,deliverReportToPinnedChat,returnAvitoRuntimeFailureToPinnedChat,recoverAvitoConnectionAndReload,resumePersistedConnectionRecovery,persistRateLimitBackoff,
+     networkEvidenceForTab,recordNetworkEvidence,handleFullText,queueAvitoTask,runSequentialCardBatch,runExplicitListingQueue,
+-    continuationSequentialCheckpoint,readSequentialCardWithRecovery,proxyUiRequest,sendAvito,
++    continuationSequentialCheckpoint,readSequentialCardWithRecovery,ensureSequentialOwnedTargetTab,adoptSequentialChild,ownedSequentialChildren,proxyUiRequest,sendAvito,
+     saveManualTrafficProfile,deleteProxyProfileLocally,setProxyDirect,syncProxyMarket,migrateLegacyProxyProfiles,
+     owner:()=>workerRecoveryOwner,
+     clearTimers:()=>{for(const t of sequentialGapTimers.values())clearTimeout(t);sequentialGapTimers.clear();for(const t of reportAckTimers.values())clearTimeout(t);reportAckTimers.clear();for(const t of startAckTimers.values())clearTimeout(t);startAckTimers.clear();for(const t of avitoReadyTimers.values())clearTimeout(t);for(const t of uiClickReconcileTimers.values())clearTimeout(t);}
+@@ -3486,7 +3568,7 @@
+   globalThis.__AF_TEST_EXPORTS.uiClickHandoff = { asyncResponseChannelClosed, pendingUiClickMatches, expectedNavigationPathMatches, pendingChildTabIds, isPendingUiClickChildTab, pendingUiClickNavigationMatches };
+   globalThis.__AF_TEST_EXPORTS.targetBinding = { ensureAvitoTarget, selectVisibleAvitoTab };
+   globalThis.__AF_TEST_EXPORTS.optionalLogin = { preflightRouteContext, matchesCommandNavigationIntent, isAssistantDirectedOptionalLoginDialogInspection, isAssistantDirectedOptionalLoginGenericClick, optionalLoginPreflightDisposition };
+-  globalThis.__AF_TEST_EXPORTS.readiness = { normalizedVisibleAvitoUrl, sameVisibleAvitoRoute, avitoNavigationCommitObserved, avitoReadyProbeAccepted, probeAvitoPageReadiness, sequentialCardUrlState, fixedAvitoReadyDomProbe, AVITO_IP_BLOCK_RELOAD_PROPERTIES };
++  globalThis.__AF_TEST_EXPORTS.readiness = { normalizedVisibleAvitoUrl, sameVisibleAvitoRoute, avitoNavigationCommitObserved, avitoReadyProbeAccepted, probeAvitoPageReadiness, sequentialCardUrlState, waitForSequentialCardReady, sequentialBlankUrl, sequentialTabExactTarget, sequentialTabBootstrapOnly, fixedAvitoReadyDomProbe, AVITO_IP_BLOCK_RELOAD_PROPERTIES };
+ }
+ const proxyAuthAttempts = new Map();
+ function proxyAuthAttemptKey(details) {
+--- v1.0.30/avito_content.js
++++ v1.0.31/avito_content.js
+@@ -1,8 +1,8 @@
+-/* Avito Finder v1.0.30 — versioned public-DOM adapter with rate-limit classification, direct-delivery proof and bounded cancellable reads. */
++/* Avito Finder v1.0.31 — versioned public-DOM adapter with rate-limit classification, direct-delivery proof and bounded cancellable reads. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+-  const ADAPTER_VERSION = "1.0.30";
++  const ADAPTER_VERSION = "1.0.31";
+   const previous = globalThis.__avitoFinderAvitoRuntime;
+   if (previous?.version === ADAPTER_VERSION && !previous.disposed) return;
+   previous?.dispose?.();
