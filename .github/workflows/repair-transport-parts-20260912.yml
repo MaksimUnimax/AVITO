@@ -1,0 +1,75 @@
+name: Repair exact transport staged parts
+on:
+  push:
+    paths:
+      - '.github/workflows/repair-transport-parts-20260912.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: avito-exact-publication
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Repair by expected hash only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          folder=Path('.github/avito-exact-archives-20260912')
+          spec=json.loads((folder/'MANIFEST.json').read_text())
+          rows=[]
+          for r in spec['parts']:
+              p=folder/r['path']
+              if not p.exists():
+                  rows.append({'path':r['path'],'status':'MISSING'});continue
+              b=p.read_bytes(); before=hashlib.sha256(b).hexdigest()
+              if before==r['sha256']:
+                  rows.append({'path':r['path'],'status':'PASS','sha256':before});continue
+              extra=len(b)-r['bytes']; repaired=None; cut=None
+              if 0<extra<=4000:
+                  for start in range(len(b)-extra+1):
+                      candidate=b[:start]+b[start+extra:]
+                      if hashlib.sha256(candidate).hexdigest()==r['sha256']:
+                          repaired=candidate;cut=[start,start+extra];break
+              if repaired is not None:
+                  blob=hashlib.sha1(b'blob '+str(len(repaired)).encode()+b'\0'+repaired).hexdigest()
+                  assert blob==r['git_blob_sha']
+                  p.write_bytes(repaired)
+                  rows.append({'path':r['path'],'status':'REPAIRED','before_bytes':len(b),'before_sha256':before,'removed_range':cut,'sha256':r['sha256'],'git_blob_sha':blob})
+              else:
+                  rows.append({'path':r['path'],'status':'CORRUPT_UNREPAIRED','bytes':len(b),'sha256':before})
+          report={'status':'PARTS_CHECKED_ARCHIVES_NOT_YET_PUBLISHED','rows':rows,'runtime_modified':False}
+          out=Path('подбор авито расширение/TRANSPORT_PART_REPAIR_2026-09-12.json')
+          out.write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report))
+          PY
+      - name: Persist verified repair and cursor evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add '.github/avito-exact-archives-20260912' 'подбор авито расширение/TRANSPORT_PART_REPAIR_2026-09-12.json'
+          if ! git diff --cached --quiet; then
+            git commit -m 'recovery: persist exact part repair evidence without runtime changes'
+            git push origin HEAD:main
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exact-transport-current-parts
+          path: |
+            .github/avito-exact-archives-20260912/
+            подбор авито расширение/TRANSPORT_PART_REPAIR_2026-09-12.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
