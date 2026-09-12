@@ -114,9 +114,16 @@
       "status": "PASS",
       "duration_seconds": 23.829,
       "deadline_seconds": 90
+    },
+    {
+      "name": "cycle_late_body_then_worker_restart_reconcile",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 34.857,
+      "deadline_seconds": 90
     }
   ],
-  "pass": 16,
+  "pass": 17,
   "fail": 0,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
