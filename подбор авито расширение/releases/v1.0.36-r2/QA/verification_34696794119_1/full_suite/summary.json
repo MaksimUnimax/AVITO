@@ -240,9 +240,16 @@
       "status": "PASS",
       "duration_seconds": 0.032,
       "deadline_seconds": 10
+    },
+    {
+      "name": "cycle_repeat_three_pages",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 22.826,
+      "deadline_seconds": 90
     }
   ],
-  "pass": 34,
+  "pass": 35,
   "fail": 0,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
