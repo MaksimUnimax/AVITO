@@ -23,9 +23,16 @@
       "status": "PASS",
       "duration_seconds": 4.179,
       "deadline_seconds": 45
+    },
+    {
+      "name": "chat",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 27.786,
+      "deadline_seconds": 60
     }
   ],
-  "pass": 3,
+  "pass": 4,
   "fail": 0,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
