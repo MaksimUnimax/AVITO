@@ -1,0 +1,120 @@
+name: Materialize Avito Finder v1.0.35 authority
+
+on:
+  push:
+    paths:
+      - '.github/avito-v135-upload/READY'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reassemble exact v1.0.35 ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/avito-v135-upload/part-*.txt > /tmp/v135.b64
+          base64 -d /tmp/v135.b64 > /tmp/AVITO_FINDER_v1.0.35_ASSISTANT_FORM_TERMINAL_GATE_2026-09-12.zip
+          echo '3a1de9f67af1554038193adb9bf6a63f0e7ca5ef7c26690236e2fd57a287abd3  /tmp/AVITO_FINDER_v1.0.35_ASSISTANT_FORM_TERMINAL_GATE_2026-09-12.zip' | sha256sum -c -
+
+      - name: Materialize current source and release authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v135-unpack
+          mkdir -p /tmp/v135-unpack
+          unzip -q /tmp/AVITO_FINDER_v1.0.35_ASSISTANT_FORM_TERMINAL_GATE_2026-09-12.zip -d /tmp/v135-unpack
+          ROOT=/tmp/v135-unpack/v135_work
+          test -f "$ROOT/manifest.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('/tmp/v135-unpack/v135_work/manifest.json')
+          d=json.loads(p.read_text(encoding='utf-8'))
+          assert d['manifest_version']==3
+          assert d['version']=='1.0.35'
+          assert d['version_name']=='1.0.35-assistant-form-terminal-gate'
+          assert d['minimum_chrome_version']=='120'
+          print('manifest PASS',d['version'],d['version_name'])
+          PY
+          grep -q 'const CONTENT_SCRIPT_VERSION = "0.6.18"' "$ROOT/chatgpt_content.js"
+          grep -q 'const CAPTURE_VERSION = "0.6.18"' "$ROOT/service_worker.js"
+          grep -q 'ASSISTANT_WRITING_BLOCK_REQUIRED' "$ROOT/service_worker.js"
+          TARGET='подбор авито расширение/extension_v1.0.35'
+          RELEASE='подбор авито расширение/releases/v1.0.35'
+          rm -rf "$TARGET" "$RELEASE"
+          mkdir -p "$TARGET" "$RELEASE"
+          cp -a "$ROOT"/. "$TARGET"/
+          cp /tmp/AVITO_FINDER_v1.0.35_ASSISTANT_FORM_TERMINAL_GATE_2026-09-12.zip "$RELEASE/AVITO_FINDER_v1.0.35_ASSISTANT_FORM_TERMINAL_GATE_2026-09-12.zip"
+          cp "$ROOT/PATCH_REPORT_v1.0.35_RU.md" "$RELEASE/PATCH_REPORT_v1.0.35_RU.md"
+          cp "$ROOT/QA_v1.0.35.json" "$RELEASE/QA_v1.0.35.json"
+          cp "$ROOT/SHA256SUMS.txt" "$RELEASE/SHA256SUMS.txt"
+          cat > "$RELEASE/RELEASE_AUTHORITY.md" <<'EOF'
+          # Avito Finder v1.0.35 — release authority
+
+          - Base exact owner-supplied ZIP v1.0.34 SHA-256: `27e2049522663bc3d2925c7bc847ad04304979e166e8428fafaaa91d37085f5d`
+          - Current ZIP SHA-256: `3a1de9f67af1554038193adb9bf6a63f0e7ca5ef7c26690236e2fd57a287abd3`
+          - Version: `1.0.35`
+          - Version name: `1.0.35-assistant-form-terminal-gate`
+          - ChatGPT capture protocol: `0.6.18`
+          - Status: local RED/GREEN + regression PASS; installed/live E2E still required.
+          EOF
+          cat > 'подбор авито расширение/АКТУАЛЬНАЯ_ВЕРСИЯ_РАСШИРЕНИЯ.md' <<'EOF'
+          # Актуальная версия расширения
+
+          Текущая версия: **Avito Finder v1.0.35 — ASSISTANT FORM TERMINAL GATE**.
+
+          Дата: 2026-09-12.
+
+          Installable ZIP:
+          `releases/v1.0.35/AVITO_FINDER_v1.0.35_ASSISTANT_FORM_TERMINAL_GATE_2026-09-12.zip`
+
+          SHA-256:
+          `3a1de9f67af1554038193adb9bf6a63f0e7ca5ef7c26690236e2fd57a287abd3`
+
+          Base exact owner-supplied v1.0.34 ZIP SHA-256:
+          `27e2049522663bc3d2925c7bc847ad04304979e166e8428fafaaa91d37085f5d`
+
+          Manifest:
+          - Manifest V3;
+          - version `1.0.35`;
+          - version_name `1.0.35-assistant-form-terminal-gate`;
+          - minimum Chrome `120`.
+
+          ChatGPT capture protocol: `0.6.18`.
+
+          Canonical unpacked source:
+          `extension_v1.0.35/`
+
+          Patch report:
+          `releases/v1.0.35/PATCH_REPORT_v1.0.35_RU.md`
+
+          QA status: local RED/GREEN and regression PASS; installed Chrome live E2E remains required before calling the release fully accepted.
+          EOF
+
+      - name: Verify final materialized build
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET='подбор авито расширение/extension_v1.0.35'
+          for f in core.js proxy_manager.js service_worker.js chatgpt_content.js avito_content.js popup.js recovery.js; do node --check "$TARGET/$f"; done
+          python3 "$TARGET/tests/v135_prompt_form_terminal_gate.test.py"
+          node --test "$TARGET"/tests/*.test.js
+
+      - name: Commit exact current authority and remove upload staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -rf .github/avito-v135-upload
+          git add -A '.github/avito-v135-upload' 'подбор авито расширение/extension_v1.0.35' 'подбор авито расширение/releases/v1.0.35' 'подбор авито расширение/АКТУАЛЬНАЯ_ВЕРСИЯ_РАСШИРЕНИЯ.md'
+          git commit -m 'release: publish exact Avito Finder v1.0.35 authority'
+          git push
