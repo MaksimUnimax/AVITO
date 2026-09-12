@@ -184,9 +184,16 @@
       "status": "PASS",
       "duration_seconds": 14.048,
       "deadline_seconds": 115
+    },
+    {
+      "name": "queue_stop_during_late_detail_response",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 8.635,
+      "deadline_seconds": 115
     }
   ],
-  "pass": 25,
+  "pass": 26,
   "fail": 1,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
