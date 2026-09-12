@@ -156,9 +156,16 @@
       "status": "PASS",
       "duration_seconds": 19.515,
       "deadline_seconds": 60
+    },
+    {
+      "name": "queue_six_details_two_batches",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 16.908,
+      "deadline_seconds": 115
     }
   ],
-  "pass": 22,
+  "pass": 23,
   "fail": 0,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
