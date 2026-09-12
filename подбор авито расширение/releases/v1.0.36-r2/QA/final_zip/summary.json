@@ -107,9 +107,16 @@
       "status": "PASS",
       "duration_seconds": 22.568,
       "deadline_seconds": 90
+    },
+    {
+      "name": "cycle_rate_limit_recovery_then_three_pages",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 23.571,
+      "deadline_seconds": 90
     }
   ],
-  "pass": 15,
+  "pass": 16,
   "fail": 0,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
