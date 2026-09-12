@@ -1,0 +1,13 @@
+{
+  "version": "1.0.37",
+  "revision": "R2",
+  "source_archive": "AVITO_FINDER_v1.0.37_FIRST_IPBLOCK_PROVIDER_ROTATION_R2_2026-09-12.zip",
+  "archive_sha256": "b9c1717fdca16d1a1f3e39681128e4556aaed27b4b83b7c2c7e55ba54b65ba75",
+  "scope": "FRESH_EXTRACT_FINAL_ZIP_FULL_RELEASE_QA_PROGRESS",
+  "complete": false,
+  "pass": 11,
+  "fail": 0,
+  "last_completed_group": "composer_26_29",
+  "installed_live_acceptance": "NOT_RUN",
+  "status": "QA_RUNNING_NOT_READY"
+}
