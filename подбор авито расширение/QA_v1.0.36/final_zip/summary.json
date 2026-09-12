@@ -247,10 +247,26 @@
       "status": "PASS",
       "duration_seconds": 22.768,
       "deadline_seconds": 90
+    },
+    {
+      "name": "installed_environment_probe",
+      "exit_code": 0,
+      "status": "PROBE_EXECUTED_NOT_ACCEPTANCE",
+      "duration_seconds": 6.982,
+      "deadline_seconds": 20
     }
   ],
   "pass": 34,
   "fail": 1,
   "live_provider_calls": 0,
-  "installed_live_acceptance": "NOT_RUN"
+  "installed_live_acceptance": "NOT_RUN",
+  "installed_environment_probe": {
+    "scope": "NORMAL_UNPACKED_MV3_INSTALL_PROBE",
+    "live_provider_calls": 0,
+    "policy_modified": false,
+    "browser": "Chromium 152.0.7977.0",
+    "relevant_managed_policy": {},
+    "service_worker_observed": false,
+    "status": "LOAD_NOT_OBSERVED"
+  }
 }
