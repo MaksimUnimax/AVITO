@@ -1,8 +1,8 @@
 {
   "status": "INCOMPLETE_DO_NOT_PUBLISH",
-  "verified_parts": 24,
+  "verified_parts": 25,
   "expected_parts": 26,
-  "first_unverified": "part-020.b64",
+  "first_unverified": "part-021.b64",
   "transport_sha256": "bf89642eb4120fbebd70b45432ea0c6939591f0eb25527f352ae32d1b7a8ba07",
   "rows": [
     {
@@ -167,10 +167,10 @@
     },
     {
       "path": "part-020.b64",
-      "status": "CORRUPT",
-      "actual_bytes": 16242,
-      "actual_sha256": "1f7a20ad23383134e5a1cfbc2588b1369c0cfa78863d9797b3b48cb8acffe50e",
-      "actual_git_blob_sha": "6e2863beab575281c1ec9d42b68e4efe8befbb01",
+      "status": "PASS",
+      "actual_bytes": 16000,
+      "actual_sha256": "3bf36c73644ccb557fd5f89924a82eb0173b2b2462651f394095748d65eacbb0",
+      "actual_git_blob_sha": "b359bf64fe87cecb9ef7f5b2c6cdd1c3d4434a73",
       "expected_sha256": "3bf36c73644ccb557fd5f89924a82eb0173b2b2462651f394095748d65eacbb0"
     },
     {
