@@ -1,7 +1,7 @@
 {
   "scope": "OFFLINE_PRODUCTION_RUNTIME_CHROMIUM_DOM_CHROME_API_DOUBLES",
   "version": "1.0.36",
-  "complete": false,
+  "complete": true,
   "results": [
     {
       "name": "adapter_identity",

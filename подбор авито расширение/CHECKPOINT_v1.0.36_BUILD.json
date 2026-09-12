@@ -1,9 +1,9 @@
 {
   "version": "1.0.36",
-  "status": "SOURCE_AND_ZIP_SAVED_FULL_ZIP_QA_PENDING",
-  "runtime_changed": [
-    "manifest.json",
-    "avito_content.js"
-  ],
-  "live_acceptance": "NOT_RUN"
+  "status": "NOT_READY_QA_INCOMPLETE_OR_FAILED",
+  "qa_complete": true,
+  "groups_pass": 34,
+  "groups_fail": 1,
+  "installed_live_acceptance": "NOT_RUN",
+  "next": "inspect persisted FAIL; never label as ready"
 }
