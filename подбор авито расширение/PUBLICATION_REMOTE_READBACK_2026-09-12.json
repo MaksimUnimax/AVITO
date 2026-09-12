@@ -1,0 +1,22 @@
+{
+  "scope": "FRESH_GITHUB_CHECKOUT_EXACT_BYTES",
+  "commit": "8411c30622e719bbf988b22d4cb1a1a3bcac254f",
+  "results": [
+    {
+      "archive": "AVITO_FINDER_v1.0.34_WRITING_BLOCK_BODY_STABILITY_2026-09-12.zip",
+      "sha256": "27e2049522663bc3d2925c7bc847ad04304979e166e8428fafaaa91d37085f5d",
+      "bytes": 495534,
+      "source_files_byte_equal": 131,
+      "status": "PASS"
+    },
+    {
+      "archive": "AVITO_FINDER_v1.0.35_ASSISTANT_FORM_TERMINAL_GATE_2026-09-12.zip",
+      "sha256": "3a1de9f67af1554038193adb9bf6a63f0e7ca5ef7c26690236e2fd57a287abd3",
+      "bytes": 511868,
+      "source_files_byte_equal": 136,
+      "status": "PASS"
+    }
+  ],
+  "runtime_acceptance": "V135_REJECTED",
+  "live_acceptance": "NOT_RUN"
+}
