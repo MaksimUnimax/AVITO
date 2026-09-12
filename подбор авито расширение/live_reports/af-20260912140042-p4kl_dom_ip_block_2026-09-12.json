@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-12",
+  "task_id": "af-20260912140042-p4kl",
+  "source": "Finder diagnostic DOM snapshot supplied by owner in chat",
+  "page_url": "https://www.avito.ru/yuzhno-sahalinsk/nastolnye_kompyutery/dell_vostro_3470_4750223208#block",
+  "scope": "PAGE_MAIN_VISIBLE",
+  "finder_status": "AVITO_IP_BLOCK",
+  "root": "body via body_visible_fallback",
+  "snapshot_fingerprint": "3568:8a657f63",
+  "visible_heading": "Доступ ограничен: проблема с IP",
+  "visible_guidance": [
+    "Отключить VPN.",
+    "Включить и выключить режим «В самолёте».",
+    "Подключиться к другой сети.",
+    "Перезагрузить роутер."
+  ],
+  "listing_content_available": false,
+  "captcha_visible": false,
+  "ip_block_visible": true,
+  "controls": ["в поддержку", "yandex.ru/internet"],
+  "hidden_api_used": false,
+  "fields_or_filters_used": false,
+  "seller_messages_used": false,
+  "interpretation": "The current visible Avito document is an explicit provider IP-block surface. It is not a CAPTCHA surface in this snapshot. This does not independently prove whether Chrome is currently routing through Proxy.Market or which external IP was used.",
+  "search_effect": {
+    "cards_read_in_current_top_revalidation": 0,
+    "baseline_150_reset": false,
+    "top_revalidated": false,
+    "next_action": "Issue the same saved TOP_REVALIDATE_PRE executable AVITO_UI queue command. Because the preceding diagnostic command is valid and read-only, the next executable command clears the prior manual CAPTCHA gate; the existing equivalent-route IP block should enter the dedicated bounded IP-block recovery path. Preserve any new live report."
+  }
+}
