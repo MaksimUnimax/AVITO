@@ -1,0 +1,35 @@
+{
+  "scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+  "installed_extension": false,
+  "live_chatgpt": false,
+  "tests": [
+    {
+      "test": "Send control appearing after old fixed 2s window is discovered without operator click",
+      "status": "PASS",
+      "ms": 3735
+    },
+    {
+      "test": "STOP fences later rich-editor Send",
+      "status": "PASS",
+      "ms": 2149
+    },
+    {
+      "test": "route change before Send blocks different conversation",
+      "status": "PASS",
+      "ms": 2139
+    },
+    {
+      "test": "ownership attributes cannot substitute equality or authorize draft overwrite",
+      "status": "PASS",
+      "ms": 143
+    },
+    {
+      "test": "exact preexisting p-block report can be delivered without rewriting",
+      "status": "PASS",
+      "ms": 154
+    }
+  ],
+  "pass": 5,
+  "fail": 0,
+  "page_errors": []
+}
