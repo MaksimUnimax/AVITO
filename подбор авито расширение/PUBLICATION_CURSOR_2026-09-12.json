@@ -1,8 +1,8 @@
 {
-  "status": "INCOMPLETE_DO_NOT_PUBLISH",
-  "verified_parts": 25,
+  "status": "ALL_PARTS_VERIFIED_PENDING_MATERIALIZATION",
+  "verified_parts": 26,
   "expected_parts": 26,
-  "first_unverified": "part-021.b64",
+  "first_unverified": null,
   "transport_sha256": "bf89642eb4120fbebd70b45432ea0c6939591f0eb25527f352ae32d1b7a8ba07",
   "rows": [
     {
@@ -175,10 +175,10 @@
     },
     {
       "path": "part-021.b64",
-      "status": "CORRUPT",
-      "actual_bytes": 18744,
-      "actual_sha256": "31e412b7a0ab97f19126fc4276c9f911e0cc60307d2dba14d601d8940912a037",
-      "actual_git_blob_sha": "a0e6b4ec25317f9b9d97f9402ffb7947f9596ec8",
+      "status": "PASS",
+      "actual_bytes": 16000,
+      "actual_sha256": "f9f4b3abd76cb010041727d6a9373d38444e0bf496067665b0bce146186cad1c",
+      "actual_git_blob_sha": "7d0f675819a6442b36742b5f08a567baed236bce",
       "expected_sha256": "f9f4b3abd76cb010041727d6a9373d38444e0bf496067665b0bce146186cad1c"
     },
     {
