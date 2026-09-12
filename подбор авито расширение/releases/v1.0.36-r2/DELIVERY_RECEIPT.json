@@ -1,0 +1,51 @@
+{
+  "scope": "ASSISTANT_DOWNLOAD_AND_BYTE_READBACK_AFTER_CI",
+  "date": "2026-09-12",
+  "version": "1.0.36",
+  "revision": "R2",
+  "workflow_run": 34696794119,
+  "ci_verified_commit": "e132cb0159e127d65bd8c5b660053cacd2712daf",
+  "archive": "AVITO_FINDER_v1.0.36_PACKAGED_ADAPTER_CONSISTENCY_R2_2026-09-12.zip",
+  "sha256": "c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c",
+  "git_blob_sha": "917f51b90c57c729b29c10475c27dd984847eacd",
+  "bytes": 481259,
+  "source_files_byte_equal": 141,
+  "full_regression_groups_pass": 35,
+  "full_regression_groups_fail": 0,
+  "popup_repeat_results": [
+    {
+      "repeat": 1,
+      "cases_pass": 31,
+      "cases_fail": 0
+    },
+    {
+      "repeat": 2,
+      "cases_pass": 31,
+      "cases_fail": 0
+    },
+    {
+      "repeat": 3,
+      "cases_pass": 31,
+      "cases_fail": 0
+    }
+  ],
+  "format_recovery": {
+    "status": "PASS",
+    "format_reports": 1,
+    "collection_reports": 2,
+    "actual_ui_dispatches": 2,
+    "ui_dispatch_before_format_report": false,
+    "final_state": "WAITING_FOR_NEXT_ASSISTANT_FORM"
+  },
+  "runtime_changed_from_v135": [
+    "manifest.json",
+    "avito_content.js"
+  ],
+  "runtime_changed_from_R1": [],
+  "archive_modified_in_finalization": false,
+  "prior_ci_failure_preserved": true,
+  "prior_popup_timeout_root_cause": "NOT_ESTABLISHED",
+  "status": "OFFLINE_QA_PASS_AND_REMOTE_BYTES_VERIFIED",
+  "installed_user_chrome_acceptance": "NOT_RUN",
+  "live_provider_calls": 0
+}
