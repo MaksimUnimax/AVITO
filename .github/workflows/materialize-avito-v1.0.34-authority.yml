@@ -1,0 +1,116 @@
+name: Materialize Avito Finder v1.0.34 authority
+
+on:
+  push:
+    paths:
+      - '.github/avito-v134-upload/READY'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reassemble exact supplied ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/avito-v134-upload/part-*.txt > /tmp/v134.b64
+          base64 -d /tmp/v134.b64 > /tmp/AVITO_FINDER_v1.0.34_WRITING_BLOCK_BODY_STABILITY_2026-09-12.zip
+          echo '27e2049522663bc3d2925c7bc847ad04304979e166e8428fafaaa91d37085f5d  /tmp/AVITO_FINDER_v1.0.34_WRITING_BLOCK_BODY_STABILITY_2026-09-12.zip' | sha256sum -c -
+
+      - name: Materialize exact release authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v134-unpack
+          mkdir -p /tmp/v134-unpack
+          unzip -q /tmp/AVITO_FINDER_v1.0.34_WRITING_BLOCK_BODY_STABILITY_2026-09-12.zip -d /tmp/v134-unpack
+          ROOT=/tmp/v134-unpack/v134_work
+          test -f "$ROOT/manifest.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('/tmp/v134-unpack/v134_work/manifest.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          assert data['manifest_version'] == 3
+          assert data['version'] == '1.0.34'
+          assert data['version_name'] == '1.0.34-writing-block-body-stability'
+          assert data['minimum_chrome_version'] == '120'
+          print('manifest PASS', data['version'], data['version_name'])
+          PY
+          grep -q 'const CONTENT_SCRIPT_VERSION = "0.6.17"' "$ROOT/chatgpt_content.js"
+          grep -q '128/128 PASS' "$ROOT/README.md"
+          TARGET='подбор авито расширение/extension_v1.0.34'
+          RELEASE='подбор авито расширение/releases/v1.0.34'
+          rm -rf "$TARGET" "$RELEASE"
+          mkdir -p "$TARGET" "$RELEASE"
+          cp -a "$ROOT"/. "$TARGET"/
+          cp /tmp/AVITO_FINDER_v1.0.34_WRITING_BLOCK_BODY_STABILITY_2026-09-12.zip "$RELEASE/AVITO_FINDER_v1.0.34_WRITING_BLOCK_BODY_STABILITY_2026-09-12.zip"
+          cp "$ROOT/README.md" "$RELEASE/README.md"
+          cp "$ROOT/SHA256SUMS.txt" "$RELEASE/SHA256SUMS.txt"
+          cat > "$RELEASE/RELEASE_AUTHORITY.md" <<'EOF'
+          # Avito Finder v1.0.34 — release authority
+
+          Source: exact owner-supplied ZIP received 2026-09-12.
+
+          - Version: `1.0.34`
+          - Version name: `1.0.34-writing-block-body-stability`
+          - ChatGPT content adapter: `0.6.17`
+          - ZIP SHA-256: `27e2049522663bc3d2925c7bc847ad04304979e166e8428fafaaa91d37085f5d`
+          - Status: exact source/artifact authority restored to GitHub.
+          - Live acceptance: still requires installed Chrome E2E after any new patch.
+          EOF
+          cat > 'подбор авито расширение/АКТУАЛЬНАЯ_ВЕРСИЯ_РАСШИРЕНИЯ.md' <<'EOF'
+          # Актуальная версия расширения
+
+          Текущая exact-source authority: **Avito Finder v1.0.34 — WRITING BLOCK BODY STABILITY**.
+
+          Дата: 2026-09-12.
+
+          Exact owner-supplied installable ZIP:
+          `releases/v1.0.34/AVITO_FINDER_v1.0.34_WRITING_BLOCK_BODY_STABILITY_2026-09-12.zip`
+
+          SHA-256:
+          `27e2049522663bc3d2925c7bc847ad04304979e166e8428fafaaa91d37085f5d`
+
+          Manifest:
+          - Manifest V3;
+          - version `1.0.34`;
+          - version_name `1.0.34-writing-block-body-stability`;
+          - minimum Chrome `120`.
+
+          ChatGPT capture adapter: `0.6.17`.
+
+          Canonical unpacked source:
+          `extension_v1.0.34/`
+
+          Release boundary: this restores repository authority to the exact supplied v1.0.34 build. Any later patch must start from this exact source and obey `PATCH_ENGINEERING_RULES.md`.
+          EOF
+
+      - name: Verify exact materialized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET='подбор авито расширение/extension_v1.0.34'
+          for f in core.js proxy_manager.js service_worker.js chatgpt_content.js avito_content.js popup.js recovery.js; do node --check "$TARGET/$f"; done
+          sha256sum 'подбор авито расширение/releases/v1.0.34/AVITO_FINDER_v1.0.34_WRITING_BLOCK_BODY_STABILITY_2026-09-12.zip'
+
+      - name: Commit authority restoration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'подбор авито расширение/extension_v1.0.34' 'подбор авито расширение/releases/v1.0.34' 'подбор авито расширение/АКТУАЛЬНАЯ_ВЕРСИЯ_РАСШИРЕНИЯ.md'
+          if git diff --cached --quiet; then
+            echo 'Authority already materialized.'
+            exit 0
+          fi
+          git commit -m 'release: restore exact Avito Finder v1.0.34 authority'
+          git push
