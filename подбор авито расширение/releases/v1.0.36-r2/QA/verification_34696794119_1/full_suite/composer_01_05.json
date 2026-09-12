@@ -1,0 +1,35 @@
+{
+  "scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+  "installed_extension": false,
+  "live_chatgpt": false,
+  "tests": [
+    {
+      "test": "multiline textarea retains exact payload",
+      "status": "PASS",
+      "ms": 2208
+    },
+    {
+      "test": "multiline contenteditable preserves lines through asynchronous model reparse; one Send",
+      "status": "PASS",
+      "ms": 2159
+    },
+    {
+      "test": "same report after editor converts paragraphs to div",
+      "status": "PASS",
+      "ms": 2151
+    },
+    {
+      "test": "same report after editor converts paragraphs to br",
+      "status": "PASS",
+      "ms": 2145
+    },
+    {
+      "test": "120-row rich-editor report exceeds failed live size without truncation",
+      "status": "PASS",
+      "ms": 2182
+    }
+  ],
+  "pass": 5,
+  "fail": 0,
+  "page_errors": []
+}
