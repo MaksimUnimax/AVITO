@@ -1,0 +1,12 @@
+{
+  "scope": "PUBLISHED_R2_ARCHIVE_FRESH_EXTRACTION",
+  "archive_sha256": "c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c",
+  "bytes": 481259,
+  "source_files_byte_equal": 141,
+  "status": "PASS",
+  "runtime_modified": false,
+  "original_ci_run": 34695322848,
+  "original_ci_result": "34_PASS_1_POPUP_TIMEOUT_FAIL",
+  "old_results_preserved": true,
+  "installed_live_acceptance": "NOT_RUN"
+}
