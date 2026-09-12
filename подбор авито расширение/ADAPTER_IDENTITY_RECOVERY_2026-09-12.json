@@ -1,0 +1,23 @@
+{
+  "scope":"OFFLINE_PRODUCTION_ADAPTER_PING_VS_EXACT_MANIFEST",
+  "date":"2026-09-12",
+  "description":"Fresh recovery-session replay of the previously persisted tools/check_adapter_identity.py test logic against both exact mounted archives. Real core.js and avito_content.js run in offline Chromium; Chrome messaging is a test double. No installed/live acceptance is claimed.",
+  "cases":[
+    {"archive_sha256":"27e2049522663bc3d2925c7bc847ad04304979e166e8428fafaaa91d37085f5d","manifest_version":"1.0.34","actual_adapter_ping":{"ok":true,"version":"1.0.34","busy":false},"exit_code":0,"status":"PASS"},
+    {"archive_sha256":"3a1de9f67af1554038193adb9bf6a63f0e7ca5ef7c26690236e2fd57a287abd3","manifest_version":"1.0.35","actual_adapter_ping":{"ok":true,"version":"1.0.34","busy":false},"exit_code":1,"status":"FAIL","code":"AVITO_ADAPTER_VERSION_MISMATCH_RELOAD_REQUIRED"}
+  ],
+  "avito_content_sha256_both_archives":"6bca275747e08f7e7508111342e0c33bf240762a23d608c89cb4f9f09f946d8f",
+  "source_crosscheck":{
+    "avito_content.js:5":"ADAPTER_VERSION = 1.0.34",
+    "avito_content.js:1716":"AF_AVITO_PING reports ADAPTER_VERSION",
+    "service_worker.js:1787-1791":"Worker requires ping.version to equal chrome.runtime.getManifest().version",
+    "tests/helpers/worker_vm.cjs:36":"Unit double returns manifest.version instead of executing the production adapter PING"
+  },
+  "prior_full_aggregate_report":"QA_v1.0.35_RECHECK_2026-09-12.json",
+  "prior_full_aggregate_group_pass":9,
+  "prior_full_aggregate_group_fail":15,
+  "full_aggregate_rerun_in_this_recovery":false,
+  "runtime_sources_modified":false,
+  "live_provider_calls":0,
+  "installed_live_acceptance":"NOT_RUN"
+}

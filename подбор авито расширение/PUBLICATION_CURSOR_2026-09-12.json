@@ -1,0 +1,42 @@
+{
+  "schema": "avito_archive_publication_cursor_v1",
+  "date": "2026-09-12",
+  "observed_main_commit": "c1babd1d055a7b29de741082b1b98f350f9d1006",
+  "observed_main_tree": "89ee47c2e27c90b0980049a3240582a2ba7afc82",
+  "status": "PARTIAL_TRANSPORT_PERSISTED_ARCHIVES_NOT_MATERIALIZED",
+  "runtime_release_status": "V135_REJECTED_RUNTIME_VERSION_CONTRACT",
+  "transport": {
+    "path": ".github/avito-exact-archives-20260912",
+    "expected_bytes_from_prior_checkpoint": 300976,
+    "expected_sha256_from_prior_checkpoint": "bf89642eb4120fbebd70b45432ea0c6939591f0eb25527f352ae32d1b7a8ba07",
+    "expected_part_count": 26,
+    "observed_part_count": 11,
+    "observed_encoded_bytes": 161304,
+    "first_missing_part": "part-010.b64",
+    "missing_part_indices": [10,11,12,13,14,15,16,17,18,19,20,21,22,23,24],
+    "observed_parts": [
+      {"path":"part-000.b64","bytes":16000,"git_blob_sha":"8a6a94fc8793c8469a002c58d87b1e27d1ce0a18"},
+      {"path":"part-001.b64","bytes":16000,"git_blob_sha":"86d92cf38e344d9a5bd652f1565b3e20ef7474d9"},
+      {"path":"part-002.b64","bytes":16000,"git_blob_sha":"6e4e67285e16df962ef018ef3d99ccc156183da5"},
+      {"path":"part-003.b64","bytes":16000,"git_blob_sha":"f1fc72eb453a1f59ca0d6ec677894e3fa24067a5"},
+      {"path":"part-004.b64","bytes":16000,"git_blob_sha":"b3a0302413570f2d087341a6421d641d6ce2c534"},
+      {"path":"part-005.b64","bytes":16000,"git_blob_sha":"7375f289cd0f1cd2853c0d13add4bcd9e830ad44"},
+      {"path":"part-006.b64","bytes":16000,"git_blob_sha":"cde08917cb2d3874484d4164281eec7d54698bd8"},
+      {"path":"part-007.b64","bytes":16000,"git_blob_sha":"89f1cd872e7d59a0a32c8b3f8e9e6d58b193eac8"},
+      {"path":"part-008.b64","bytes":16000,"git_blob_sha":"7c83271b8fe4a020c53cd6b251328b813e75c984"},
+      {"path":"part-009.b64","bytes":16000,"git_blob_sha":"fb6e38d65cbb1b994d73cb6f3050bb7e131d9dfa"},
+      {"path":"part-025.b64","bytes":1304,"git_blob_sha":"a1cfcc15b89ef9b3499bd578dd0ad6ab6550c75a"}
+    ],
+    "verification_scope": "Committed tree path, byte size and Git blob identity. Complete transport hash not verified; 15 parts are missing.",
+    "complete_transport_available_in_current_runtime": false,
+    "resume_gate": "Recover the same transport and verify its SHA-256 and all existing part identities before uploading missing parts. Never append chunks from a newly generated different stream to this prefix. Do not overwrite existing parts without an explicitly verified correction."
+  },
+  "exact_archives": [
+    {"version":"1.0.34","name":"AVITO_FINDER_v1.0.34_WRITING_BLOCK_BODY_STABILITY_2026-09-12(1).zip","bytes":495534,"sha256":"27e2049522663bc3d2925c7bc847ad04304979e166e8428fafaaa91d37085f5d","git_blob_sha":"1cd90103fda6bb7991da6f34edc015e3dce2268a","files":131,"local_crc":"PASS","remote_materialized":false},
+    {"version":"1.0.35","name":"AVITO_FINDER_v1.0.35_ASSISTANT_FORM_TERMINAL_GATE_2026-09-12.zip","bytes":511868,"sha256":"3a1de9f67af1554038193adb9bf6a63f0e7ca5ef7c26690236e2fd57a287abd3","git_blob_sha":"edd26154c89bc4731224d9b2a0b1ba17d8ea621e","files":136,"local_crc":"PASS","remote_materialized":false,"acceptance":"REJECTED"}
+  ],
+  "runtime_sources_modified_in_this_recovery": false,
+  "new_parts_uploaded_in_this_recovery": 0,
+  "installed_live_acceptance": "NOT_RUN",
+  "live_provider_calls": 0
+}
