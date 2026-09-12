@@ -135,10 +135,17 @@
       "status": "PASS",
       "duration_seconds": 3.526,
       "deadline_seconds": 30
+    },
+    {
+      "name": "popup_lifecycle",
+      "status": "FAIL",
+      "error": "test_deadline_exceeded",
+      "duration_seconds": 30.002,
+      "deadline_seconds": 30
     }
   ],
   "pass": 19,
-  "fail": 0,
+  "fail": 1,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
 }
