@@ -1,0 +1,25 @@
+{
+  "date":"2026-09-12",
+  "task_id":"af-20260912140042-p4kl",
+  "evidence_source":"Finder report supplied by owner after retrying the same TOP_REVALIDATE_PRE queue from a page independently diagnosed by Finder as AVITO_IP_BLOCK",
+  "reported_stage":"AVITO_NAVIGATION",
+  "reported_reason":"CAPTCHA_MANUAL_REQUIRED",
+  "reported_automatic_recovery_attempts":3,
+  "reported_mutation_replay":"FORBIDDEN",
+  "reported_queue_cursor_text":"не используется",
+  "reported_cards_read":0,
+  "reported_extension_version":"1.0.36",
+  "reported_ip_change":"NOT_CLAIMED_WITHOUT_SEPARATE_EVIDENCE",
+  "same_chat_delivery":true,
+  "prior_live_dom_evidence":{
+    "status":"AVITO_IP_BLOCK",
+    "page_url":"https://www.avito.ru/yuzhno-sahalinsk/nastolnye_kompyutery/dell_vostro_3470_4750223208#block",
+    "visible_h1":"Доступ ограничен: проблема с IP",
+    "captcha_controls_observed":false,
+    "source_file":"live_reports/af-20260912140042-p4kl_dom_ip_block_2026-09-12.json"
+  },
+  "interpretation":"LIVE_FAIL_REQUIRES_FRESH_POST_RECOVERY_PAGE_CLASSIFICATION. The report alone does not prove the final recovered document was misclassified: the recovery attempts may have produced a real CAPTCHA after the earlier IP-block page. Do not patch classification until the post-recovery visible DOM is captured. Do not claim proxy IP changed without measured evidence.",
+  "runtime_patch_created":false,
+  "baseline_modified":false,
+  "next":"Read-only DIAGNOSE_DOM of the current Avito tab after the three recovery attempts. If the current visible document is still the explicit IP-block page while the report says CAPTCHA_MANUAL_REQUIRED, treat as classification/state-machine defect and build RED regression. If it is a real CAPTCHA, preserve the manual boundary and continue proxy-route diagnosis instead of weakening CAPTCHA safety."
+}
