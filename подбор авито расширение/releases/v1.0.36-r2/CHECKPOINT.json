@@ -1,0 +1,7 @@
+{
+  "version": "1.0.36",
+  "revision": "R2",
+  "status": "EXACT_ZIP_PERSISTED_QA_PENDING",
+  "runtime_changes_from_R1": [],
+  "installed_live_acceptance": "NOT_RUN"
+}

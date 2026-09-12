@@ -1,0 +1,270 @@
+--- /mnt/data/v132_work/manifest.json	2026-09-12 03:01:46.932458707 +0000
++++ manifest.json	2026-09-12 04:05:17.487456012 +0000
+@@ -2,8 +2,8 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "1.0.32",
+-  "version_name": "1.0.32-manual-report-send-reconciliation",
++  "version": "1.0.33",
++  "version_name": "1.0.33-captcha-command-gate",
+   "description": "Avito Finder: bounded, cancellable visible-UI execution, same-chat reports, verified proxy configuration and fresh-document recovery; manual CAPTCHA.",
+   "minimum_chrome_version": "120",
+   "permissions": [
+--- /mnt/data/v132_work/core.js	2026-09-12 03:16:15.815678377 +0000
++++ core.js	2026-09-12 04:11:42.075037159 +0000
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.32 — assistant-directed visible-UI executor with unified bounded connection recovery and evidence-preserving reports. */
++/* Avito Finder v1.0.33 — assistant-directed visible-UI executor with unified bounded connection recovery and evidence-preserving reports. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+   const STORAGE = Object.freeze({
+--- /mnt/data/v132_work/recovery.js	2026-09-12 03:16:15.814237562 +0000
++++ recovery.js	2026-09-12 04:11:42.087037365 +0000
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.32 — shared recovery policy, persisted rate-limit backoff and bounded async primitives.
++/* Avito Finder v1.0.33 — shared recovery policy, persisted rate-limit backoff and bounded async primitives.
+  * No Avito APIs, selectors, product scoring or network side effects live here.
+  */
+ (function(root, factory) {
+@@ -7,7 +7,7 @@
+   root.AvitoFinderRecovery = api;
+ })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
+   'use strict';
+-  const VERSION = '1.0.32';
++  const VERSION = '1.0.33';
+   const MAX_ATTEMPTS = 4;
+   const RECOVERY_BUDGET_MS = 90000;
+   const RATE_LIMIT_RECOVERY_BUDGET_MS = 120000;
+--- /mnt/data/v132_work/proxy_manager.js	2026-09-12 03:16:15.816033253 +0000
++++ proxy_manager.js	2026-09-12 04:11:42.079533325 +0000
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.32 — Proxy.Market adapter for bounded unified connection recovery; egress probes are diagnostic, fresh Avito DOM is authoritative. */
++/* Avito Finder v1.0.33 — Proxy.Market adapter for bounded unified connection recovery; egress probes are diagnostic, fresh Avito DOM is authoritative. */
+ "use strict";
+ (function(root, factory) {
+   const api = factory();
+--- /mnt/data/v132_work/service_worker.js	2026-09-12 03:16:15.821019571 +0000
++++ service_worker.js	2026-09-12 04:18:58.344684692 +0000
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.32 — unified connection recovery with persisted rate-limit cooldown, operation fencing and fresh public-document verification. */
++/* Avito Finder v1.0.33 — unified connection recovery with persisted rate-limit cooldown, operation fencing and fresh public-document verification. */
+ "use strict";
+ importScripts("core.js", "proxy_manager.js", "recovery.js");
+ const Recovery = globalThis.AvitoFinderRecovery;
+@@ -18,7 +18,7 @@
+ const PROXY_DATA_SAVER_RESOURCE_TYPES = Object.freeze(["image", "media", "font", "object", "ping"]);
+ const PROXY_AUTH_MAX_ATTEMPTS_PER_REQUEST = 3;
+ const CAPTURE_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+-const CAPTURE_VERSION = "0.6.15";
++const CAPTURE_VERSION = "0.6.16";
+ const AVITO_READY_TIMEOUT_MS = 30000;
+ const AVITO_READY_POLL_MS = 750;
+ const AVITO_IP_BLOCK_AUTO_RECOVERY_MAX = 4;
+@@ -1069,6 +1069,24 @@
+     await proxyControlLane(()=>restoreInterruptedProxyTransaction());
+     let state=await getState();
+     if(state.status==='CANCELLED_BY_USER' || !state.search_id) return;
++    // v1.0.32 migration: a CAPTCHA failure could already have been reported and
++    // then followed by one or more validator reports before the manual gate had
++    // an explicit state field. Re-establish that gate read-only from the still
++    // visible Avito tab; never navigate, reload or read user message text here.
++    if (state.status === 'WAITING_FOR_NEXT_ASSISTANT_FORM' && !state.manual_gate_kind && Number.isInteger(state.avito_tab_id)) {
++      const captchaTab = await getTab(state.avito_tab_id);
++      if (captchaTab && captchaTab.windowId === state.current_window_id && Core.isAvitoUrl(captchaTab.url || '')) {
++        try {
++          const interruption = await probeVisibleAvitoInterruption(captchaTab);
++          if (interruption?.captcha === true) {
++            state = await saveState({ ...state, phase: 'CAPTCHA_MANUAL_WAIT', manual_gate_kind: 'CAPTCHA', blocked_reason: null });
++            await log('CAPTCHA_MANUAL_GATE_MIGRATED_FROM_VISIBLE_PAGE', { search_id: state.search_id, tab_id: captchaTab.id, user_text_read: false });
++          }
++        } catch (error) {
++          await log('CAPTCHA_MANUAL_GATE_MIGRATION_PROBE_FAILED', { search_id: state.search_id, tab_id: captchaTab.id, reason: Recovery.redactedError(error) });
++        }
++      }
++    }
+     if (state.status === 'START_DELIVERY_UNCERTAIN' && state.start_send_receipt && state.start_send_attempted !== false) {
+       if (state.start_ack_budget && (state.start_ack_budget.attempt >= START_ACK_MAX_RECHECKS || Date.now() >= state.start_ack_budget.deadline_at)) return;
+       return reconcileUncertainStart(state);
+@@ -2540,10 +2558,11 @@
+   // anchor, matching the Bridge dialogue cycle: report → next assistant form.
+   // Full collected payloads are transient and are deleted once delivery is confirmed.
+   await storageRemove([INSPECTION_KEY]);
++  const manualGateKind = reportKind === "avito_failure" && /CAPTCHA_MANUAL_REQUIRED/i.test(String(staged.blocked_reason || "")) ? "CAPTCHA" : null;
+   const waiting = await saveState({
+     ...staged,
+     status: "WAITING_FOR_NEXT_ASSISTANT_FORM",
+-    phase: "CHATGPT_CONTINUATION",
++    phase: manualGateKind === "CAPTCHA" ? "CAPTCHA_MANUAL_WAIT" : "CHATGPT_CONTINUATION",
+     anchor_turn_id: nextAnchorTurnId,
+     report: null,
+     report_kind: null,
+@@ -2553,6 +2572,7 @@
+     report_delivery_error_code: null,
+     report_send_receipt:null,
+     report_ack_budget:null,
++    manual_gate_kind: manualGateKind,
+     partial_collection_observations: [],
+     sequential_review: continuationSequentialCheckpoint(staged.sequential_review),
+     blocked_reason: null
+@@ -3408,6 +3428,27 @@
+     return { ok: true, data: { ignored: true, reason: "STALE_ANCHOR_CANDIDATE", debug: { expected_anchor_turn_id: state.anchor_turn_id, actual_anchor_turn_id: candidate.anchor_turn_id || null, anchor_matches: false } } };
+   }
+   if (!['WAITING_FOR_ASSISTANT_WRITING_BLOCK','WAITING_FOR_NEXT_ASSISTANT_FORM','PAUSED_CHAT_CONTEXT_CHANGED'].includes(state.status)) return {ok:true,data:{ignored:true,reason:'COMMAND_ALREADY_IN_FLIGHT'}};
++  if (candidate.manual_interruption === true && state.manual_gate_kind === "CAPTCHA") {
++    const nextAnchorTurnId = String(candidate.next_user_turn_id || "").trim();
++    if (!nextAnchorTurnId || nextAnchorTurnId.length > 200) {
++      return { ok: true, data: { ignored: true, reason: "CAPTCHA_MANUAL_TURN_ID_INVALID" } };
++    }
++    state = await saveState({
++      ...state,
++      status: "WAITING_FOR_NEXT_ASSISTANT_FORM",
++      phase: "CAPTCHA_MANUAL_WAIT",
++      anchor_turn_id: nextAnchorTurnId,
++      assistant_turn_id: null,
++      blocked_reason: null
++    });
++    await log("CAPTCHA_MANUAL_USER_TURN_REANCHORED", {
++      search_id: state.search_id,
++      anchor_turn_id: nextAnchorTurnId,
++      prior_anchor_turn_id: candidate.anchor_turn_id || null,
++      user_text_read: false
++    });
++    return { ok: true, data: { reanchored: true, continuation_anchor_turn_id: nextAnchorTurnId, reason: "CAPTCHA_MANUAL_GATE_REANCHORED" } };
++  }
+   const text = String(candidate.prompt_text || "");
+   const normalizedText = Core.normalizeText(text);
+   const claimedPayloadBytes = Number(candidate.payload_bytes || 0);
+@@ -3451,7 +3492,7 @@
+     const delivered = await deliverReportToPinnedChat(staged, report, "validation_error");
+     return { ok: true, data: { accepted: true, disposition: "continuation_started", continuation_anchor_turn_id: delivered.anchor_turn_id || null, validation_error_reported: delivered.status === "WAITING_FOR_NEXT_ASSISTANT_FORM", reason: "SEARCH_NOT_IMPLEMENTED" } };
+   }
+-  state = await saveState({ ...state, status: "COMMAND_CAPTURED", phase: "COMMAND_CAPTURED", command_mode: parsed.mode, diagnostic_request: parsed.diagnostic || null, ui_action_plan: parsed.ui_plan || null, blocked_reason: null });
++  state = await saveState({ ...state, status: "COMMAND_CAPTURED", phase: "COMMAND_CAPTURED", command_mode: parsed.mode, diagnostic_request: parsed.diagnostic || null, ui_action_plan: parsed.ui_plan || null, manual_gate_kind: null, blocked_reason: null });
+   queueAvitoTask(state, parsed).catch(async (error) => {
+     const reason = String(error?.message || error);
+     const latest = await getState();
+--- /mnt/data/v132_work/avito_content.js	2026-09-12 03:05:20.873541538 +0000
++++ avito_content.js	2026-09-12 04:10:58.525833784 +0000
+@@ -1,8 +1,8 @@
+-/* Avito Finder v1.0.32 — versioned public-DOM adapter with rate-limit classification, direct-delivery proof and bounded cancellable reads. */
++/* Avito Finder v1.0.33 — versioned public-DOM adapter with rate-limit classification, direct-delivery proof and bounded cancellable reads. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+-  const ADAPTER_VERSION = "1.0.32";
++  const ADAPTER_VERSION = "1.0.33";
+   const previous = globalThis.__avitoFinderAvitoRuntime;
+   if (previous?.version === ADAPTER_VERSION && !previous.disposed) return;
+   previous?.dispose?.();
+--- /mnt/data/v132_work/chatgpt_content.js	2026-09-12 03:09:06.365223905 +0000
++++ chatgpt_content.js	2026-09-12 04:05:17.487084260 +0000
+@@ -10,7 +10,7 @@
+   // runtime context. A version guard that simply returns would then prevent a
+   // fresh adapter from being injected into the same tab. New injection must
+   // supersede, dispose and replace the previous adapter instead.
+-  const CONTENT_SCRIPT_VERSION = "0.6.15";
++  const CONTENT_SCRIPT_VERSION = "0.6.16";
+   const CONTENT_SCRIPT_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+   const CONTENT_RUNTIME_KEY = "__AVITO_FINDER_BRIDGE_EXACT_CAPTURE_RUNTIME__";
+   const CONTENT_RUNTIME_ID = `${CONTENT_SCRIPT_VERSION}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+@@ -1067,7 +1067,11 @@
+   }
+ 
+   function legacyWritingBlockElement(section) {
+-    return section?.querySelector?.('[data-writing-block], [data-writing-block-id], #code-block-viewer') || null;
++    // Ordinary markdown/code blocks in current ChatGPT can use #code-block-viewer
++    // and expose a local Copy button. They are not Avito Finder command forms.
++    // Accept only explicit legacy Writing Block roots here; current Writing Blocks
++    // are handled by currentWritingBlockBinding() via their Edit + Copy toolbar.
++    return section?.querySelector?.('[data-writing-block], [data-writing-block-id]') || null;
+   }
+ 
+   function isCurrentWritingBlockEditButton(button) {
+@@ -2230,6 +2234,12 @@
+           candidate
+         );
+         const response = await request("AUTOMATION_PROMPT_CANDIDATE", { candidate });
++        if (response.data?.reanchored && response.data?.continuation_anchor_turn_id) {
++          const nextAnchor = String(response.data.continuation_anchor_turn_id);
++          recordDiagnostic("PROMPT_MANUAL_TURN_REANCHORED", { ...candidate, next_user_turn_id: nextAnchor });
++          startPromptPolling(activeRunId, activeConversationId, nextAnchor, null);
++          return;
++        }
+         if (response.data?.paused) {
+           if (candidate.manual_interruption) recordDiagnostic("PROMPT_MANUAL_TURN_ACCEPTED", candidate);
+           showStatus("Avito Finder: после сообщения extension появилось ручное user-сообщение. Автоматизация на паузе.", "warning");
+--- /mnt/data/v132_work/README.md	2026-09-12 04:02:23.901509678 +0000
++++ README.md	2026-09-12 04:23:54.903558087 +0000
+@@ -1,55 +1,25 @@
+-# Avito Finder v1.0.32 — Manual Report Send Reconciliation
++# Avito Finder v1.0.33 — CAPTCHA Command Gate
+ 
+-Дата: 2026-09-12
++v1.0.33 corrects two live defects found during the monitor search on 2026-09-12.
+ 
+-Эта сборка исправляет live-дефект, при котором Finder успешно собирал отчёт, вставлял его в нижний composer ChatGPT, не находил Send-кнопку, пользователь отправлял подготовленный отчёт вручную, а Finder продолжал считать старую delivery-транзакцию незавершённой и не принимал следующий Writing Block.
++1. Ordinary Markdown code blocks in an assistant answer were being accepted as executable Writing Blocks because the legacy detector treated `#code-block-viewer` as a command root. The two live validator fingerprints `62:30239b07` and `44:57003269` exactly match the two diagnostic code snippets emitted by the assistant while CAPTCHA was waiting. They were not commands.
++2. A manual user turn after a CAPTCHA report had no supported re-anchor path. v1.0.33 keeps the CAPTCHA gate, re-anchors to the manual user turn ID without reading its text, and then waits for the next real Writing Block.
+ 
+-## Live-причина
++The existing v1.0.32 state can migrate on extension wake: if the run is waiting for the next assistant form and the bound Avito tab is still visibly CAPTCHA, Finder restores `manual_gate_kind=CAPTCHA` read-only, without navigation/reload.
+ 
+-В v1.0.31 при `PRIMARY_COMPOSER_SEND_BUTTON_MISSING` сохранялось `report_send_attempted=false`. Worker затем сознательно исключал такие состояния из `recoverRuntimeOnWake()` и прекращал автоматические acknowledgement checks для proven pre-click report. Поэтому ручной Send уже staged отчёта не мог автоматически освободить report lifecycle.
++## Runtime rules
+ 
+-Также Send discovery был одноразовым после фиксированного ожидания 2 секунды. Если ChatGPT дорисовывал control позже, Finder преждевременно переходил в `REPORT_DELIVERY_BLOCKED`.
++- Markdown/code snippets are never commands merely because they have a Copy button.
++- Legacy executable form roots require explicit `data-writing-block` / `data-writing-block-id`.
++- Current executable Writing Blocks require the local Edit + Copy toolbar binding already used by the production ChatGPT UI.
++- CAPTCHA remains manual; Finder never solves or bypasses it.
++- The user's manual turn is used only as a turn ID for the CAPTCHA continuation gate. Its text is not read by the Worker.
++- Proxy, sequential detail navigation, report-delivery reconciliation, START receipts and safety restrictions are unchanged.
+ 
+-## Исправления v1.0.32
++## Upgrade
+ 
+-- ChatGPT adapter: `0.6.15`.
+-- Send control ищется bounded до 6 секунд с poll 100 ms, а не одной проверкой после фиксированных 2 секунд.
+-- Send discovery fenced по STOP и смене conversation identity.
+-- `REPORT_DELIVERY_BLOCKED`, `REPORT_DELIVERY_IN_PROGRESS`, `REPORT_DELIVERY_UNCERTAIN`, `REPORT_READY_IN_COMPOSER` с сохранённым отчётом проходят read-only reconciliation на wake независимо от `report_send_attempted`.
+-- Proven pre-click/staged report продолжает bounded read-only reconciliation. Если пользователь вручную отправил точный staged отчёт, Finder подтверждает новый user-turn и запускает poll следующего Writing Block.
+-- Автоматический reconciliation **никогда не повторяет Send**. Повтор pre-click Send по-прежнему разрешён только явной операции Continue, если отчёт всё ещё находится в composer и ещё не подтверждён как отправленный.
+-- Сохраняются все исправления v1.0.31: direct target child-tab navigation, proxy transport isolation, direct-delivery proof, durable queue/cursor, rate-limit recovery и message receipt lifecycle.
++Replace files in the same unpacked extension directory and Reload the existing extension. Do not remove the extension and do not clear storage.
+ 
+-## Текущий поиск пользователя
++After the update, with the current CAPTCHA still visible, type `капча решена` only after actually solving CAPTCHA. The next assistant Writing Block continues p2; p1 remains 30/30.
+ 
+-Поиск ПК не сброшен:
+-
+-- PC baseline: `150/150`;
+-- PC `TOP_REVALIDATE_POST`: COMPLETE.
+-
+-Текущая задача — монитор под Dell Vostro 3470:
+-
+-- canonical category route уже восстановлен;
+-- monitor p1: `30/30` собран;
+-- monitor p2: команда уже создана ассистентом, но v1.0.31 не забрала её из-за зависшей report-delivery транзакции;
+-- baseline мониторов целевой: `50` уникальных, сортировка `s=104` (сначала новые), бюджет анализа до 5 000 ₽.
+-
+-После установки v1.0.32 storage не очищать. При наличии в текущем ChatGPT DOM вручную отправленного p1-отчёта Finder должен reconcile его и перейти к следующему уже существующему Writing Block без повторной отправки отчёта.
+-
+-## Установка
+-
+-1. Не удалять расширение и не очищать storage.
+-2. Сделать резервную копию текущей папки.
+-3. Заменить файлы сборкой v1.0.32.
+-4. На `chrome://extensions` нажать Reload.
+-5. Обновить вкладки ChatGPT и Avito.
+-6. Проверить: extension `1.0.32`, ChatGPT adapter `0.6.15`.
+-
+-## Документация
+-
+-- `docs/AUDIT_v1.0.32_RU.md`
+-- `docs/TEST_REPORT_v1.0.32_RU.md`
+-- `docs/SOURCES_v1.0.32_RU.md`
+-- `docs/runtime-v131-to-v132.patch`
+-
+-Live installed-Chrome acceptance остаётся отдельным гейтом. Offline Chromium/VM тесты не выдаются за работу на текущем production DOM ChatGPT.
++See `docs/AUDIT_v1.0.33_RU.md` and `docs/TEST_REPORT_v1.0.33_RU.md`.
