@@ -8,6 +8,13 @@
       "status": "PASS",
       "seconds": 9.754,
       "deadline_seconds": 30
+    },
+    {
+      "repeat": 2,
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 9.452,
+      "deadline_seconds": 30
     }
   ],
   "status": "INCOMPLETE_OR_FAIL",
