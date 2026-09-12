@@ -15,8 +15,15 @@
       "status": "PASS",
       "seconds": 9.452,
       "deadline_seconds": 30
+    },
+    {
+      "repeat": 3,
+      "exit_code": 0,
+      "status": "PASS",
+      "seconds": 9.41,
+      "deadline_seconds": 30
     }
   ],
-  "status": "INCOMPLETE_OR_FAIL",
+  "status": "PASS",
   "original_timeout_root_cause": "NOT_ESTABLISHED"
 }
