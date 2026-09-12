@@ -219,9 +219,16 @@
       "status": "PASS",
       "duration_seconds": 0.064,
       "deadline_seconds": 20
+    },
+    {
+      "name": "payload_ownership_block03",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 0.114,
+      "deadline_seconds": 30
     }
   ],
-  "pass": 30,
+  "pass": 31,
   "fail": 1,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
