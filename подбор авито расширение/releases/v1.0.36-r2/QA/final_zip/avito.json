@@ -1,0 +1,95 @@
+{
+  "environment": {
+    "browser": "143.0.7499.4",
+    "extension_version": "1.0.36",
+    "scope": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+    "live_avito_requests": 0,
+    "live_proxy_market_requests": 0
+  },
+  "tests": [
+    {
+      "test": "manifest schema and version checked (installation not claimed)",
+      "status": "PASS",
+      "elapsed_ms": 0
+    },
+    {
+      "test": "whole-page diagnosis reads full body, not delivery button; hidden/input text excluded from HTML",
+      "status": "PASS",
+      "elapsed_ms": 169
+    },
+    {
+      "test": "semantic main root preferred to body",
+      "status": "PASS",
+      "elapsed_ms": 149
+    },
+    {
+      "test": "public configuration and direct-delivery button collected without clicking",
+      "status": "PASS",
+      "elapsed_ms": 144
+    },
+    {
+      "test": "exact visible interactive delivery control works even when Avito marker changed",
+      "status": "PASS",
+      "elapsed_ms": 137
+    },
+    {
+      "test": "disabled delivery control is not direct-delivery confirmation",
+      "status": "PASS",
+      "elapsed_ms": 136
+    },
+    {
+      "test": "seller icebreaker is not direct-delivery confirmation",
+      "status": "PASS",
+      "elapsed_ms": 134
+    },
+    {
+      "test": "delayed DOM renders are awaited; real order and listing IDs preserved",
+      "status": "PASS",
+      "elapsed_ms": 637
+    },
+    {
+      "test": "requested 35 visible-rendered records are not silently capped at 30",
+      "status": "PASS",
+      "elapsed_ms": 145
+    },
+    {
+      "test": "missing DOM is an explicit bounded error, not completed empty selection",
+      "status": "PASS",
+      "elapsed_ms": 430
+    },
+    {
+      "test": "explicit visible empty-result state is distinguished from unloaded page",
+      "status": "PASS",
+      "elapsed_ms": 134
+    },
+    {
+      "test": "visible IP-block propagates through normal-tempo collection",
+      "status": "PASS",
+      "elapsed_ms": 125
+    },
+    {
+      "test": "visible rate-limit page is classified separately from IP block and CAPTCHA",
+      "status": "PASS",
+      "elapsed_ms": 134
+    },
+    {
+      "test": "CAPTCHA remains manual; no collection or automatic solution",
+      "status": "PASS",
+      "elapsed_ms": 130
+    },
+    {
+      "test": "STOP cancels pending work before click and allows a fresh read command",
+      "status": "PASS",
+      "elapsed_ms": 339
+    },
+    {
+      "test": "reinjecting the same adapter does not duplicate message handlers",
+      "status": "PASS",
+      "elapsed_ms": 168
+    }
+  ],
+  "page_errors": [],
+  "request_count": 0,
+  "passed": 16,
+  "failed": 0
+}
