@@ -93,9 +93,16 @@
       "status": "PASS",
       "duration_seconds": 22.768,
       "deadline_seconds": 90
+    },
+    {
+      "name": "cycle_assistant_first_start_then_three_pages",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 22.92,
+      "deadline_seconds": 90
     }
   ],
-  "pass": 13,
+  "pass": 14,
   "fail": 0,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
