@@ -100,9 +100,16 @@
       "status": "PASS",
       "duration_seconds": 22.516,
       "deadline_seconds": 90
+    },
+    {
+      "name": "cycle_ip_block_recovery_then_three_pages",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 22.568,
+      "deadline_seconds": 90
     }
   ],
-  "pass": 14,
+  "pass": 15,
   "fail": 0,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
