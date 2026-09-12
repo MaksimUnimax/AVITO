@@ -1,0 +1,172 @@
+name: Build Avito v1.0.36 R2 final candidate
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/build-avito-v136-r2.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: avito-v136-build
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      checked_commit: ${{ steps.finish.outputs.commit }}
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare dependencies and verify persisted revision scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          echo '6706ad9550129f43ba0ea1efa30fc71ea159ced067ba218efb0a008ea9ce0866  tools/revise_avito_v136_qa_fixture.py' | sha256sum -c -
+          echo '0b5287b58c695b87c4b3c6bcbaa9601b8920da64b5eb199e691e8947ef4e81e4  tools/worker_fixture_disposal_v136.test.js' | sha256sum -c -
+          echo 'b8e22560fea9939d4504a2e9779a8e37ed0e0035a7c5e641502fc001dda66f73  tools/check_v136_format_recovery_cycle.py' | sha256sum -c -
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          echo "CHROMIUM=$BROWSER" >> "$GITHUB_ENV"
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+          echo "AF_BASE=$GITHUB_WORKSPACE/подбор авито расширение" >> "$GITHUB_ENV"
+          echo "AF_ROOT=$GITHUB_WORKSPACE/подбор авито расширение/releases/v1.0.36-r2" >> "$GITHUB_ENV"
+      - name: Build only from immutable R1 ZIP, prove cleanup RED and persist R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$AF_ROOT/QA"
+          BASE_TEMP=$(mktemp -d)
+          export BASE_TEMP
+          python - <<'PY'
+          import os,hashlib,zipfile
+          from pathlib import Path
+          p=Path(os.environ['AF_BASE'])/'AVITO_FINDER_v1.0.36_PACKAGED_ADAPTER_CONSISTENCY_2026-09-12.zip'
+          assert hashlib.sha256(p.read_bytes()).hexdigest()=='207fcb99afcf163efafb4987cecf945182fea720d90b744332ef2e8a97ae39e7'
+          with zipfile.ZipFile(p) as z:
+              assert z.testzip() is None
+              z.extractall(os.environ['BASE_TEMP'])
+          PY
+          set +e
+          AF_HELPER_ROOT="$BASE_TEMP/v136_work/tests" node --test tools/worker_fixture_disposal_v136.test.js > "$AF_ROOT/QA/red_disposal.tap" 2>&1
+          CODE=$?
+          set -e
+          test "$CODE" -eq 1
+          grep -q 'late work from a disposed VM must be fenced' "$AF_ROOT/QA/red_disposal.tap"
+          NEW_TEMP=$(mktemp -d)
+          python tools/revise_avito_v136_qa_fixture.py "$BASE_TEMP/v136_work" "$NEW_TEMP/v136_work"
+          if [ -d "$AF_ROOT/v136_work" ]; then diff -qr "$NEW_TEMP/v136_work" "$AF_ROOT/v136_work"; else cp -a "$NEW_TEMP/v136_work" "$AF_ROOT/v136_work"; fi
+          python tools/package_avito_v136.py "$AF_ROOT/v136_work" "$AF_ROOT/AVITO_FINDER_v1.0.36_PACKAGED_ADAPTER_CONSISTENCY_R2_2026-09-12.zip"
+          FINAL_ROOT=$(mktemp -d)
+          export FINAL_ROOT
+          python - <<'PY'
+          import os,json,hashlib,zipfile
+          from pathlib import Path
+          root=Path(os.environ['AF_ROOT']);p=root/'AVITO_FINDER_v1.0.36_PACKAGED_ADAPTER_CONSISTENCY_R2_2026-09-12.zip'
+          assert hashlib.sha256(p.read_bytes()).hexdigest()=='c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c'
+          with zipfile.ZipFile(p) as z:
+              assert z.testzip() is None
+              z.extractall(os.environ['FINAL_ROOT'])
+          (root/'CHECKPOINT.json').write_text(json.dumps({'version':'1.0.36','revision':'R2','status':'EXACT_ZIP_PERSISTED_QA_PENDING','runtime_changes_from_R1':[],'installed_live_acceptance':'NOT_RUN'},indent=2)+'\n')
+          PY
+          echo "FINAL_SOURCE=$FINAL_ROOT/v136_work" >> "$GITHUB_ENV"
+          git add -- "$AF_ROOT"
+          if ! git diff --cached --quiet; then git commit -m 'build: persist immutable v1.0.36 R2 ZIP and source before QA'; git push origin HEAD:main; fi
+      - name: Full regression from final R2 ZIP with a checkpoint after every group
+        env:
+          AF_QA_GIT_CHECKPOINT: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export AF_QA_OUTPUT="$AF_ROOT/QA/final_zip"
+          python -u "$FINAL_SOURCE/tests/run_all_v136.py"
+      - name: Complete wrong-format handoff through two following collection commands
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/check_v136_format_recovery_cycle.py "$FINAL_SOURCE" "$AF_ROOT/QA/format_recovery_cycle.json"
+      - name: Persist final status without hiding failures
+        id: finish
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${AF_ROOT:-}"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ['AF_ROOT']);q=root/'QA/final_zip/summary.json';e=root/'QA/format_recovery_cycle.json'
+          s=json.loads(q.read_text()) if q.exists() else {};extra=json.loads(e.read_text()) if e.exists() else {}
+          passed=s.get('complete') is True and s.get('fail')==0 and extra.get('status')=='PASS'
+          r={'version':'1.0.36','revision':'R2','status':'FULL_FINAL_ZIP_QA_PASS_LIVE_UNVERIFIED' if passed else 'NOT_READY_QA_FAILED_OR_INCOMPLETE','groups_pass':s.get('pass',0),'groups_fail':s.get('fail',0),'qa_complete':s.get('complete',False),'wrong_form_to_two_commands':extra.get('status','NOT_RUN'),'runtime_changes_from_R1':[],'installed_live_acceptance':'NOT_RUN','next':'independent remote readback then owner Chrome acceptance' if passed else 'inspect exact persisted failures'}
+          root.mkdir(parents=True,exist_ok=True);(root/'CHECKPOINT.json').write_text(json.dumps(r,indent=2)+'\n');print(json.dumps(r))
+          PY
+          git add -- "$AF_ROOT"
+          if ! git diff --cached --quiet; then git commit -m 'checkpoint: record complete R2 ZIP QA and format-recovery handoff'; git push origin HEAD:main; fi
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: avito-v136-r2-build-qa
+          path: подбор авито расширение/releases/v1.0.36-r2/
+          if-no-files-found: error
+  remote-readback:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.checked_commit }}
+          fetch-depth: 0
+      - name: Verify exact final archive and all source bytes in independent checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,subprocess,zipfile
+          from pathlib import Path
+          base=Path('подбор авито расширение');root=base/'releases/v1.0.36-r2';m=json.loads((root/'BUILD_v1.0.36.json').read_text())
+          q=json.loads((root/'QA/final_zip/summary.json').read_text());assert q['complete'] and q['fail']==0
+          extra=json.loads((root/'QA/format_recovery_cycle.json').read_text());assert extra['status']=='PASS'
+          data=(root/m['archive']).read_bytes();assert hashlib.sha256(data).hexdigest()==m['archive_sha256'] and len(data)==m['archive_bytes']
+          with zipfile.ZipFile(root/m['archive']) as z:
+              assert z.testzip() is None and len(z.namelist())==m['source_files']
+              for n,h in m['source_hashes'].items():
+                  a=z.read('v136_work/'+n);b=(root/'v136_work'/n).read_bytes()
+                  assert a==b and hashlib.sha256(a).hexdigest()==h,n
+          origin=json.loads((root/'v136_work/BUILD_ORIGIN_v1.0.36.json').read_text())
+          for n,hashes in origin['runtime_hashes'].items():
+              a=(root/'v136_work'/n).read_bytes()
+              assert a==(base/'v136_work'/n).read_bytes(),n
+              assert hashlib.sha256(a).hexdigest()==hashes['after'],n
+              assert hashlib.sha256((base/'v135_work'/n).read_bytes()).hexdigest()==hashes['before'],n
+          r={'scope':'INDEPENDENT_FRESH_GITHUB_CHECKOUT_FINAL_R2_ZIP_AND_SOURCE','verified_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'version':'1.0.36','revision':'R2','archive':m['archive'],'sha256':m['archive_sha256'],'bytes':len(data),'source_files_byte_equal':m['source_files'],'runtime_changed_from_v135':origin['runtime_changed'],'runtime_changed_from_R1':[],'full_zip_qa_groups_pass':q['pass'],'full_zip_qa_groups_fail':q['fail'],'wrong_form_to_two_commands':'PASS','status':'PASS','installed_live_acceptance':'NOT_RUN'}
+          (root/'REMOTE_READBACK.json').write_text(json.dumps(r,indent=2)+'\n');print(json.dumps(r))
+          PY
+      - name: Persist remote readback receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'подбор авито расширение/releases/v1.0.36-r2/REMOTE_READBACK.json'
+          if ! git diff --cached --quiet; then git commit -m 'qa: independent R2 archive and 141 source-file readback'; git push origin HEAD:main; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-v136-r2-final-remote-verified
+          path: подбор авито расширение/releases/v1.0.36-r2/
+          if-no-files-found: error
