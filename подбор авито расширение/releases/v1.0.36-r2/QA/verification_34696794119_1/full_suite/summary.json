@@ -72,9 +72,16 @@
       "status": "PASS",
       "duration_seconds": 6.537,
       "deadline_seconds": 45
+    },
+    {
+      "name": "composer_26_29",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 7.387,
+      "deadline_seconds": 45
     }
   ],
-  "pass": 10,
+  "pass": 11,
   "fail": 0,
   "live_provider_calls": 0,
   "installed_live_acceptance": "NOT_RUN"
