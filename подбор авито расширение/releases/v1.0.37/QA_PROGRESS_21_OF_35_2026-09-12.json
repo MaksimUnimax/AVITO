@@ -1,0 +1,18 @@
+{
+  "version": "1.0.37",
+  "revision": "R2",
+  "archive_sha256": "b9c1717fdca16d1a1f3e39681128e4556aaed27b4b83b7c2c7e55ba54b65ba75",
+  "scope": "FRESH_EXTRACT_FINAL_ZIP_FULL_RELEASE_QA_PROGRESS",
+  "complete": false,
+  "pass": 21,
+  "fail": 0,
+  "last_completed_group": "actions_scopes",
+  "notable_pass": [
+    "cycle_ip_block_recovery_then_three_pages",
+    "cycle_rate_limit_recovery_then_three_pages",
+    "cycle_captcha_manual_boundary"
+  ],
+  "captcha_manual_boundary_preserved": true,
+  "installed_live_acceptance": "NOT_RUN",
+  "status": "QA_RUNNING_NOT_READY"
+}
