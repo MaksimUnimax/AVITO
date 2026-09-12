@@ -1,0 +1,27 @@
+Scope: exact published v1.0.36 R2 source, no runtime modifications.
+Source ZIP SHA-256: c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c
+Live evidence before test: Avito page visibly reported 'Доступ ограничен: проблема с IP'; after bounded recovery attempts the page showed IP block plus a CAPTCHA gate and Finder returned CAPTCHA_MANUAL_REQUIRED.
+
+Regression invariant:
+pure IP block on a provider profile that exposes rotate_can_change=true + change_ip_link MUST issue exactly one provider change-IP request during the first bounded recovery attempt, before the fresh Avito reload.
+CAPTCHA that is already visible remains a manual boundary and is not auto-solved.
+
+Exact pre-patch execution:
+node --test tests/ip_block_first_attempt_rotation_v137.test.js
+exit: 1
+
+Observed timeline:
+egress-probe,egress-probe,avito-reload
+provider-change calls: 0
+expected provider-change calls: 1
+
+Failure excerpt:
+not ok 1 - pure IP block rotates a rotatable provider endpoint on the first bounded recovery before fresh Avito request
+error: egress-probe,egress-probe,avito-reload\n\n0 !== 1
+
+Causal code on R2:
+service_worker.js prepareRecoveryProxy uses:
+if(record.attempt>=2 && profile.rotation_settings?.rotate_can_change===true && profile.rotation_settings?.change_ip_link)
+Therefore attempt 1 cannot call ProxyCore.forceChangeIpByLink even when the provider explicitly supports it.
+
+Status: RED_CONFIRMED / PATCH_NOT_APPLIED
