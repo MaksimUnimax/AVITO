@@ -1,0 +1,197 @@
+{
+  "scope": "Chromium DOM fixtures; NOT installed MV3/live websites",
+  "source_root": "/tmp/tmp.EYaFlbEC9O/v136_work",
+  "results": [
+    {
+      "id": "seller_description_captcha_not_block",
+      "pass": true,
+      "actual": null,
+      "expected": null,
+      "page_errors": []
+    },
+    {
+      "id": "seller_description_rate_not_block",
+      "pass": true,
+      "actual": null,
+      "expected": null,
+      "page_errors": []
+    },
+    {
+      "id": "hidden_challenge_not_block",
+      "pass": true,
+      "actual": null,
+      "expected": null,
+      "page_errors": []
+    },
+    {
+      "id": "disabled_fieldset_not_direct",
+      "pass": true,
+      "actual": false,
+      "expected": false,
+      "page_errors": []
+    },
+    {
+      "id": "inert_ancestor_not_direct",
+      "pass": true,
+      "actual": false,
+      "expected": false,
+      "page_errors": []
+    },
+    {
+      "id": "aria_disabled_ancestor_not_direct",
+      "pass": true,
+      "actual": false,
+      "expected": false,
+      "page_errors": []
+    },
+    {
+      "id": "anchor_without_href_not_direct",
+      "pass": true,
+      "actual": false,
+      "expected": false,
+      "page_errors": []
+    },
+    {
+      "id": "enabled_fieldset_legend_direct",
+      "pass": true,
+      "actual": true,
+      "expected": true,
+      "page_errors": []
+    },
+    {
+      "id": "hidden_parent_opacity_not_direct",
+      "pass": true,
+      "actual": false,
+      "expected": false,
+      "page_errors": []
+    },
+    {
+      "id": "visible_anchor_direct",
+      "pass": true,
+      "actual": true,
+      "expected": true,
+      "page_errors": []
+    },
+    {
+      "id": "grouped_reviews_not_rating",
+      "pass": true,
+      "actual": "4,5 · 1217 отзывов",
+      "expected": "4,5 · 1217 отзывов",
+      "page_errors": []
+    },
+    {
+      "id": "hidden_price_not_returned",
+      "pass": true,
+      "actual": "12 500 ₽",
+      "expected": "12 500 ₽",
+      "page_errors": []
+    },
+    {
+      "id": "real_small_marked_price_not_dropped",
+      "pass": true,
+      "actual": "500 ₽",
+      "expected": "500 ₽",
+      "page_errors": []
+    },
+    {
+      "id": "same_listing_tracking_deduplicated",
+      "pass": true,
+      "actual": 1,
+      "expected": 1,
+      "page_errors": []
+    },
+    {
+      "id": "seller_paragraph_not_location",
+      "pass": true,
+      "actual": "",
+      "expected": "",
+      "page_errors": []
+    },
+    {
+      "id": "seller_paragraph_not_badge",
+      "pass": true,
+      "actual": [],
+      "expected": [],
+      "page_errors": []
+    },
+    {
+      "id": "no_purchase_click",
+      "pass": true,
+      "actual": false,
+      "expected": false,
+      "page_errors": []
+    },
+    {
+      "id": "reserved_visible_state",
+      "pass": true,
+      "actual": "RESERVED",
+      "expected": "RESERVED",
+      "page_errors": []
+    },
+    {
+      "id": "sold_visible_state_without_passport",
+      "pass": true,
+      "actual": "REMOVED",
+      "expected": "REMOVED",
+      "page_errors": []
+    },
+    {
+      "id": "description_bound_is_explicit",
+      "pass": true,
+      "actual": true,
+      "expected": true,
+      "page_errors": []
+    },
+    {
+      "id": "full_short_description_preserved",
+      "pass": true,
+      "actual": 3000,
+      "expected": 3000,
+      "page_errors": []
+    },
+    {
+      "id": "live_captcha_modal_stops_read",
+      "pass": true,
+      "actual": "BLOCKED_LOGIN_OR_CAPTCHA",
+      "expected": "BLOCKED_LOGIN_OR_CAPTCHA",
+      "page_errors": []
+    },
+    {
+      "id": "plain_rate_limit_classified",
+      "pass": true,
+      "actual": "AVITO_RATE_LIMIT",
+      "expected": "AVITO_RATE_LIMIT",
+      "page_errors": []
+    },
+    {
+      "id": "plain_ip_block_classified",
+      "pass": true,
+      "actual": "AVITO_IP_BLOCK",
+      "expected": "AVITO_IP_BLOCK",
+      "page_errors": []
+    },
+    {
+      "id": "covered_element_is_not_pointer_reachable",
+      "pass": true,
+      "actual": false,
+      "expected": false,
+      "page_errors": []
+    },
+    {
+      "id": "direct_button_has_no_fabricated_href",
+      "pass": true,
+      "actual": "",
+      "expected": "",
+      "page_errors": []
+    },
+    {
+      "id": "unavailable_observation_preserves_url",
+      "pass": true,
+      "actual": "https://www.avito.ru/moskva/nastolnye_kompyutery/pc_12345678",
+      "expected": "https://www.avito.ru/moskva/nastolnye_kompyutery/pc_12345678",
+      "page_errors": []
+    }
+  ],
+  "pass": 27,
+  "fail": 0
+}
