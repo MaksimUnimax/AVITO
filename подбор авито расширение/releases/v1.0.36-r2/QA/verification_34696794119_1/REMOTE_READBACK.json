@@ -1,0 +1,23 @@
+{
+  "scope": "INDEPENDENT_FRESH_CHECKOUT_PUBLISHED_ZIP_SOURCE_AND_QA",
+  "verified_commit": "e132cb0159e127d65bd8c5b660053cacd2712daf",
+  "version": "1.0.36",
+  "revision": "R2",
+  "archive": "AVITO_FINDER_v1.0.36_PACKAGED_ADAPTER_CONSISTENCY_R2_2026-09-12.zip",
+  "sha256": "c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c",
+  "bytes": 481259,
+  "source_files_byte_equal": 141,
+  "runtime_changed_from_v135": [
+    "manifest.json",
+    "avito_content.js"
+  ],
+  "runtime_changed_from_R1": [],
+  "groups_pass": 35,
+  "groups_fail": 0,
+  "format_recovery": "PASS",
+  "popup_confirmations": "PASS",
+  "status": "PASS",
+  "prior_ci_timeout_preserved": true,
+  "prior_timeout_root_cause": "NOT_ESTABLISHED",
+  "installed_live_acceptance": "NOT_RUN"
+}
