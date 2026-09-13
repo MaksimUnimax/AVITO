@@ -3,8 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const path=require('node:path');
 
-if(!process.env.AF_SOURCE_ROOT) throw new Error('AF_SOURCE_ROOT_REQUIRED');
-const ROOT=path.resolve(process.env.AF_SOURCE_ROOT);
+const ROOT=process.env.AF_SOURCE_ROOT ? path.resolve(process.env.AF_SOURCE_ROOT) : path.resolve(__dirname,'..');
 const {loadWorker}=require(path.join(ROOT,'tests/helpers/worker_vm.cjs'));
 
 function response(payload,status=200){return {ok:status>=200&&status<300,status,headers:{},json:async()=>payload,text:async()=>JSON.stringify(payload)};}
