@@ -1,0 +1,107 @@
+name: RED Avito Finder v1.0.42 Writing Block capture
+on:
+  push:
+    branches: [fix/v142-writing-block-payload-oscillation-2026-09-13]
+    paths:
+      - '.github/workflows/red-avito-v142.yml'
+      - 'подбор авито расширение/v142_prepatch_tests/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: avito-v142-writing-block-red
+  cancel-in-progress: false
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BRANCH: fix/v142-writing-block-payload-oscillation-2026-09-13
+      V141: подбор авито расширение/releases/v1.0.41/v141_work
+      REDDIR: подбор авито расширение/releases/v1.0.42/QA/red
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v142-writing-block-payload-oscillation-2026-09-13
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - name: Prepare Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          echo "CHROMIUM=$BROWSER" >> "$GITHUB_ENV"
+      - name: Verify Rule 20 and exact v1.0.41 authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('.')
+          audit=json.loads((root/'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.42_2026-09-13.json').read_text())
+          rb=json.loads((root/'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.42_REMOTE_READBACK_2026-09-13.json').read_text())
+          build=json.loads((root/'подбор авито расширение/releases/v1.0.41/BUILD_v1.0.41.json').read_text())
+          manifest=json.loads((root/'подбор авито расширение/releases/v1.0.41/v141_work/manifest.json').read_text())
+          chat=(root/'подбор авито расширение/releases/v1.0.41/v141_work/chatgpt_content.js').read_bytes()
+          assert audit['status']=='FULL_HISTORY_AUDIT=PASS',audit
+          assert audit['installed_exact_target']=='v1.0.41',audit
+          assert rb['status']=='PASS',rb
+          assert rb['runtime_changed_during_audit'] is False,rb
+          assert manifest['version']=='1.0.41',manifest
+          assert build['archive_sha256']=='4658c589802d0a8a641a1f571bb8d55005d5f05423a7e154b7dcc9909842920c',build['archive_sha256']
+          assert hashlib.sha256(chat).hexdigest()=='64eedf07f07fb69ba87d91bc51d49273237e577de770d48a97e2368dd7a39d18',hashlib.sha256(chat).hexdigest()
+          print('Rule20/exact-v1.0.41 authority PASS')
+          PY
+      - name: Run future-expectation RED against exact v1.0.41
+        id: red
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$REDDIR"
+          set +e
+          AF_RED_OUT="$REDDIR/RED.json" python 'подбор авито расширение/v142_prepatch_tests/writing_block_capture_red.py' > "$REDDIR/RED.log" 2>&1
+          RC=$?
+          set -e
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          cat "$REDDIR/RED.log"
+          python - "$RC" <<'PY'
+          import json,sys
+          from pathlib import Path
+          rc=int(sys.argv[1])
+          p=Path('подбор авито расширение/releases/v1.0.42/QA/red/RED.json')
+          assert p.exists(), 'RED.json missing'
+          r=json.loads(p.read_text())
+          assert rc != 0, f'exact broken v1.0.41 unexpectedly satisfied future expectations: rc={rc}'
+          assert r['source_version']=='1.0.41',r
+          assert r['red_confirmed'] is True,r
+          assert r['future_expectations_pass'] is False,r
+          assert r['primary']['broken_behavior_observed'] is True,r['primary']
+          assert r['secondary']['broken_behavior_observed'] is True,r['secondary']
+          print('RED_CONFIRMED: exact v1.0.41 fails both future capture invariants')
+          PY
+      - name: Persist RED authority on branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('подбор авито расширение/releases/v1.0.42/QA/red/RED.json')
+          r=json.loads(p.read_text())
+          r['status']='RED_CONFIRMED'
+          r['exact_source_authority']='v1.0.41 final release source'
+          r['rule20_gate']='PASS'
+          r['runtime_changed_before_red']=False
+          p.write_text(json.dumps(r,ensure_ascii=False,indent=2)+'\n')
+          PY
+          git add -- "$REDDIR/RED.json" "$REDDIR/RED.log"
+          if ! git diff --cached --quiet; then
+            git commit -m 'qa: persist v1.0.42 exact-v1.0.41 capture RED'
+            git push origin "HEAD:$BRANCH"
+          fi

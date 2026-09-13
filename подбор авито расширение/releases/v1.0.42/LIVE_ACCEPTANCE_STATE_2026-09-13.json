@@ -1,0 +1,22 @@
+{
+  "schema": "avito_finder_live_acceptance_v142",
+  "date": "2026-09-13",
+  "version": "1.0.42",
+  "artifact": "AVITO_FINDER_v1.0.42_WRITING_BLOCK_CAPTURE_STABILITY_RECOVERY_2026-09-13.zip",
+  "archive_sha256": "616874dcdd67a05aaa63efbe5a3f670f91646cce9022db7038296525cfd63167",
+  "archive_bytes": 505192,
+  "installed_reported_version": null,
+  "target_scenario": "original v1.0.41 Writing Block local-body oscillation in pinned ChatGPT dialog, then normal Avito task handoff",
+  "expected_capture_behavior": "transient local-body miss preserves structural candidate; unrelated assistant controls do not restart Writing Block gate; persistent extraction failure terminates with exact bounded reason",
+  "expected_full_e2e": "user action -> assistant Writing Block -> capture -> validator -> Avito action/result -> report -> same pinned ChatGPT chat -> ready for next command",
+  "baseline_preserved": "150/150",
+  "worktree_grouped_qa": "35/35 PASS",
+  "final_zip_grouped_qa": "35/35 PASS",
+  "targeted_green": "3/3 PASS",
+  "final_zip_fresh_extract": "PASS",
+  "branch_remote_readback": "PASS",
+  "full_installed_e2e": "NOT_RUN",
+  "installed_live_acceptance": "LIVE_UNVERIFIED",
+  "release_readiness": "NOT_READY_UNTIL_INSTALLED_E2E",
+  "separate_unresolved_network_track": "v1.0.41 Mini ITX AVITO_IP_BLOCK_RECOVERY_EXHAUSTED after 4 attempts; not part of v1.0.42 capture patch"
+}

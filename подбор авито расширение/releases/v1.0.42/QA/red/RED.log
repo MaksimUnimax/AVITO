@@ -1,0 +1,27 @@
+{
+  "schema": "avito_finder_v142_exact_v141_red_v1",
+  "source_version": "1.0.41",
+  "source_root": "подбор авито расширение/releases/v1.0.41/v141_work",
+  "runtime_under_test": "production chatgpt_content.js + core.js in Chromium DOM fixture",
+  "primary": {
+    "name": "same-block payload unavailable/non-empty oscillation",
+    "future_expectation": "one exact AF_CAPTURE_FULL_TEXT within bounded window",
+    "full_text_count": 0,
+    "empty_payload_diagnostics": 2,
+    "structural_restarts": 2,
+    "clone_count": 20,
+    "broken_behavior_observed": true,
+    "future_expectation_pass": false
+  },
+  "secondary": {
+    "name": "unrelated assistant-button churn",
+    "future_expectation": "one exact AF_CAPTURE_FULL_TEXT despite unrelated control churn",
+    "full_text_count": 0,
+    "structural_restarts": 10,
+    "distinct_structural_signatures": 10,
+    "broken_behavior_observed": true,
+    "future_expectation_pass": false
+  },
+  "red_confirmed": true,
+  "future_expectations_pass": false
+}

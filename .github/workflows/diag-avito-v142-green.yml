@@ -1,0 +1,54 @@
+name: Diagnose Avito Finder v1.0.42 targeted GREEN
+on:
+  push:
+    branches: [fix/v142-writing-block-payload-oscillation-2026-09-13]
+    paths:
+      - '.github/workflows/diag-avito-v142-green.yml'
+      - 'подбор авито расширение/v142_prepatch_tests/writing_block_capture_green.py'
+      - 'tools/materialize_avito_v142.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BRANCH: fix/v142-writing-block-payload-oscillation-2026-09-13
+      OUTDIR: подбор авито расширение/releases/v1.0.42/QA/diagnostics
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: fix/v142-writing-block-payload-oscillation-2026-09-13, fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - name: Prepare Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          echo "CHROMIUM=$BROWSER" >> "$GITHUB_ENV"
+      - name: Materialize and capture targeted result
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUTDIR"
+          python tools/materialize_avito_v142.py > "$OUTDIR/materialize.log" 2>&1
+          set +e
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/подбор авито расширение/releases/v1.0.42/v142_work" AF_GREEN_OUT="$GITHUB_WORKSPACE/$OUTDIR/targeted_green.json" python 'подбор авито расширение/v142_prepatch_tests/writing_block_capture_green.py' > "$OUTDIR/targeted_green.log" 2>&1
+          RC=$?
+          set -e
+          printf '%s\n' "$RC" > "$OUTDIR/targeted_green.exit_code"
+          cat "$OUTDIR/targeted_green.log"
+      - name: Persist diagnostic evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$OUTDIR"
+          if ! git diff --cached --quiet; then
+            git commit -m 'qa: persist v1.0.42 targeted GREEN diagnostic rerun'
+            git push origin "HEAD:$BRANCH"
+          fi

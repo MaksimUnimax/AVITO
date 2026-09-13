@@ -1,0 +1,61 @@
+{
+  "scope": "WORK_ONLY",
+  "price_rub": [
+    8000,
+    15000
+  ],
+  "baseline": {
+    "pc": 50,
+    "computer": 50,
+    "system_unit": 50,
+    "total_query_positions": 150,
+    "status": "COMPLETE"
+  },
+  "computer": {
+    "p1": 30,
+    "p2": 30,
+    "p3_required": false,
+    "first_20_p2_unique_vs_p1": true
+  },
+  "system_unit": {
+    "p1": 30,
+    "p2": 30,
+    "p3_required": false,
+    "first_20_p2_unique_vs_p1": true
+  },
+  "detail_batch_1": {
+    "status": "COMPLETE",
+    "count": 6,
+    "candidate_ids": [
+      "8387634220",
+      "8375159229",
+      "8447136927",
+      "8274474172",
+      "8341256975",
+      "8354406195"
+    ]
+  },
+  "top_revalidate_post": {
+    "status": "PENDING_RATE_LIMIT_RECOVERY_LIVE_RETRY",
+    "first_attempt": {
+      "queue": 7,
+      "cursor": 0,
+      "attempted": 0,
+      "blocked_reason": "AVITO_RATE_LIMIT"
+    },
+    "second_attempt": {
+      "queue": 3,
+      "cursor": 0,
+      "attempted": 0,
+      "blocked_reason": "AVITO_RATE_LIMIT"
+    }
+  },
+  "active_top_not_changed_by_failed_revalidation": true,
+  "next_action_after_install": "TOP_REVALIDATE_POST batch 1: Dell Vostro 3470; Mini ITX i5-8400T; Lenovo M715s",
+  "baseline_must_not_be_recollected": true,
+  "v128_live_acceptance_completed": false,
+  "v129_live_acceptance_completed": false,
+  "context_source": "Provided search reports in this conversation, NOT synthetic fixtures",
+  "counts_are_not_full_raw_listing_dataset": true,
+  "top_freshness": "LAST_KNOWN_ONLY; TOP_REVALIDATE_POST NOT COMPLETED"
+}
