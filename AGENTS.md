@@ -7,75 +7,98 @@
 3. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md` и `.json`.
 4. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.40_2026-09-13.md` и `.json` плюс remote readback.
 5. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.41_2026-09-13.md` и `.json` плюс remote readback.
-6. `подбор авито расширение/releases/v1.0.41/` — `PATCH_REPORT`, `REMOTE_READBACK`, `CHECKPOINT`, `BUILD`, `MATERIALIZATION`, `MAIN_RELEASE_RECEIPT`, live acceptance state.
+6. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.42_2026-09-13.md` и `.json` плюс `PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.42_REMOTE_READBACK_2026-09-13.json`.
+7. `подбор авито расширение/PATCH_REPORT_v1.0.42_RU.md`.
+8. `подбор авито расширение/releases/v1.0.42/` — exact ZIP/source, `BUILD_v1.0.42.json`, `REMOTE_READBACK.json`, live acceptance state и main receipts/readback.
 
 ## Rule 20
 
-`FULL_HISTORY_AUDIT=PASS` для v1.0.41 pre-patch gate. Полная authority v0.1.0–v1.0.39 сохранена без выборки; добавлена v1.0.40 release authority, её installed IP-firewall FAIL, exact classifier RED и все post-v1.0.40 evidence-only commits. Перед будущим runtime patch audit снова расширить до текущего HEAD **до executable changes**.
+`FULL_HISTORY_AUDIT=PASS` для v1.0.42 pre-patch gate. Он наследует без сужения полный historical authority: 61 архивный вариант, 56 уникальных pre-1.0 версий, 60 exact historical runtime manifests, 54 unambiguous adjacent runtime diffs, critical state-machine evolution и defect→regression ledger. Перед любым следующим executable patch audit снова расширить до текущего HEAD **до изменения runtime**.
 
 ## Текущая main authority
 
-**Avito Finder v1.0.41 — IP-block Firewall Classifier Recovery**.
+**Avito Finder v1.0.42 — Writing Block Capture Stability Recovery**.
 
-ZIP: `подбор авито расширение/releases/v1.0.41/AVITO_FINDER_v1.0.41_IP_BLOCK_FIREWALL_CLASSIFIER_RECOVERY_2026-09-13.zip`.
+ZIP: `подбор авито расширение/releases/v1.0.42/AVITO_FINDER_v1.0.42_WRITING_BLOCK_CAPTURE_STABILITY_RECOVERY_2026-09-13.zip`.
 
-- SHA-256: `4658c589802d0a8a641a1f571bb8d55005d5f05423a7e154b7dcc9909842920c`;
-- bytes: `498304`;
-- source files: `152`;
-- PR: `#7`;
-- main merge commit: `b259a1959c4ea72b98fc2afd5c7879f357ca3e92`;
-- build workflow: `34754942233`;
-- targeted firewall/CAPTCHA classifier: `3/3 PASS`;
-- worktree: `35/35 PASS`, Node `373/373`;
-- final ZIP fresh extract: `35/35 PASS`, Node `373/373`;
-- independent remote readback: `PASS`;
-- installed owner Chrome E2E: **NOT_RUN**.
+- SHA-256: `616874dcdd67a05aaa63efbe5a3f670f91646cce9022db7038296525cfd63167`;
+- bytes: `505192`;
+- source files: `154`;
+- PR: `#8`;
+- main merge commit: `ca156633ab700060b23c42767ed23fb0b2254df9`;
+- successful build workflow: `34761221936`;
+- exact-v1.0.41 RED workflow: `34759646978`;
+- targeted Writing Block capture: `3/3 PASS`;
+- worktree grouped QA: `35/35 PASS`;
+- final ZIP fresh-extract grouped QA: `35/35 PASS`;
+- final ZIP targeted capture: `3/3 PASS`;
+- independent branch remote readback: `PASS`;
+- installed owner Chrome E2E: **NOT_RUN / LIVE_UNVERIFIED**.
 
-Status: `MAIN_AUTHORITY / OFFLINE_QA_PASS / REMOTE_BYTES_VERIFIED / LIVE_UNVERIFIED`.
+Status: `MAIN_AUTHORITY / OFFLINE_QA_PASS / REMOTE_BYTES_VERIFIED / LIVE_UNVERIFIED / NOT_READY_UNTIL_INSTALLED_E2E`.
 
-## Live FAIL v1.0.40 — не переписывать как CAPTCHA
+## Живой дефект v1.0.41, который исправляет v1.0.42
 
-Installed v1.0.40 task `af-20260913103028-k9qv` дошёл до Dell URL и реально показал provider page `Доступ ограничен: проблема с IP`. На экране **не было CAPTCHA challenge**; helper text только упоминал, что кнопка `Продолжить` ведёт к будущему решению CAPTCHA.
+Один и тот же видимый Writing Block с готовой локальной Copy-кнопкой мог чередоваться:
 
-Старый classifier выставлял одновременно `ip_block=true` и `captcha=true` из-за широкого `/captcha|капч/`, после чего CAPTCHA-first `detectBlock()` возвращал `BLOCKED_LOGIN_OR_CAPTCHA`. В результате исторический `AVITO_IP_BLOCK -> bounded recovery -> bypass-cache reload -> retry` не запускался, и страница не обновлялась.
+`WRITING_BLOCK_LOCAL_BODY_UNAVAILABLE / payload_bytes=0`
+→ тот же полный payload (`2447` bytes)
+→ `PROMPT_DOM_STABILITY_STARTED`
+→ снова local-body unavailable.
 
-Это installed live FAIL v1.0.40. Старые evidence записи, называвшие этот экран CAPTCHA, сохранены исторически, но **суперседированы** новым causal evidence.
+Exact v1.0.41 при пустом extraction делал `candidateFirstSeen = null`, поэтому следующий valid sample заново запускал structural gate. Общего extraction budget не было, и цикл мог продолжаться бесконечно.
 
-## v1.0.41 correction
+Отдельный exact-v1.0.41 RED доказал, что `writingBlockStructuralSignature()` также зависел от snapshots всех assistant-section buttons, поэтому изменение посторонней suggestion/action кнопки могло перезапускать Writing Block-local stability.
 
-Поведенчески изменён только `core.js`:
+## v1.0.42 correction
 
-- точный IP-firewall heading является сильным `ip_block` evidence;
-- текстовая ссылка на **будущую** CAPTCHA больше не считается фактическим CAPTCHA challenge;
-- generic rate-limit explanation на IP landing не перебивает `ip_block`;
-- concrete CAPTCHA evidence — iframe/canvas/slider/Geetest structure или явная human/robot verification — остаётся manual даже при IP heading.
+Поведенчески изменён только `chatgpt_content.js`:
 
-`service_worker.js` и `proxy_manager.js` **byte-identical v1.0.40**. Сам recovery/reload не переписывался; v1.0.41 возвращает страницу в уже существующую рабочую IP-block ветку. `manifest.json` и `avito_content.js` меняют release identity.
+- transient local-body miss больше не уничтожает уже доказанную structural identity;
+- miss обрабатывается как payload-layer retry;
+- retry ограничен: production default максимум `8` miss или `8000 ms`;
+- exhaustion даёт `PROMPT_PAYLOAD_EXTRACTION_FAILED_BOUNDED` / `FAILED_WITH_EXACT_REASON`;
+- repeated identical payload-fingerprint stability перед validation сохранена;
+- посторонние assistant-turn buttons исключены из Writing Block structural signature.
+
+Identity synchronization:
+
+- `service_worker.js`: **только** `CAPTURE_VERSION 0.6.18 -> 0.6.19`;
+- `avito_content.js`: release identity `1.0.42`;
+- `manifest.json`: release identity/description `1.0.42`.
+
+`proxy_manager.js` byte-identical к v1.0.41. Navigation, explicit queue, cursor, report delivery и proxy behavior не менялись.
 
 ## RED / FAIL history — не стирать
 
-- v1.0.39 installed multi-tab acceptance = FAIL.
-- v1.0.40 allocation fix прошёл дальше старой ambiguity, но installed IP-firewall scenario = **FAIL** из-за classifier misroute.
-- первый v1.0.41 RED workflow `34754784589` = FAIL из-за **test-harness** `ReferenceError: location is not defined`; это не causal RED и не скрывается.
-- corrected exact-v1.0.40 RED = `RED_CONFIRMED` по живому firewall fixture.
-- refined RED workflow `34754854251` = PASS как gate, подтверждающий ожидаемый old-source failure и CAPTCHA preservation fixtures.
-- v1.0.41 build workflow `34754942233` = SUCCESS, включая final ZIP + independent remote readback.
+- v1.0.39 installed multi-tab acceptance = FAIL; v1.0.40 закрыл full first-target allocation.
+- v1.0.40 installed IP-firewall classification = FAIL; v1.0.41 закрыл classifier, не переписывая recovery.
+- v1.0.41 Dell current-page direct read = PASS.
+- v1.0.41 Mini ITX fresh navigation = `AVITO_IP_BLOCK_RECOVERY_EXHAUSTED` после 4 попыток; это **отдельный unresolved proxy/egress track**, не часть v1.0.42.
+- v1.0.41 Writing Block capture = LIVE FAIL по unbounded payload-extraction oscillation.
+- screenshot-only гипотеза про button churn как primary cause была преждевременной; full live journal доказал payload-extraction oscillation как прямую causal chain. Button churn остаётся отдельным доказанным regression risk.
+- exact-v1.0.41 RED run `34759646978` = `RED_CONFIRMED` до runtime patch.
+- промежуточные v1.0.42 build/fixture FAIL сохранены как development evidence и не считаются PASS.
+- final branch build run `34761221936` = SUCCESS, включая worktree/final-ZIP QA и independent readback.
 
 ## Сохраняемые границы
 
 - Writing Block — единственная исполняемая assistant-команда; ordinary Markdown/code block = zero commands.
 - Настоящая CAPTCHA — ручная.
-- IP firewall — не CAPTCHA только потому, что helper text содержит слово `капчи`.
+- IP firewall — не CAPTCHA только из-за упоминания слова `капчи`.
 - Proxy transport-only.
 - Blind resend/uncertain mutation запрещены.
 - Baseline `150/150` не сбрасывать.
 - TOP_REVALIDATE_PRE: Dell `4750223208`, Mini ITX `8156773014`, Lenovo `8375159229`.
 - Proxy.Market API key session-scoped.
+- v1.0.42 capture patch **не** является исправлением `AVITO_IP_BLOCK_RECOVERY_EXHAUSTED`.
 
 ## Следующий gate
 
-Установить exact main v1.0.41 поверх существующей unpacked extension **без удаления extension и без очистки storage/baseline**, Reload, обновить ChatGPT/Avito, проверить `Версия: 1.0.41` и повторить текущий Dell/TOP_REVALIDATE_PRE сценарий.
+Установить exact main v1.0.42 поверх существующей unpacked extension **без удаления extension и без очистки storage/baseline**, выполнить Reload, обновить ChatGPT/Avito и подтвердить `Версия: 1.0.42`.
 
-На странице `Доступ ограничен: проблема с IP` ожидаем `AVITO_IP_BLOCK` и запуск существующего bounded recovery/reload. Только если после recovery реально появится CAPTCHA challenge, Finder должен остановиться для ручного решения.
+Повторить исходный installed E2E:
 
-До успешного installed E2E v1.0.41 остаётся `LIVE_UNVERIFIED`.
+`user action -> assistant Writing Block -> capture -> validator -> Avito action/result -> report -> тот же pinned ChatGPT chat -> готовность принять следующую команду`.
+
+До этого v1.0.42 остаётся `LIVE_UNVERIFIED / NOT_READY_UNTIL_INSTALLED_E2E`. Отдельный proxy/egress recovery failure исследовать только отдельным следующим Rule-20 patch cycle, если он снова воспроизводится после capture acceptance.
