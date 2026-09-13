@@ -1,0 +1,32 @@
+--- v0.9.1/avito_content.js
++++ v0.9.4/avito_content.js
+@@ -80,9 +80,11 @@
+     };
+   }
+   function detectBlock() {
++    // Ordinary optional authentication panels are not CAPTCHA. They must not
++    // preempt ordinary visible-target resolution, including their visible close control.
++    // A real CAPTCHA remains a manual boundary: this extension neither solves nor bypasses it.
+     const text = Core.normalizeText(document.body ? document.body.innerText : "").toLowerCase();
+     if (/captcha|капч/.test(text)) return "BLOCKED_LOGIN_OR_CAPTCHA";
+-    if (/войти|войдите|sign in|log in/.test(text) && /авито|avito/.test(text)) return "BLOCKED_LOGIN_OR_CAPTCHA";
+     return null;
+   }
+   function firstVisible(selectors, root = document) {
+
+--- v0.9.1/manifest.json
++++ v0.9.4/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.9.1",
+-  "version_name": "0.9.1-working-baseline-current-context-test-candidate",
+-  "description": "Отдельный Avito Finder: рабочая база visible-UI. Запуск «Ищи» выполняет первый допустимый AVITO_UI-план после внутренней проверки текущего видимого состояния. Между запусками не хранит Avito tabId и не создаёт root-вкладку; при ручной смене/закрытии страницы возвращает текущий контекст для следующего маршрута. Без сообщений, телефона, покупки, Runtime, Network, cookies или скрытых API.",
++  "version": "0.9.4",
++  "version_name": "0.9.4-minimal-login-classifier-fix-test-candidate",
++  "description": "Отдельный Avito Finder: рабочая база visible-UI с исправленной классификацией обычного login-диалога. Запуск «Ищи» выполняет первый допустимый AVITO_UI-план после внутренней проверки текущего видимого состояния. Между запусками не хранит Avito tabId и не создаёт root-вкладку; при ручной смене/закрытии страницы возвращает текущий контекст для следующего маршрута. Без сообщений, телефона, покупки, Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+

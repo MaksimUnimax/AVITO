@@ -1,0 +1,85 @@
+--- v0.7.4/avito_content.js
++++ v0.7.5/avito_content.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.7.4 — bounded public diagnostics, trusted visible input and settled query-correlated temporal menu evidence. */
++/* Avito Finder v0.7.5 — bounded public diagnostics, trusted visible input and click-stage evidence. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+@@ -878,7 +878,8 @@
+         result.ok = false;
+         result.blocked_reason = step.type === "TYPE" ? (typeResult?.reason === "focus_failed" ? "UI_TARGET_FOCUS_FAILED" : "UI_DEBUGGER_TYPE_FAILED") : (step.type === "SELECT_OPTION" ? "UI_DEBUGGER_OPTION_CLICK_FAILED" : "UI_ACTION_APPLY_FAILED");
+         const failure = step.type === "TYPE" ? typeResult : selectResult;
+-        result.steps.push({ index, type: step.type, status: "blocked", blocked_reason: result.blocked_reason, target_description: resolved.target.description, failure_detail: failure?.detail || failure?.reason || null });
++        const failureDetail = String(failure?.detail || failure?.reason || "").replace(/[^A-Z0-9_:.-]/giu, "_").slice(0, 220);
++        result.steps.push({ index, type: step.type, status: "blocked", blocked_reason: result.blocked_reason, target_description: resolved.target.description, text: failureDetail ? `diagnostic=${failureDetail}` : "", failure_detail: failureDetail || null });
+         break;
+       }
+       const nextType = String(plan.steps[index] && plan.steps[index].type || "").toUpperCase();
+
+--- v0.7.4/manifest.json
++++ v0.7.5/manifest.json
+@@ -2,8 +2,8 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.7.4",
+-  "version_name": "0.7.4-settled-query-menu-test-candidate",
++  "version": "0.7.5",
++  "version_name": "0.7.5-option-click-stage-evidence-test-candidate",
+   "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; выбор возможен только по точному тексту уже наблюдённого временного выпадающего списка, через ограниченную временную модель видимого меню, связанную с активным полем и введённым запросом; временная ошибка поля становится отказом только после ограниченного тихого окна ответа, без Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+
+--- v0.7.4/service_worker.js
++++ v0.7.5/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.7.3 — bounded Avito visible input and query-correlated temporal menu actions. */
++/* Avito Finder v0.7.5 — bounded visible input, query-correlated menus and click-stage evidence. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -162,10 +162,12 @@
+   if (!['button', 'a', 'div', 'span', 'li', 'label'].includes(String(target.tag || '').toLowerCase())) throw new Error("DEBUGGER_TARGET_TAG_INVALID");
+   return { state, tab: current, request };
+ }
+-async function inputMouseFocus(target, bounds) {
++async function inputMouseFocus(target, bounds, onStage = null) {
+   const x = Number(bounds.left) + Number(bounds.width) / 2;
+   const y = Number(bounds.top) + Number(bounds.height) / 2;
++  if (typeof onStage === "function") onStage("mouse_pressed");
+   await debuggerSend(target, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
++  if (typeof onStage === "function") onStage("mouse_released");
+   await debuggerSend(target, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+ }
+ async function inputKey(target, type, params) { await debuggerSend(target, "Input.dispatchKeyEvent", { type, ...params }); }
+@@ -183,18 +185,24 @@
+   const target = { tabId: tab.id };
+   let attached = false;
+   let detachError = null;
++  let stage = "attach";
+   try {
+     await debuggerAttach(target);
+     attached = true;
+     await log("CDP_OPTION_CLICK_ATTACHED", { search_id: state.search_id, tab_id: tab.id, protocol: DEBUGGER_PROTOCOL_VERSION, allowed_methods: Array.from(DEBUGGER_ALLOWED_METHODS), option_text_length: Array.from(String(request.option_text || "")).length });
++    stage = "target_confirmation";
+     const confirm = await tabsSend(tab.id, { type: "AF_CONFIRM_DEBUGGER_OPTION_TARGET_VISIBLE", token: request.token });
+-    if (!confirm?.ok || !confirm?.data?.ok || !confirm.data.intact || !confirm.data.pointer_reachable) throw new Error("CDP_OPTION_CLICK_TARGET_CONFIRMATION_FAILED");
+-    await inputMouseFocus(target, request.bounds);
++    const confirmation = confirm?.data || {};
++    if (!confirm?.ok || !confirmation.ok) throw new Error(`CDP_OPTION_CLICK_TARGET_CONFIRMATION_UNAVAILABLE:${String(confirmation.reason || "NO_RESPONSE")}`);
++    if (!confirmation.intact) throw new Error("CDP_OPTION_CLICK_TARGET_DETACHED");
++    if (!confirmation.pointer_reachable) throw new Error("CDP_OPTION_CLICK_TARGET_NOT_POINTER_REACHABLE");
++    await inputMouseFocus(target, request.bounds, (nextStage) => { stage = nextStage; });
++    stage = "completed";
+     await log("CDP_OPTION_CLICK_COMPLETED", { search_id: state.search_id, tab_id: tab.id, target_marker: String(request.target?.marker || "").slice(0, 160), target_role: String(request.target?.role || "").slice(0, 80), option_text_length: Array.from(String(request.option_text || "")).length });
+     return { ok: true, data: { ok: true, strategy: "chrome_debugger_input_mouse_click_visible_option", cdp_methods: Array.from(DEBUGGER_ALLOWED_METHODS) } };
+   } catch (error) {
+-    const reason = debuggerErrorCode(error);
+-    await log("CDP_OPTION_CLICK_FAILED", { search_id: state.search_id, tab_id: tab.id, reason, option_text_length: Array.from(String(request.option_text || "")).length });
++    const reason = `${stage}:${debuggerErrorCode(error)}`;
++    await log("CDP_OPTION_CLICK_FAILED", { search_id: state.search_id, tab_id: tab.id, stage, reason, option_text_length: Array.from(String(request.option_text || "")).length });
+     return { ok: false, error: `CDP_OPTION_CLICK_FAILED:${reason}` };
+   } finally {
+     if (attached) {
+

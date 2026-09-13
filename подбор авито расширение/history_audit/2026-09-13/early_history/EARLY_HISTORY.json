@@ -1,0 +1,488 @@
+{
+  "historical_commit": "7c094852bbdefdd9bbec2d7facc618993d61d63a",
+  "v1.0.1": {
+    "authority": "EXACT_ZIP_FROM_HISTORICAL_TREE",
+    "bytes": 125144,
+    "sha256": "f134789beca270fda784454d5e06ecf306d9fa58f0fc48ab2971833ae14f785c",
+    "candidates": [
+      {
+        "root": ".",
+        "version": "1.0.1",
+        "version_name": "1.0.1-popup-assistant-protocol-prompt-test-candidate",
+        "runtime": {
+          "manifest.json": {
+            "bytes": 1830,
+            "sha256": "cb6ce69aaacdaaffc0d931d36af156b6b9d80617395f55162b7e86f94ca8cf98"
+          },
+          "service_worker.js": {
+            "bytes": 117145,
+            "sha256": "1966fdfc8ffbbc5576a0768d59570365b6c22a16f1c526e5bf757580ae2c2240"
+          },
+          "chatgpt_content.js": {
+            "bytes": 144834,
+            "sha256": "ca1eda54064fcf7294b098be6e05b28d1423da33a23274485bf6b622e9edbb23"
+          },
+          "avito_content.js": {
+            "bytes": 91721,
+            "sha256": "bed6f69a49e100be6c7d764672a56b36aea3b5eef0dc86ad7eac7d019fa79da8"
+          },
+          "core.js": {
+            "bytes": 43805,
+            "sha256": "706ecdf3560bfe72700c43d076c4aef5694f60207ec62a4a708f6b032dd6fd8b"
+          },
+          "popup.js": {
+            "bytes": 3194,
+            "sha256": "b1a06da48c4c34ddfde18dc63743cda88e9bdbfd626fd7762bb25202d82ae229"
+          },
+          "popup.html": {
+            "bytes": 3582,
+            "sha256": "18cc7945d86a541a22a6ebc87b977714cb4c7232ab3065875c1a07a56016a8b3"
+          },
+          "popup.css": {
+            "bytes": 1097,
+            "sha256": "d1f665fc3766944720cd3d8908ba73345b3aa80a06fe0142dd9fb48754daf4ee"
+          }
+        },
+        "tests": [
+          "tests/assistant_directed_contract.test.js",
+          "tests/child_tab_handoff.test.js",
+          "tests/core.test.js",
+          "tests/direct_url_ready_only.test.js",
+          "tests/login_classifier.test.js",
+          "tests/policy_static.test.js",
+          "tests/popup_assistant_prompt.test.js",
+          "tests/sequential_card_gap_control.test.js",
+          "tests/sequential_tab_readiness_regression.test.js",
+          "tests/timing_profiles.test.js",
+          "tests/transient_generic_collector.test.js"
+        ]
+      }
+    ]
+  },
+  "v1.0.6": {
+    "authority": "HISTORICAL_BASE64_STREAM_HASH_MISMATCH",
+    "advertised_sha256": "32e1523e1f0d9d8ff0b5f71f6e9df146542f80327628cd48d35bff73d90d31e9",
+    "reconstructed_sha256": "0b6adbc72e4f0d4e935092b8da8aab8ab263c642d1541b2ce262565d731d9b63",
+    "hash_match": false,
+    "bytes": 136947,
+    "zip_extractable": false,
+    "transport_parts": [
+      ".github/avito-upload/part-00.txt",
+      ".github/avito-upload/part-01.txt",
+      ".github/avito-upload/part-02.txt",
+      ".github/avito-upload/part-03.txt",
+      ".github/avito-upload/part-04.txt",
+      ".github/avito-upload/part-05.txt",
+      ".github/avito-upload/part-06.txt",
+      ".github/avito-upload/part-07.txt",
+      ".github/avito-upload/part-08.txt",
+      ".github/avito-upload/part-09.txt",
+      ".github/avito-upload/part-10.txt",
+      ".github/avito-upload/part-11.txt",
+      ".github/avito-upload/part-12.txt"
+    ],
+    "candidates": []
+  },
+  "history": [
+    {
+      "archive": "History.zip",
+      "bytes": 17221496,
+      "sha256": "d10f1b861227a41539f2b43d63c9318e4507a3e9f68065618b88355abb9f418b",
+      "version_named_paths": [
+        "AVITO_FINDER_v0.5.6_allowlisted-location-dialog_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.1.1_stage1_content_receiver_recovery.zip",
+        "AVITO_FINDER_v0.9.10_bulk-tab-startup-readiness-parent-window_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.4.3_avito-page-ready_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.5.5_search-ancestry-evidence_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.2.4_bridge-exact-capture_candidate.zip",
+        "AVITO_FINDER_v0.9.1_working-baseline-current-context_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.4.2_active-dialog-scope_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.6.3_ui-plan-snapshot-return_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.6.1_bridge-html-parity-worker-handoff_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.5.3_anchor-fence-visible-avito_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.2.2_bridge-turn-anchor-command-wait_candidate.zip",
+        "AVITO_FINDER_v0.9.0_route-journal-clean_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.2.5_bridge-start-exact-anchor_candidate.zip",
+        "AVITO_FINDER_v0.8.0_clean-run-owned-target-lifecycle_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.9.4_minimal-login-classifier-fix_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.9.9_form-submit-reconciliation-immediate-fast-harvest_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.9.12_filtered-sequential-captcha-checkpoint_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.6.9_native-select-visible-option_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.8.5_proactive-anchor-navigation_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.7.2_temporal-menu-core-cleanup_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.6.8_portal-bound-trusted-dropdown-selection_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v1.0.1_popup-assistant-protocol-prompt_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.2.0_command_capture_filter_surface_candidate.zip",
+        "AVITO_FINDER_v0.9.8_bulk-public-harvest-parallel-details_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.9.5_restore-public-root-bootstrap-route-ledger_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.9.6_command-timing-profiles-tab-lifecycle-locked_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.6.1_clean-start-and-bridge-differential_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.2.1_writing_block_command_capture_candidate.zip",
+        "AVITO_FINDER_v0.1.1_source_tests_and_docs.zip",
+        "AVITO_FINDER_v0.3.0_tz-command-contract-reset_candidate.zip",
+        "AVITO_FINDER_v0.5.4_mode-anchor-handoff-search-surface_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.1.0_stage1_source_and_tests.zip",
+        "AVITO_FINDER_v0.9.15_search-card-ranking-before-details_TEST_CANDIDATE (1).zip",
+        "AVITO_FINDER_v0.6.5_input-only-debugger_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.7.6_navigation-safe-click-handoff_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.7.0_adaptive-visible-menu-model_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.6.6_trusted-key-dropdown-selection_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.8.3_public-listing-passport_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.4.0_bridge-exact-Ishchi-local-copy_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.8.4_debugger-click-navigation_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.7.3_query-correlated-temporal-menu_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.1.0_stage1_readonly_dom_inspector.zip",
+        "AVITO_FINDER_v0.9.11_event-driven-bulk-dom-harvest_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.7.4_settled-query-menu_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_EXTENSION_CANONICAL_FUNCTIONAL_SPEC_v0.8.5.zip",
+        "AVITO_FINDER_v0.6.4_reactive-generic-type_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.1.0_stage1_readonly_dom_inspector (2).zip",
+        "AVITO_FINDER_v0.5.2_continuous-dialogue_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.6.0_generic-visible-ui-action-engine_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.8.1_visible-filter-surface_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.6.7_capture-watchdog-and-empty-payload-fence_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.7.5_option-click-stage-evidence_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.5.1_local-validator-error-return_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.6.2_continuation-anchor-generation-fence_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.2.3_anchor-copy-only-live-log_candidate.zip",
+        "AVITO_FINDER_v0.9.14_sort-selection-before-queue_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v1.0.0_assistant-directed-generic-search-collector_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.5.0_diagnostic-dom-dialog_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.7.7_bound-readonly-target-guard_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.9.15_search-card-ranking-before-details_TEST_CANDIDATE.zip",
+        "AVITO_FINDER_v0.9.18_runtime-card-gap-control_TEST_CANDIDATE.zip"
+      ],
+      "manifests": [],
+      "nested_archives": [
+        {
+          "path": "AVITO_FINDER_v0.5.6_allowlisted-location-dialog_TEST_CANDIDATE.zip",
+          "bytes": 55650,
+          "sha256": "76d9bc49764fb65d956c9fd833db6a900c04cefcf5fc2be10fd737030dd0a1ec"
+        },
+        {
+          "path": "AVITO_FINDER_v0.1.1_stage1_content_receiver_recovery.zip",
+          "bytes": 21625,
+          "sha256": "d97ced27d096ec1462a859eaf61275e0a95e49203c4d0dd8bda9bc74549d7b99"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.10_bulk-tab-startup-readiness-parent-window_TEST_CANDIDATE.zip",
+          "bytes": 179568,
+          "sha256": "7de383d9172fb7fda60c33a075b3841a2c29362e2dcd6d699bceee5acae33d34"
+        },
+        {
+          "path": "AVITO_FINDER_v0.4.3_avito-page-ready_TEST_CANDIDATE.zip",
+          "bytes": 44604,
+          "sha256": "ae82b1e247477a3aba3a82c003bd899541886fe13fd6baee3cfed3a507c88088"
+        },
+        {
+          "path": "AVITO_FINDER_v0.5.5_search-ancestry-evidence_TEST_CANDIDATE.zip",
+          "bytes": 55441,
+          "sha256": "cb83f47b46ae1d335040c753c60ac2f30bd7e5aeb68089ce13d35c3d969cbabe"
+        },
+        {
+          "path": "AVITO_FINDER_v0.2.4_bridge-exact-capture_candidate.zip",
+          "bytes": 21256,
+          "sha256": "6da48115e494080feb0f3ba11601f877e456482d7090e782d2cd66d496fe81b1"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.1_working-baseline-current-context_TEST_CANDIDATE.zip",
+          "bytes": 151606,
+          "sha256": "a035ceb4c2bb03c1caeaacd596dd1d52ed52a22c2890bc080dcbc124e6eec500"
+        },
+        {
+          "path": "AVITO_FINDER_v0.4.2_active-dialog-scope_TEST_CANDIDATE.zip",
+          "bytes": 43802,
+          "sha256": "bb7fe86b1f8a621d24262878f5c6f2fd8efac944436ba88e897b662f151b2ab8"
+        },
+        {
+          "path": "AVITO_FINDER_v0.6.3_ui-plan-snapshot-return_TEST_CANDIDATE.zip",
+          "bytes": 62796,
+          "sha256": "4e21fd4e9f3774133a7f3140e921599837565a0e8c5bb5e619c387e103ca8883"
+        },
+        {
+          "path": "AVITO_FINDER_v0.6.1_bridge-html-parity-worker-handoff_TEST_CANDIDATE.zip",
+          "bytes": 62075,
+          "sha256": "bca51e687726965088dad4fa60e1c1ada01263913e835364b98633aad472c234"
+        },
+        {
+          "path": "AVITO_FINDER_v0.5.3_anchor-fence-visible-avito_TEST_CANDIDATE.zip",
+          "bytes": 53458,
+          "sha256": "7b36b2f9176be6ed8ce83566bcb4c0cdf1cbebfe5acdcc70a255c3b74c909c6b"
+        },
+        {
+          "path": "AVITO_FINDER_v0.2.2_bridge-turn-anchor-command-wait_candidate.zip",
+          "bytes": 17912,
+          "sha256": "b760a76edf7809dfa4df5108c58828bc5a321fa506b04056234f13c9f63acfb3"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.0_route-journal-clean_TEST_CANDIDATE.zip",
+          "bytes": 96640,
+          "sha256": "fc0ad1f52a615a06d9179277a4b0afdb562bb65eaf137f22b7f8a1bc45323443"
+        },
+        {
+          "path": "AVITO_FINDER_v0.2.5_bridge-start-exact-anchor_candidate.zip",
+          "bytes": 39914,
+          "sha256": "bdb8baf5a65427bf61bea340f5062ce360c873aef4acb5fed11c1f7d1dd077ef"
+        },
+        {
+          "path": "AVITO_FINDER_v0.8.0_clean-run-owned-target-lifecycle_TEST_CANDIDATE.zip",
+          "bytes": 132396,
+          "sha256": "3c3c17c988e2d3fb0dcba37da35fdc6c02bf7cc3c154a6b401e16acf4803a967"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.4_minimal-login-classifier-fix_TEST_CANDIDATE.zip",
+          "bytes": 154336,
+          "sha256": "8549c67b46626c3c3683dceb12ab2919e543bfa16a1ffd6361c8fee4dfd63fb6"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.9_form-submit-reconciliation-immediate-fast-harvest_TEST_CANDIDATE.zip",
+          "bytes": 246749,
+          "sha256": "7be36a07ff651264bd8e9e7bd182d1b42b67d60e0e7adae900947bccaa064760"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.12_filtered-sequential-captcha-checkpoint_TEST_CANDIDATE.zip",
+          "bytes": 187904,
+          "sha256": "a7d23e0cca53ffe1e0ad688f226ee2d86ea56043e310e85142f40670b1f6f26c"
+        },
+        {
+          "path": "AVITO_FINDER_v0.6.9_native-select-visible-option_TEST_CANDIDATE.zip",
+          "bytes": 117430,
+          "sha256": "3e902073f2e5f9f41f23a15aa9d092104a57cd40fbb8cf5186f44f1ffa8e6f30"
+        },
+        {
+          "path": "AVITO_FINDER_v0.8.5_proactive-anchor-navigation_TEST_CANDIDATE.zip",
+          "bytes": 139527,
+          "sha256": "966c7ac2ecbd1864e153bc7d93d6297a83064092847c92150e70f821dfd5d257"
+        },
+        {
+          "path": "AVITO_FINDER_v0.7.2_temporal-menu-core-cleanup_TEST_CANDIDATE.zip",
+          "bytes": 74058,
+          "sha256": "75c29fbbcb01928707282ede70e44eb321056b40d06671bc4e2b25d8807559c4"
+        },
+        {
+          "path": "AVITO_FINDER_v0.6.8_portal-bound-trusted-dropdown-selection_TEST_CANDIDATE.zip",
+          "bytes": 113659,
+          "sha256": "59efe925b5256e3f225bf44b472fde54f8a0a727be2878a177de1d7710e5a941"
+        },
+        {
+          "path": "AVITO_FINDER_v1.0.1_popup-assistant-protocol-prompt_TEST_CANDIDATE.zip",
+          "bytes": 125144,
+          "sha256": "f134789beca270fda784454d5e06ecf306d9fa58f0fc48ab2971833ae14f785c"
+        },
+        {
+          "path": "AVITO_FINDER_v0.2.0_command_capture_filter_surface_candidate.zip",
+          "bytes": 22020,
+          "sha256": "e51f504cb089a1fc923eaeefbed8e23702b0fa2c4994aff95cb47545cb83dfc6"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.8_bulk-public-harvest-parallel-details_TEST_CANDIDATE.zip",
+          "bytes": 173668,
+          "sha256": "0bdd1000b523c1d6c9c515d6427e2ab2003ea48292fcc6ef588e8415e8815e37"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.5_restore-public-root-bootstrap-route-ledger_TEST_CANDIDATE.zip",
+          "bytes": 157271,
+          "sha256": "ae2397dedbfb6b65a776848b23d14f6cf7d7e861336e103ba5e38edaea4aef69"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.6_command-timing-profiles-tab-lifecycle-locked_TEST_CANDIDATE.zip",
+          "bytes": 162983,
+          "sha256": "6271c86c62dcb1d549ea682745920502b4465c6e120e70bdd724a2f768183960"
+        },
+        {
+          "path": "AVITO_FINDER_v0.6.1_clean-start-and-bridge-differential_TEST_CANDIDATE.zip",
+          "bytes": 61489,
+          "sha256": "8ff4cbd2037853e62577e1e03937e2740fff07bc1a266a5da88eda15e2bb001c"
+        },
+        {
+          "path": "AVITO_FINDER_v0.2.1_writing_block_command_capture_candidate.zip",
+          "bytes": 33758,
+          "sha256": "d966a591e5367b0ab17b8d1bfa372e50d48e6b2588a4b49ee3f01fbdafc449d9"
+        },
+        {
+          "path": "AVITO_FINDER_v0.1.1_source_tests_and_docs.zip",
+          "bytes": 29461,
+          "sha256": "ae2698d7b89a68cb6d367699a2b0ad50925a5d7bad274cbbe7e33083e2183fc4"
+        },
+        {
+          "path": "AVITO_FINDER_v0.3.0_tz-command-contract-reset_candidate.zip",
+          "bytes": 13984,
+          "sha256": "8b5cc4821d759c9821d3772eef0703c264af44e539b1ff81bdb085149c50ca4b"
+        },
+        {
+          "path": "AVITO_FINDER_v0.5.4_mode-anchor-handoff-search-surface_TEST_CANDIDATE.zip",
+          "bytes": 55439,
+          "sha256": "dfcccfb87933989dafb5f2ee6c9abb30989efe9b8de8f4747de38a2acc51b538"
+        },
+        {
+          "path": "AVITO_FINDER_v0.1.0_stage1_source_and_tests.zip",
+          "bytes": 22600,
+          "sha256": "01a95bda38005b393604225fe97205f17c8e91cf05d2bed079751424c1f7ce5e"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.15_search-card-ranking-before-details_TEST_CANDIDATE (1).zip",
+          "bytes": 197839,
+          "sha256": "60b2ce8e2d6939d03ee8480bf317bd26cb6ef79b4da8651d94397aac2dd0feae"
+        },
+        {
+          "path": "AVITO_FINDER_v0.6.5_input-only-debugger_TEST_CANDIDATE.zip",
+          "bytes": 66741,
+          "sha256": "db4a08aff300ad5c74c514f8d4399edc83d935b0d22f5b63bcb18216ef9efd5c"
+        },
+        {
+          "path": "AVITO_FINDER_v0.7.6_navigation-safe-click-handoff_TEST_CANDIDATE.zip",
+          "bytes": 127738,
+          "sha256": "2cd315c174df926ded04f6ed4b0f36483c5f2f57530851ea9d17f69c59a523d2"
+        },
+        {
+          "path": "AVITO_FINDER_v0.7.0_adaptive-visible-menu-model_TEST_CANDIDATE.zip",
+          "bytes": 120143,
+          "sha256": "011c0ea18024a1a8ba3c13d6e88ecae7625a0b6838e1d48b13e938ba85b3ab5f"
+        },
+        {
+          "path": "AVITO_FINDER_v0.6.6_trusted-key-dropdown-selection_TEST_CANDIDATE.zip",
+          "bytes": 67603,
+          "sha256": "75dc9b1b1620b4696482715b337c795a88afe601793ee65a2ca8cc0be8abad16"
+        },
+        {
+          "path": "AVITO_FINDER_v0.8.3_public-listing-passport_TEST_CANDIDATE.zip",
+          "bytes": 136142,
+          "sha256": "79c76d42441a3ba1988243b1c2ef74d1072bddc458b231da62325b7551c3f2eb"
+        },
+        {
+          "path": "AVITO_FINDER_v0.4.0_bridge-exact-Ishchi-local-copy_TEST_CANDIDATE.zip",
+          "bytes": 17608,
+          "sha256": "886a4c4f3d5d5de77970f5dbfbc6058757df80b6999e1bfab81270c5db5d8019"
+        },
+        {
+          "path": "AVITO_FINDER_v0.8.4_debugger-click-navigation_TEST_CANDIDATE.zip",
+          "bytes": 141512,
+          "sha256": "6e995e679fa251eebecdbe7387fedc7ca559a344f0725a517e3ad934bcd36afd"
+        },
+        {
+          "path": "AVITO_FINDER_v0.7.3_query-correlated-temporal-menu_TEST_CANDIDATE.zip",
+          "bytes": 122019,
+          "sha256": "940405af9521c525693eaa2ab58bf69b1866d11c8593a5af5b62b68f413c8b19"
+        },
+        {
+          "path": "AVITO_FINDER_v0.1.0_stage1_readonly_dom_inspector.zip",
+          "bytes": 11463,
+          "sha256": "1ca2669657b71738f4d5e4fd8f7bced07d3e43d63d05c0c1a8ad4b6aa37796d8"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.11_event-driven-bulk-dom-harvest_TEST_CANDIDATE.zip",
+          "bytes": 185928,
+          "sha256": "40629a1fb8082277f788012e933bc63cb06c56ce17cdfa3ffafd6f48910f9ec3"
+        },
+        {
+          "path": "AVITO_FINDER_v0.7.4_settled-query-menu_TEST_CANDIDATE.zip",
+          "bytes": 123054,
+          "sha256": "644a7688dec5b1e0e3a69e834ee4877dcef906af67bc7b04d5cf7c0974349e6c"
+        },
+        {
+          "path": "AVITO_FINDER_EXTENSION_CANONICAL_FUNCTIONAL_SPEC_v0.8.5.zip",
+          "bytes": 8500192,
+          "sha256": "99e9f0f967359fd2c04067768e21f4a6be0be1fb207ffc72f52d7a56163b8145"
+        },
+        {
+          "path": "AVITO_FINDER_v0.6.4_reactive-generic-type_TEST_CANDIDATE.zip",
+          "bytes": 63817,
+          "sha256": "4909c7505018ec50e0bf1673bdded0de458b0523d9991b604b3fa5a4362c448d"
+        },
+        {
+          "path": "AVITO_FINDER_v0.1.0_stage1_readonly_dom_inspector (2).zip",
+          "bytes": 3029003,
+          "sha256": "16b609e207744eae6a6f22867a3d7d86dbe144c8f12b57f45c7809338371eb81"
+        },
+        {
+          "path": "AVITO_FINDER_v0.5.2_continuous-dialogue_TEST_CANDIDATE.zip",
+          "bytes": 52148,
+          "sha256": "200dc5297ab29ef34157621323895f1a649ecaea70845315dbd5de6c9898e896"
+        },
+        {
+          "path": "AVITO_FINDER_v0.6.0_generic-visible-ui-action-engine_TEST_CANDIDATE.zip",
+          "bytes": 61625,
+          "sha256": "d20ad0706df5335a553e18b1493c2a696602b2ca453f502c82059cc32a93d6ad"
+        },
+        {
+          "path": "AVITO_FINDER_v0.8.1_visible-filter-surface_TEST_CANDIDATE.zip",
+          "bytes": 134107,
+          "sha256": "d75e100843ea6dddc63d2bdaac25ea67bfd134ac058e9a920a3454686e5159e3"
+        },
+        {
+          "path": "AVITO_FINDER_v0.6.7_capture-watchdog-and-empty-payload-fence_TEST_CANDIDATE.zip",
+          "bytes": 68329,
+          "sha256": "b7df599e2b366da6ad7d5790e9dd074baa825a3fc498ea56b292f4b58503d245"
+        },
+        {
+          "path": "AVITO_FINDER_v0.7.5_option-click-stage-evidence_TEST_CANDIDATE.zip",
+          "bytes": 124677,
+          "sha256": "07dd49654d46b27e913a76b947fd50597bd03fdb3dcd18e6c19a0f6eb79889e5"
+        },
+        {
+          "path": "AVITO_FINDER_v0.5.1_local-validator-error-return_TEST_CANDIDATE.zip",
+          "bytes": 50502,
+          "sha256": "d03e5802f22dfb839e55200e41bbf23a781f23b1097c41a67c0f35b01a0b8969"
+        },
+        {
+          "path": "AVITO_FINDER_v0.6.2_continuation-anchor-generation-fence_TEST_CANDIDATE.zip",
+          "bytes": 62527,
+          "sha256": "08af4414baa5cf6c5bf14843f6a4e569543873c8dad17ffb7a83bdaab4334e34"
+        },
+        {
+          "path": "AVITO_FINDER_v0.2.3_anchor-copy-only-live-log_candidate.zip",
+          "bytes": 20580,
+          "sha256": "4422fdfb17b2e925c31585ef367d44c76f5f465cb90820652a758a5592b8302c"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.14_sort-selection-before-queue_TEST_CANDIDATE.zip",
+          "bytes": 193983,
+          "sha256": "e5783a4142e3a7aee5ae552bd7f101eb6355fd46f7fc784b6fbb5a40a3047073"
+        },
+        {
+          "path": "AVITO_FINDER_v1.0.0_assistant-directed-generic-search-collector_TEST_CANDIDATE.zip",
+          "bytes": 122618,
+          "sha256": "b232431ccb9655460d3c88d74a19e8659e1087d7e54fee75a7a1b492fdf340f1"
+        },
+        {
+          "path": "AVITO_FINDER_v0.5.0_diagnostic-dom-dialog_TEST_CANDIDATE.zip",
+          "bytes": 49187,
+          "sha256": "9a3db530e7e688ae3ba14ba5dc19a15bfcc64ae792667c1b6bd0b1f88289cd7f"
+        },
+        {
+          "path": "AVITO_FINDER_v0.7.7_bound-readonly-target-guard_TEST_CANDIDATE.zip",
+          "bytes": 127664,
+          "sha256": "5df80f5f5863708cc5ea8f3195d97d552acffe6e7845cc2dcbc9b6ba62e4fa7e"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.15_search-card-ranking-before-details_TEST_CANDIDATE.zip",
+          "bytes": 197839,
+          "sha256": "60b2ce8e2d6939d03ee8480bf317bd26cb6ef79b4da8651d94397aac2dd0feae"
+        },
+        {
+          "path": "AVITO_FINDER_v0.9.18_runtime-card-gap-control_TEST_CANDIDATE.zip",
+          "bytes": 204379,
+          "sha256": "b9d68ead0ee1b85fc93f1a26381abb2b5ed46b7a32bec5ba6ead4c11ff8c95be"
+        }
+      ]
+    },
+    {
+      "archive": "HistoryDocs.zip",
+      "bytes": 1957537,
+      "sha256": "890273f95ce59eaaff66c2c21b53902098065340efc31b329fd275e2dac9950e",
+      "version_named_paths": [
+        "Доки/AVITO_FINDER_EXTENSION_DOCUMENTATION_APPEND_ONLY_v0.2.3.md",
+        "Доки/AVITO_FINDER_EXTENSION_DOCUMENTATION_APPEND_ONLY_v0.2.0.md",
+        "Доки/AVITO_FINDER_EXTENSION_DOCUMENTATION_APPEND_ONLY_v0.2.2.md",
+        "Доки/AVITO_FINDER_HISTORY_2026-06-25_v0.7.6.md",
+        "Доки/AVITO_FINDER_TZ_AND_ROADMAP_v0.1.md",
+        "Доки/AVITO_FINDER_HISTORY_CANONICAL_v1.0.1_detailed-ranking-rationale.md",
+        "Доки/AVITO_FINDER_EXTENSION_CANONICAL_FUNCTIONAL_SPEC_v0.8.5.md",
+        "Доки/AVITO_FINDER_EXTENSION_DOCUMENTATION_APPEND_ONLY_v0.2.1.md",
+        "Доки/AVITO_FINDER_OPERATOR_PROTOCOL_AND_ASSISTANT_PROMPT_v1.0.md"
+      ],
+      "manifests": [],
+      "nested_archives": []
+    }
+  ]
+}

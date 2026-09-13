@@ -1,0 +1,820 @@
+--- v0.3.0/avito_content.js
++++ v0.4.0/avito_content.js
+@@ -1,35 +1,94 @@
+-/* Avito Finder Avito content script. Read-only filter surface inspection. */
+-(() => {
++/* global chrome, AvitoFinderCore */
++(function avitoContent() {
+   "use strict";
+-  const Core = globalThis.AvitoFinderCore;
+-  if (!Core) return;
+-  function visible(node) {
+-    if (!(node instanceof Element)) return false;
+-    const style = getComputedStyle(node);
+-    return style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
++
++  if (globalThis.__avitoFinderAvitoContentV011) return;
++  globalThis.__avitoFinderAvitoContentV011 = true;
++
++  const Core = AvitoFinderCore;
++
++  function visible(element) {
++    if (!element) return false;
++    const style = window.getComputedStyle(element);
++    const rect = element.getBoundingClientRect();
++    return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+   }
+-  function valueOf(node) { return Core.normalizeText(node.getAttribute("aria-label") || node.getAttribute("placeholder") || node.getAttribute("name") || node.innerText || node.textContent || ""); }
+-  function inspectSurface() {
+-    const selector = "input, select, textarea, button, [role='combobox'], [role='checkbox'], [role='radio'], [role='slider']";
+-    const controls = Array.from(document.querySelectorAll(selector)).filter(visible).slice(0, 80).map((node) => ({
+-      kind: node.getAttribute("role") || node.tagName.toLowerCase(),
+-      label: Core.normalizeText(node.getAttribute("aria-label") || node.getAttribute("name") || ""),
+-      placeholder: Core.normalizeText(node.getAttribute("placeholder") || ""),
+-      text: valueOf(node).slice(0, 160)
++
++  function textOf(element, max) {
++    return Core.normalizeText(element && (element.innerText || element.textContent || "")).slice(0, max || 180);
++  }
++
++  function selectorSummary(selector) {
++    const nodes = Array.from(document.querySelectorAll(selector));
++    return {selector, count: nodes.length, sample: nodes.length ? textOf(nodes[0]) : ""};
++  }
++
++  function visibleElements(selector, limit) {
++    return Array.from(document.querySelectorAll(selector)).filter(visible).slice(0, limit || 10).map((element) => ({
++      selector,
++      tag: element.tagName.toLowerCase(),
++      name: element.getAttribute("name"),
++      type: element.getAttribute("type"),
++      role: element.getAttribute("role"),
++      aria_label: element.getAttribute("aria-label"),
++      placeholder: element.getAttribute("placeholder"),
++      text: textOf(element)
+     }));
+-    const page = Core.normalizeText(document.body?.innerText || "").toLowerCase();
++  }
++
++  function detectBlock() {
++    const text = Core.normalizeText(document.body ? document.body.innerText : "").toLowerCase();
++    if (/captcha|капч/.test(text)) return "BLOCKED_LOGIN_OR_CAPTCHA";
++    if (/войти|войдите|sign in|log in/.test(text) && /авито|avito/.test(text)) return "BLOCKED_LOGIN_OR_CAPTCHA";
++    return null;
++  }
++
++  function inspect() {
++    const inputSelectors = [
++      "input",
++      "textarea",
++      "[contenteditable='true']",
++      "[role='combobox']"
++    ];
++    const buttonSelectors = ["button", "[role='button']"];
++    const listingSelectors = [
++      "a[href*='/item/']",
++      "a[href*='/moskva/']",
++      "a[href*='/sankt-peterburg/']",
++      "a[data-marker*='item']"
++    ];
++    const filterSelectors = [
++      "[data-marker*='filter']",
++      "[aria-label*='Фильтр' i]",
++      "button[aria-label*='фильтр' i]"
++    ];
++    const blocked = detectBlock();
++
+     return {
+       url: location.href,
+       title: document.title,
+-      form_controls_count: controls.filter((row) => ["input", "select", "textarea", "combobox", "checkbox", "radio", "slider"].includes(row.kind)).length,
+-      buttons_count: controls.filter((row) => row.kind === "button").length,
+-      controls,
+-      login_or_captcha: /captcha|капч|войдите|войти|подтвердите номер/u.test(page),
++      captured_at: new Date().toISOString(),
++      blocked_reason: blocked,
++      input_count: inputSelectors.reduce((total, selector) => total + visibleElements(selector, 50).length, 0),
++      button_count: buttonSelectors.reduce((total, selector) => total + visibleElements(selector, 50).length, 0),
++      listing_link_count: listingSelectors.reduce((total, selector) => total + visibleElements(selector, 50).length, 0),
++      selector_summaries: inputSelectors.concat(buttonSelectors, listingSelectors, filterSelectors).map(selectorSummary),
++      input_candidates: inputSelectors.flatMap((selector) => visibleElements(selector, 15)),
++      filter_candidates: filterSelectors.flatMap((selector) => visibleElements(selector, 15)),
++      visible_buttons: visibleElements("button", 40),
+       actions_performed: "none_read_only"
+     };
+   }
++
+   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+-    if (message?.type === "AF_INSPECT_FILTER_SURFACE") { sendResponse({ok: true, surface: inspectSurface()}); return; }
+-    sendResponse({ok: false, error: "UNKNOWN_MESSAGE"});
++    try {
++      if (message && message.type === "AF_INSPECT_AVITO_DOM") {
++        sendResponse({ok: true, snapshot: inspect()});
++        return;
++      }
++      sendResponse({ok: false, error: "UNKNOWN_MESSAGE"});
++    } catch (error) {
++      sendResponse({ok: false, error: error && error.message ? error.message : "INSPECTION_FAILED"});
++    }
+   });
+ })();
+
+--- v0.3.0/chatgpt_content.js
++++ v0.4.0/chatgpt_content.js
+@@ -1,202 +1,89 @@
+-/* Avito Finder ChatGPT content script. TЗ §5 command capture only. */
++/* Avito Finder — isolated adaptation of the exact Business Bridge ChatGPT capture contour.
++ * Source basis: Business Bridge v1.8.34.5 content_script.js.
++ * Adaptation boundary: no Bridge worker, queue, storage, task protocol or imports.
++ * This script emits short AF events; it does not validate command text. */
+ (() => {
+   "use strict";
+   const Core = globalThis.AvitoFinderCore;
+   if (!Core) return;
+ 
+-  let waitGeneration = 0;
+-  const copiedButtons = new WeakSet();
++  const CONTENT_VERSION = "0.4.0";
++  const RUNTIME_KEY = "__AVITO_FINDER_CHATGPT_CAPTURE_RUNTIME__";
++  const prior = globalThis[RUNTIME_KEY];
++  if (prior && typeof prior.dispose === "function") { try { prior.dispose("superseded"); } catch (_) {} }
++  const runtime = {disposed:false, dispose:null};
++  globalThis[RUNTIME_KEY]=runtime;
+ 
+-  function visible(node) {
+-    if (!(node instanceof Element)) return false;
+-    const style = getComputedStyle(node);
+-    return style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
+-  }
+-  function text(node) {
+-    return Core.normalizeText(node && (node.innerText || node.textContent || ""));
+-  }
+-  function exactTurnSections() {
+-    return Array.from(document.querySelectorAll('section[data-turn][data-turn-id]'));
+-  }
+-  function conversationId() {
+-    const match = location.pathname.match(/\/c\/([^/?#]+)/u);
+-    return match ? match[1] : null;
+-  }
+-  function buttonToken(button) {
+-    return Core.normalizeText([
+-      button.getAttribute("aria-label"), button.getAttribute("title"), button.getAttribute("data-testid"), button.innerText, button.textContent
+-    ].filter(Boolean).join(" ")).toLowerCase();
+-  }
+-  function isLocalCopy(button) {
+-    const token = buttonToken(button);
+-    if (!token) return false;
+-    if (token.includes("copy response") || token.includes("копировать ответ") || button.getAttribute("data-testid") === "copy-turn-action-button") return false;
+-    return /(?:^|\s)(?:copy|копировать)(?:\s|$)/u.test(token) || token === "copy" || token === "копировать";
+-  }
+-  function cleanRoot(root) {
+-    const clone = root.cloneNode(true);
+-    clone.querySelectorAll("button, [role='button'], svg, script, style").forEach((node) => node.remove());
+-    return text(clone);
+-  }
+-  function rootCopyButton(root) {
+-    return Array.from(root.querySelectorAll("button")).find((button) => isLocalCopy(button) && visible(button)) || null;
+-  }
+-  function addRoot(list, seen, root, source) {
+-    if (!(root instanceof Element) || seen.has(root)) return;
+-    const body = cleanRoot(root);
+-    if (!body) return;
+-    seen.add(root);
+-    list.push({root, source, body, copy_button: rootCopyButton(root)});
+-  }
+-  function rootsForAssistant(section) {
+-    const roots = [];
+-    const seen = new Set();
+-    // Every explicit writing block is inspected. The latest valid one wins;
+-    // the first legacy block must never hide a later command form.
+-    section.querySelectorAll('[data-writing-block], [data-writing-block-id], #code-block-viewer').forEach((root) => addRoot(roots, seen, root, "explicit_writing_block"));
++  // Exact timing constants from Business Bridge v1.8.34.5 capture path.
++  const SEND_BUTTON_RENDER_WAIT_MS = 2000;
++  const PROMPT_STABILITY_MS = 2000;
++  const PROMPT_ACTIVE_RECHECK_MS = 750;
++  const PROMPT_MUTATION_DEBOUNCE_MS = 250;
++  const ANCHOR_WAIT_TIMEOUT_MS = 20000;
+ 
+-    // Current ChatGPT variants may not expose an explicit writing-block root.
+-    // Derive a local container only from a local Copy control and only retain
+-    // containers whose visible body contains a full Avito Finder command form.
+-    for (const button of Array.from(section.querySelectorAll("button")).filter(isLocalCopy)) {
+-      let node = button.parentElement;
+-      while (node && node !== section) {
+-        const body = cleanRoot(node);
+-        if (Core.parseSearchCommand(body).valid) {
+-          addRoot(roots, seen, node, "local_copy_derived");
+-          break;
+-        }
+-        node = node.parentElement;
+-      }
+-    }
+-    return roots;
+-  }
+-  function scanLatestValidCommand(processedTurnId) {
+-    const sections = exactTurnSections();
+-    let lastUserIndex = -1;
+-    for (let index = sections.length - 1; index >= 0; index -= 1) {
+-      if (sections[index].getAttribute("data-turn") === "user") { lastUserIndex = index; break; }
+-    }
+-    const lastUserTurnId = lastUserIndex >= 0 ? sections[lastUserIndex].getAttribute("data-turn-id") || null : null;
+-    const assistants = lastUserIndex >= 0
+-      ? sections.slice(lastUserIndex + 1).filter((section) => section.getAttribute("data-turn") === "assistant")
+-      : [];
+-    const audit = {
+-      conversation_id: conversationId(),
+-      last_user_turn_id: lastUserTurnId,
+-      assistant_after_last_user: assistants.length,
+-      writing_blocks_seen: 0,
+-      valid_forms_seen: 0,
+-      selected_turn_id: null,
+-      selected_root_source: null,
+-      selected_copy_available: false,
+-      ignored_invalid_blocks: 0,
+-      ignored_processed_turn: false,
+-      reason: null
+-    };
+-    const matches = [];
+-    for (const assistant of assistants) {
+-      const turnId = assistant.getAttribute("data-turn-id") || "";
+-      for (const root of rootsForAssistant(assistant)) {
+-        audit.writing_blocks_seen += 1;
+-        const parsed = Core.parseSearchCommand(root.body);
+-        if (!parsed.valid) { audit.ignored_invalid_blocks += 1; continue; }
+-        audit.valid_forms_seen += 1;
+-        if (!turnId || turnId === processedTurnId) { audit.ignored_processed_turn = true; continue; }
+-        matches.push({turnId, assistant, root, parsed});
+-      }
+-    }
+-    if (!matches.length) {
+-      audit.reason = audit.valid_forms_seen ? "LATEST_VALID_FORM_ALREADY_PROCESSED" : "WAITING_FOR_NEW_VALID_COMMAND_FORM";
+-      return {ok: false, audit};
+-    }
+-    const chosen = matches[matches.length - 1];
+-    audit.selected_turn_id = chosen.turnId;
+-    audit.selected_root_source = chosen.root.source;
+-    audit.selected_copy_available = Boolean(chosen.root.copy_button);
+-    audit.reason = "VALID_COMMAND_FOUND";
+-    return {ok: true, command: chosen, audit};
+-  }
+-  function confirmCopy(command) {
+-    const button = command.root.copy_button;
+-    if (button instanceof HTMLButtonElement && !button.disabled && button.getAttribute("aria-disabled") !== "true" && !copiedButtons.has(button)) {
+-      button.click();
+-      copiedButtons.add(button);
+-      return true;
+-    }
+-    return false;
+-  }
+-  function capture(processedTurnId) {
+-    const scanned = scanLatestValidCommand(processedTurnId || null);
+-    if (!scanned.ok) return {ok: false, audit: scanned.audit, error: scanned.audit.reason};
+-    const copyClicked = confirmCopy(scanned.command);
+-    return {
+-      ok: true,
+-      command: {
+-        turn_id: scanned.command.turnId,
+-        conversation_id: conversationId(),
+-        raw: scanned.command.root.body,
+-        fields: scanned.command.parsed.fields,
+-        mode: scanned.command.parsed.mode,
+-        candidate_count: scanned.command.parsed.candidate_count,
+-        source: scanned.command.root.source,
+-        copy_clicked: copyClicked,
+-        writing_block: true
+-      },
+-      audit: scanned.audit
+-    };
+-  }
+-  function waitForCommand(processedTurnId, timeoutMs, searchId) {
+-    const generation = ++waitGeneration;
+-    const timeout = Math.max(1000, Math.min(Number(timeoutMs) || 90000, 120000));
+-    return new Promise((resolve) => {
+-      let done = false;
+-      let timer = null;
+-      let lastAuditFingerprint = "";
+-      const observer = new MutationObserver(check);
+-      function publish(audit) {
+-        const safe = Core.safeLogAudit(audit);
+-        const fingerprint = JSON.stringify(safe);
+-        if (fingerprint === lastAuditFingerprint) return;
+-        lastAuditFingerprint = fingerprint;
+-        chrome.runtime.sendMessage({type: "AF_COMMAND_CAPTURE_AUDIT", search_id: searchId || null, audit: safe}, () => void chrome.runtime.lastError);
+-      }
+-      function finish(result) {
+-        if (done) return;
+-        done = true;
+-        observer.disconnect();
+-        if (timer) clearTimeout(timer);
+-        resolve(result);
+-      }
+-      function check() {
+-        if (generation !== waitGeneration) return finish({ok: false, error: "COMMAND_WAIT_CANCELLED", audit: Core.safeLogAudit(scanLatestValidCommand(processedTurnId).audit)});
+-        const result = capture(processedTurnId);
+-        publish(result.audit);
+-        if (result.ok) finish(result);
+-      }
+-      observer.observe(document.documentElement, {subtree: true, childList: true, characterData: true, attributes: true});
+-      timer = setTimeout(() => {
+-        const result = capture(processedTurnId);
+-        publish(result.audit);
+-        finish(result.ok ? result : {ok: false, error: "COMMAND_WAIT_TIMEOUT", audit: result.audit});
+-      }, timeout);
+-      check();
+-    });
+-  }
+-  function inspectDom() {
+-    return {
+-      url: location.href,
+-      title: document.title,
+-      exact_turn_sections: exactTurnSections().length,
+-      conversation_id: conversationId(),
+-      actions_performed: "none_read_only"
+-    };
+-  }
+-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+-    if (message?.type === "AF_INSPECT_CHATGPT_DOM") { sendResponse({ok: true, snapshot: inspectDom()}); return; }
+-    if (message?.type === "AF_CAPTURE_CURRENT_COMMAND") { sendResponse(capture(message.processed_turn_id)); return; }
+-    if (message?.type === "AF_WAIT_FOR_CURRENT_COMMAND") { waitForCommand(message.processed_turn_id, message.timeout_ms, message.search_id).then(sendResponse); return true; }
+-    if (message?.type === "AF_CANCEL_COMMAND_WAIT") { waitGeneration += 1; sendResponse({ok: true}); return; }
+-    sendResponse({ok: false, error: "UNKNOWN_MESSAGE"});
+-  });
++  let currentSearchId=null;
++  let currentConversationId=null;
++  let currentAnchorTurnId=null;
++  let captureObserver=null;
++  let captureMutationTimer=null;
++  let captureFastTimer=null;
++  let capturePollTimer=null;
++  let candidateFirstSeen=null;
++  let tickInFlight=false;
++  const confirmedLocalCopyButtons = new WeakSet();
++
++  function alive(){return runtime.disposed!==true && globalThis[RUNTIME_KEY]===runtime;}
++  function dispose(){ if(runtime.disposed) return; runtime.disposed=true; stopCapture(); }
++  runtime.dispose=dispose;
++  function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
++  function event(type, payload={}){ try { chrome.runtime.sendMessage({type:"AF_CHATGPT_CAPTURE_EVENT",event_type:type,search_id:currentSearchId,...payload},()=>void chrome.runtime.lastError); } catch(_){} }
++  function conversationIdentity(){ const m=location.pathname.match(/(?:^|\/)c\/([0-9a-f-]{36})(?:\/|$)/i); const domId=document.querySelector("main[data-conversation-id]")?.getAttribute("data-conversation-id")||""; const fallback=/^[0-9a-f-]{36}$/i.test(domId)?domId.toLowerCase():null; return {origin:location.origin,chat_path:location.pathname,conversation_id:m?m[1].toLowerCase():fallback}; }
++  function sameConversation(){ return Boolean(currentConversationId && conversationIdentity().conversation_id===currentConversationId); }
++  function isVisible(node){ if(!(node instanceof HTMLElement))return false; const s=getComputedStyle(node),r=node.getBoundingClientRect(); return s.display!=="none"&&s.visibility!=="hidden"&&s.opacity!=="0"&&r.width>0&&r.height>0; }
++  function safeText(node){return String(node?.innerText||node?.textContent||"").replace(/\s+/g," ").trim().slice(0,240);}
++  function asEnabledButton(node){const b=node instanceof HTMLElement?node:node?.closest?.('button,[role="button"],input[type="submit"]');if(!(b instanceof HTMLElement)||!isVisible(b))return null;if((b instanceof HTMLButtonElement||b instanceof HTMLInputElement)&&b.disabled)return null;if(b.getAttribute("aria-disabled")==="true")return null;return b;}
++  function getComposerText(c){return c instanceof HTMLTextAreaElement||c instanceof HTMLInputElement?c.value:(c?.textContent||"");}
++  function canonical(v){return String(v||"").replace(/\r\n/g,"\n").replace(/[\u200B-\u200D\uFEFF]/g,"").trim();}
++  function matchesText(a,b){return a===b||canonical(a)===canonical(b);}
++  function setComposerText(c,text){c.focus(); if(c instanceof HTMLTextAreaElement||c instanceof HTMLInputElement){const d=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(c),"value");if(!d?.set)throw new Error("COMPOSER_VALUE_SETTER_UNAVAILABLE");d.set.call(c,text);}else c.textContent=text;c.dispatchEvent(new InputEvent("input",{bubbles:true,inputType:"insertText",data:text}));c.dispatchEvent(new Event("change",{bubbles:true}));}
++  function isInsideAssistantOrWritingBlock(node){return node instanceof Element&&Boolean(node.closest('section[data-turn="assistant"],[data-message-author-role="assistant"],[data-writing-block],[data-writing-block-id],#code-block-viewer'));}
++  function isComposerForm(f){return f instanceof HTMLFormElement&&f.isConnected&&isVisible(f)&&!isInsideAssistantOrWritingBlock(f);}
++  function isChatComposerNode(n){return n instanceof HTMLElement&&n.isConnected&&isVisible(n)&&n.getAttribute("contenteditable")!=="false"&&!n.hasAttribute("readonly")&&!n.hasAttribute("disabled")&&!isInsideAssistantOrWritingBlock(n)&&isComposerForm(n.closest("form"));}
++  function composerContextFromNode(n){if(!isChatComposerNode(n))return null;const f=n.closest("form");return isComposerForm(f)?{composer:n,form:f}:null;}
++  function closestConversationMessage(f){return f instanceof Element?f.closest('article,section[data-turn],[data-message-author-role],[data-testid*="conversation-turn" i],[data-testid*="message" i]'):null;}
++  function buttonSnapshot(button){return {tag:button?.tagName?.toLowerCase()||"",testid:button?.getAttribute?.("data-testid")||"",aria:button?.getAttribute?.("aria-label")||"",title:button?.getAttribute?.("title")||"",svg:button?.querySelector?.("use")?.getAttribute?.("href")||"",enabled:Boolean(asEnabledButton(button))};}
++  function buttonToken(s){return [s.testid,s.aria,s.title].join(" ").toLowerCase();}
++  function hasWritingBlockEditorSignature(box){return box instanceof Element&&(box.matches('[data-writing-block],[data-writing-block-id],#code-block-viewer')||Boolean(box.querySelector('[data-writing-block],[data-writing-block-id],#code-block-viewer,[data-testid="writing-block-header-magic-edit-button"]'))||[...box.querySelectorAll('button,[role="button"]')].some(n=>/редактировать|edit/.test(buttonToken(buttonSnapshot(n)))));}
++  function isEmbeddedAssistantEditor(f){if(!(f instanceof HTMLFormElement))return false;if(isInsideAssistantOrWritingBlock(f))return true;const m=closestConversationMessage(f);if(!m)return false;const role=String(m.getAttribute("data-message-author-role")||m.getAttribute("data-turn")||"").toLowerCase();return role==="assistant"||hasWritingBlockEditorSignature(m)||Boolean(m.closest('article,section[data-turn],[data-testid*="conversation-turn" i]'));}
++  function primaryComposerAnchor(n,f){if(!(n instanceof HTMLElement)||!(f instanceof HTMLFormElement))return "";const id=String(n.id||"").toLowerCase(),tid=String(n.getAttribute("data-testid")||"").toLowerCase();if(id==="prompt-textarea"||tid==="prompt-textarea"||tid.includes("prompt-textarea"))return "prompt-textarea";const shell=f.closest('#composer-background,[data-testid*="composer" i],[data-testid*="prompt" i]');return shell&&!isEmbeddedAssistantEditor(f)?"composer-shell":"";}
++  function isPrimaryComposerContextValid(c){return Boolean(c?.composer&&c?.form&&c.form.contains(c.composer)&&composerContextFromNode(c.composer)&&!isEmbeddedAssistantEditor(c.form)&&primaryComposerAnchor(c.composer,c.form));}
++  function composerScore(n){const f=n.closest("form"),r=n.getBoundingClientRect(),fr=f?.getBoundingClientRect?.()||r;let score=0;if(n.id==="prompt-textarea")score+=2000;if((n.getAttribute("data-testid")||"").toLowerCase().includes("prompt"))score+=500;if(f?.querySelector('button[data-testid*="send"],button[aria-label*="send" i],button[aria-label*="отправ" i]'))score+=200;if(fr.bottom>=window.innerHeight*.55)score+=80;if(r.bottom>=window.innerHeight*.55)score+=40;return score;}
++  function findPrimaryComposerContext(){const selectors=['#prompt-textarea','[data-testid="prompt-textarea"]','textarea[id*="prompt" i]','textarea[data-testid*="prompt" i]','[contenteditable="true"][id*="prompt" i]','[contenteditable="true"][data-testid*="prompt" i]'];const seen=new Set(),items=[];for(const sel of selectors)for(const n of document.querySelectorAll(sel)){if(seen.has(n))continue;seen.add(n);const c=composerContextFromNode(n);if(isPrimaryComposerContextValid(c))items.push({c,score:composerScore(n)});}items.sort((a,b)=>b.score-a.score);return items[0]?.c||null;}
++  function sendScore(button,c){if(!isPrimaryComposerContextValid(c)||button.closest("form")!==c.form||isInsideAssistantOrWritingBlock(button)||isEmbeddedAssistantEditor(c.form))return -Infinity;const token=[button.getAttribute("data-testid")||"",button.getAttribute("aria-label")||"",button.getAttribute("title")||"",button.getAttribute("name")||"",button.getAttribute("type")||"",safeText(button)].join(" ").toLowerCase();let score=0;if(button.getAttribute("data-testid")==="send-button")score+=1000;if((button.getAttribute("data-testid")||"").toLowerCase().includes("send"))score+=700;if(/\b(send|submit)\b|отправ/.test(token))score+=450;if(button.matches('button[type="submit"],input[type="submit"]'))score+=250;if(button.closest('[data-testid*="composer" i],#composer-background'))score+=120;if(/mic|voice|audio|dictat|голос|микрофон|stop|cancel|отмен/.test(token))score-=1200;return score;}
++  function resolvePrimaryComposerSendButton(c){const candidates=[...c.form.querySelectorAll('button,[role="button"],input[type="submit"]')].map(asEnabledButton).filter(Boolean).map(b=>({b,score:sendScore(b,c)})).filter(x=>Number.isFinite(x.score)&&x.score>=250).sort((a,b)=>b.score-a.score);return candidates[0]?{button:candidates[0].b,source:"primary_composer_auto"}:null;}
++  function turnSections(){return [...document.querySelectorAll('section[data-turn][data-turn-id]')];}
++  function userTurnIds(){return new Set(turnSections().filter(s=>s.getAttribute("data-turn")==="user").map(s=>s.getAttribute("data-turn-id")).filter(Boolean));}
++  function sectionUserText(s){const r=s.querySelector('[data-message-author-role="user"]');return String(r?.innerText||r?.textContent||s.innerText||s.textContent||"").trim();}
++  function isCurrentEdit(button){const s=buttonSnapshot(button);return s.testid==="writing-block-header-magic-edit-button"||/(?:^|\s)(?:редактировать|edit)(?:\s|$)/u.test(buttonToken(s));}
++  function isCurrentLocalCopy(button){const s=buttonSnapshot(button);if(s.testid==="copy-turn-action-button"||/копировать\s+ответ|copy\s+response/u.test(buttonToken(s)))return false;return s.aria==="Копировать"||/(?:^|\s)(?:копировать|copy)(?:\s|$)/u.test(buttonToken(s));}
++  function cleanLocalText(root){if(!(root instanceof Element))return "";const clone=root.cloneNode(true);clone.querySelectorAll('button,[role="button"],svg,script,style').forEach(n=>n.remove());return String(clone.innerText||clone.textContent||"").replace(/\u00a0/g," ").trim();}
++  function currentWritingBlockBinding(section){if(!(section instanceof Element))return null;const buttons=[...section.querySelectorAll("button")],edits=buttons.filter(isCurrentEdit),copies=buttons.filter(isCurrentLocalCopy);for(const edit of edits)for(const copy of copies){let root=copy.parentElement;while(root&&root!==section){if(root.contains(edit)&&root.contains(copy)&&cleanLocalText(root).length>0)return {root,edit_button:edit,copy_button:copy,source:"current_local_toolbar"};root=root.parentElement;}}return null;}
++  function resolveWritingBlockBinding(section){const legacy=section?.querySelector?.('[data-writing-block],[data-writing-block-id],#code-block-viewer');if(legacy instanceof Element)return {root:legacy,edit_button:null,copy_button:[...legacy.querySelectorAll("button")].find(isCurrentLocalCopy)||null,source:"legacy_explicit_root"};return currentWritingBlockBinding(section);}
++  function sectionWritingBlockText(section,binding=null){const b=binding||resolveWritingBlockBinding(section);if(!b?.root)return "";if(b.source==="current_local_toolbar")return cleanLocalText(b.root);return String(b.root.innerText||b.root.textContent||"").replace(/^Редактировать\s*/u,"").replace(/\s*Копировать(?:\s+ответ)?\s*$/u,"").replace(/\s*Развернуть\s*$/u,"");}
++  function writingBlockId(section){const b=resolveWritingBlockBinding(section),root=b?.root;if(!root)return "";return root.getAttribute("data-writing-block-id")||root.getAttribute("data-writing-block")||root.id||b.source||section.getAttribute("data-turn-id")||"writing-block";}
++  function detectCopyReadiness(section){const buttons=[...(section?.querySelectorAll?.("button")||[])].map(button=>({button,snapshot:buttonSnapshot(button)}));const b=resolveWritingBlockBinding(section),local=b?.copy_button?buttonSnapshot(b.copy_button):null;if(b?.source==="current_local_toolbar"&&local)return {ready:local.enabled===true,mode:local.enabled?"current_writing_block_local_copy":"current_writing_block_copy_disabled",writing_block:true,buttons:buttons.map(x=>x.snapshot)};const generic=buttons.find(x=>x.snapshot.testid==="copy-turn-action-button"||buttonToken(x.snapshot).includes("copy")||buttonToken(x.snapshot).includes("копир"));const writing=Boolean(b?.root);return {ready:Boolean(generic?.snapshot.enabled),mode:generic?.snapshot.enabled?"semantic_copy_button":(buttons.length?"copy_control_not_ready":"no_controls_yet"),writing_block:writing,buttons:buttons.map(x=>x.snapshot)};}
++  function structuralSignature(anchor,assistant,id,copy){return [anchor||"",assistant?.getAttribute("data-turn-id")||"",id||"",copy?.writing_block?"writing-block":"no-writing-block",copy?.ready?"copy-ready":"copy-wait",...(copy?.buttons||[]).map(s=>[s.tag,s.testid,s.aria,s.title,s.enabled?"1":"0"].join(":"))].join("|");}
++  function confirmLocalWritingBlockCopyAndExtract(section){const b=resolveWritingBlockBinding(section),text=sectionWritingBlockText(section,b),bytes=text?new TextEncoder().encode(text).byteLength:0;if(!text)return {ok:false,error:"WRITING_BLOCK_LOCAL_BODY_UNAVAILABLE",text:"",bytes:0};if(b?.source==="current_local_toolbar"&&b.copy_button instanceof HTMLElement){const s=buttonSnapshot(b.copy_button);if(!s.enabled)return {ok:false,error:"WRITING_BLOCK_COPY_CONTROL_UNAVAILABLE",text:"",bytes:0};try{if(!confirmedLocalCopyButtons.has(b.copy_button)){b.copy_button.click();confirmedLocalCopyButtons.add(b.copy_button);}}catch(e){return {ok:false,error:`WRITING_BLOCK_COPY_CLICK_FAILED:${String(e?.message||e)}`,text:"",bytes:0};}}return {ok:true,text,bytes,source:b?.source||"legacy_explicit_root"};}
++  function normalizedNeedle(t){return String(t||"").replace(/\s+/g," ").trim().slice(0,120);}
++  function inspectNewUserAnchor(beforeIds,outgoingText){const candidates=turnSections().filter(s=>s.getAttribute("data-turn")==="user"&&s.getAttribute("data-turn-id")&&!beforeIds.has(s.getAttribute("data-turn-id"))).map(s=>({turn_id:s.getAttribute("data-turn-id"),text:sectionUserText(s)}));const needle=normalizedNeedle(outgoingText),match=needle?candidates.filter(c=>c.text.replace(/\s+/g," ").includes(needle)).at(-1):null;return {anchor_turn_id:match?.turn_id||null,candidate_count:candidates.length};}
++  async function stageAutomationStartMessage(messageText){const c=findPrimaryComposerContext();if(!isPrimaryComposerContextValid(c))throw new Error("START_PRIMARY_COMPOSER_MISSING");const current=getComposerText(c.composer);if(current&&!matchesText(current,messageText))throw new Error("START_PRIMARY_COMPOSER_OCCUPIED");if(!matchesText(current,messageText)){setComposerText(c.composer,messageText);await sleep(SEND_BUTTON_RENDER_WAIT_MS);}if(!isPrimaryComposerContextValid(c))throw new Error("START_PRIMARY_COMPOSER_SCOPE_LOST");event("START_MESSAGE_STAGED",{composer_scope:"primary_chat_composer"});return c;}
++  async function waitForNewUserAnchor(beforeIds,outgoingText){const deadline=Date.now()+ANCHOR_WAIT_TIMEOUT_MS;while(Date.now()<deadline){const scan=inspectNewUserAnchor(beforeIds,outgoingText);if(scan.anchor_turn_id)return scan.anchor_turn_id;await sleep(100);}return null;}
++  async function sendMessageAndCaptureAnchor(messageText,boundContext){const c=boundContext||findPrimaryComposerContext();if(!isPrimaryComposerContextValid(c))throw new Error("START_PRIMARY_COMPOSER_MISSING");const composer=c.composer,before=userTurnIds(),original=getComposerText(composer);if(!matchesText(original,messageText)){if(original)throw new Error("START_PRIMARY_COMPOSER_OCCUPIED");setComposerText(composer,messageText);await sleep(SEND_BUTTON_RENDER_WAIT_MS);}const send=resolvePrimaryComposerSendButton(c);if(!send?.button)throw new Error("START_PRIMARY_COMPOSER_SEND_BUTTON_MISSING");event("START_SEND_CLICKED",{send_source:send.source});send.button.click();const cleared=await (async()=>{const deadline=Date.now()+5000;while(Date.now()<deadline){const now=getComposerText(composer);if(!now.includes(messageText)&&(now===original||now.trim()===""))return true;await sleep(100);}return false;})();if(!cleared)throw new Error("START_COMPOSER_NOT_CLEARED");const anchor=await waitForNewUserAnchor(before,messageText);if(!anchor)throw new Error("START_EXACT_ANCHOR_UNCONFIRMED");currentAnchorTurnId=anchor;event("START_EXACT_ANCHOR_CAPTURED",{anchor_turn_id:anchor,conversation_id:conversationIdentity().conversation_id});return anchor;}
++  function assistantCandidateAfterAnchor(anchor){const sections=turnSections(),idx=sections.findIndex(s=>s.getAttribute("data-turn-id")===anchor);if(idx<0)return {missing_anchor:true};const assistants=[];for(let i=idx+1;i<sections.length;i+=1){const s=sections[i];if(s.getAttribute("data-turn")==="user")return {manual_interruption:true,next_user_turn_id:s.getAttribute("data-turn-id")};if(s.getAttribute("data-turn")==="assistant")assistants.push(s);}const assistant=assistants.at(-1);if(!assistant)return {waiting:true};const copy=detectCopyReadiness(assistant),id=writingBlockId(assistant);return {anchor_turn_id:anchor,assistant_turn_id:assistant.getAttribute("data-turn-id"),writing_block:copy.writing_block,copy_ready:copy.ready,copy_mode:copy.mode,writing_block_id:id,button_snapshot:copy.buttons,structural_signature:structuralSignature(anchor,assistant,id,copy)};}
++  function stopCapture(){if(captureObserver)captureObserver.disconnect();if(captureMutationTimer)clearTimeout(captureMutationTimer);if(captureFastTimer)clearTimeout(captureFastTimer);if(capturePollTimer)clearInterval(capturePollTimer);captureObserver=null;captureMutationTimer=null;captureFastTimer=null;capturePollTimer=null;candidateFirstSeen=null;currentAnchorTurnId=null;}
++  function scheduleTick(delay=0,force=false){if(captureFastTimer)clearTimeout(captureFastTimer);captureFastTimer=setTimeout(()=>{captureFastTimer=null;captureTick(force);},delay);}
++  function startCaptureObserver(){if(captureObserver)captureObserver.disconnect();const target=document.querySelector("main")||document.body;if(!target)return;captureObserver=new MutationObserver(()=>{if(!currentAnchorTurnId||captureMutationTimer)return;captureMutationTimer=setTimeout(()=>{captureMutationTimer=null;scheduleTick(0,false);},PROMPT_MUTATION_DEBOUNCE_MS);});captureObserver.observe(target,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:["disabled","aria-disabled","class","data-testid","aria-label","title"]});}
++  async function captureTick(force=false){if(!alive()||!currentAnchorTurnId||tickInFlight||!sameConversation())return;tickInFlight=true;try{const candidate=assistantCandidateAfterAnchor(currentAnchorTurnId);if(candidate.waiting||candidate.missing_anchor||candidate.manual_interruption){event(candidate.manual_interruption?"CAPTURE_PAUSED_MANUAL_USER":"CAPTURE_WAITING_ASSISTANT",candidate);return;}if(!candidate.writing_block){candidateFirstSeen=null;event("CAPTURE_WAIT_WRITING_BLOCK",candidate);scheduleTick(PROMPT_ACTIVE_RECHECK_MS,false);return;}const changed=!candidateFirstSeen||candidateFirstSeen.structural_signature!==candidate.structural_signature;if(changed){candidateFirstSeen={structural_signature:candidate.structural_signature,first_seen_ms:Date.now()};event("CAPTURE_DOM_STABILITY_STARTED",candidate);scheduleTick(PROMPT_STABILITY_MS,true);return;}const stable=Date.now()-candidateFirstSeen.first_seen_ms;if(stable<PROMPT_STABILITY_MS){scheduleTick(PROMPT_STABILITY_MS-stable,true);return;}if(!candidate.copy_ready){event("CAPTURE_WAIT_COPY_READY",candidate);scheduleTick(PROMPT_ACTIVE_RECHECK_MS,false);return;}const section=turnSections().find(s=>s.getAttribute("data-turn-id")===candidate.assistant_turn_id)||null;const payload=confirmLocalWritingBlockCopyAndExtract(section);if(!payload.ok){event("CAPTURE_TEXT_EXTRACTION_FAILED",{...candidate,error:payload.error});scheduleTick(PROMPT_ACTIVE_RECHECK_MS,true);return;}event("FULL_WRITING_BLOCK_TEXT_CAPTURED",{...candidate,raw_text:payload.text,payload_bytes:payload.bytes,payload_source:payload.source,text_fingerprint:Core.fingerprint(payload.text)});stopCapture();}finally{tickInFlight=false;}}
++  async function begin(searchId,messageText){stopCapture();currentSearchId=searchId;currentConversationId=conversationIdentity().conversation_id;if(!currentConversationId)throw new Error("CONVERSATION_ID_MISSING");event("START_REQUESTED",{conversation_id:currentConversationId,start_text:messageText});const c=await stageAutomationStartMessage(messageText);const anchor=await sendMessageAndCaptureAnchor(messageText,c);startCaptureObserver();captureTick(false);capturePollTimer=setInterval(()=>captureTick(false),20000);return {anchor_turn_id:anchor,conversation_id:currentConversationId};}
++  chrome.runtime.onMessage.addListener((message,_sender,sendResponse)=>{if(!alive())return false;if(message?.type==="AF_PING"){sendResponse({ok:true,version:CONTENT_VERSION,identity:conversationIdentity()});return false;}if(message?.type==="AF_START_BRIDGE_CAPTURE"){sendResponse({ok:true,started:true});begin(message.search_id,String(message.start_text||"Ищи")).then(result=>event("CAPTURE_WATCHER_STARTED",result)).catch(error=>event("CAPTURE_FAILED",{error:String(error?.message||error)}));return false;}if(message?.type==="AF_STOP_CHATGPT_CAPTURE"){stopCapture();sendResponse({ok:true});return false;}sendResponse({ok:false,error:"UNKNOWN_MESSAGE"});return false;});
+ })();
+
+--- v0.3.0/core.js
++++ v0.4.0/core.js
+@@ -1,159 +1,23 @@
+-/* Avito Finder. Standalone shared, pure command logic. */
++/* Avito Finder isolated shared pure logic. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+-
+-  const STORAGE = Object.freeze({
+-    state: "avito_finder.state",
+-    logs: "avito_finder.logs",
+-    inspection: "avito_finder.last_inspection",
+-    command: "avito_finder.last_command"
+-  });
++  const STORAGE = Object.freeze({ state: "avito_finder.state", logs: "avito_finder.logs", lastInspection: "avito_finder.last_inspection" });
+   const CHATGPT_HOSTS = new Set(["chatgpt.com", "chat.openai.com"]);
+   const AVITO_HOSTS = new Set(["www.avito.ru", "avito.ru"]);
+   const MAX_LOGS = 250;
+-  const COMMAND_LABELS = Object.freeze([
+-    "Цель", "Режим", "Категория", "Город", "Доставка", "Поисковый запрос", "Цена",
+-    "Обязательные условия", "Желательные условия", "Исключить", "Количество кандидатов", "Действие"
+-  ]);
+   const VALID_MODES = new Set(["INSPECT_FILTERS", "SEARCH"]);
+-
+-  function normalizeText(value) {
+-    return String(value || "")
+-      .replace(/\u00a0/g, " ")
+-      .replace(/\r/g, "")
+-      .replace(/[ \t]+\n/g, "\n")
+-      .replace(/\n{3,}/g, "\n\n")
+-      .trim();
+-  }
+-
+-  function urlKind(value) {
+-    try {
+-      const url = new URL(String(value || ""));
+-      if (url.protocol !== "https:") return "other";
+-      if (CHATGPT_HOSTS.has(url.hostname)) return "chatgpt";
+-      if (AVITO_HOSTS.has(url.hostname)) return "avito";
+-    } catch (_) {}
+-    return "other";
+-  }
+-
+-  function makeSearchId(now = Date.now(), random = Math.random()) {
+-    const time = new Date(now).toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+-    const suffix = Math.floor(random * 0xffffff).toString(36).padStart(4, "0").slice(-4);
+-    return `af-${time}-${suffix}`;
+-  }
+-
+-  function splitLabeledForm(text) {
+-    const fields = {};
+-    let active = null;
+-    for (const raw of normalizeText(text).split("\n")) {
+-      const line = raw.trim();
+-      const match = line.match(/^([^:]{2,100}):\s*(.*)$/u);
+-      if (match && COMMAND_LABELS.includes(match[1].trim())) {
+-        active = match[1].trim();
+-        fields[active] = match[2].trim();
+-      } else if (active && line) {
+-        fields[active] = `${fields[active]}\n${line}`.trim();
+-      }
+-    }
+-    return fields;
+-  }
+-
+-  function parseSearchCommand(text) {
+-    const raw = normalizeText(text);
+-    const fields = splitLabeledForm(raw);
+-    const errors = [];
+-    const missing = COMMAND_LABELS.filter((label) => !Object.prototype.hasOwnProperty.call(fields, label));
+-    if (missing.length) errors.push(`MISSING_LABELS:${missing.join(",")}`);
+-    if (/\b(?:BBI_REQUEST|BBI_RESULT)\b/u.test(raw) || /^\s*\{/u.test(raw)) errors.push("FORBIDDEN_PROTOCOL_MARKER");
+-    if (/^(?:Поиск Avito завершён|Avito Finder:|Живой журнал|Последний отчёт)/imu.test(raw)) errors.push("RESULT_OR_LOG_NOT_COMMAND");
+-    const mode = normalizeText(fields["Режим"] || "").toUpperCase();
+-    if (!missing.includes("Режим") && !VALID_MODES.has(mode)) errors.push("UNSUPPORTED_MODE");
+-    const rawCount = normalizeText(fields["Количество кандидатов"] || "");
+-    const parsedCount = /^\d+$/u.test(rawCount) ? Number(rawCount) : Number.NaN;
+-    if (!missing.includes("Количество кандидатов") && (!Number.isInteger(parsedCount) || parsedCount < 1 || parsedCount > 30)) errors.push("INVALID_CANDIDATE_COUNT");
+-    return {valid: errors.length === 0, errors, raw, fields, mode: VALID_MODES.has(mode) ? mode : null, candidate_count: Number.isInteger(parsedCount) ? parsedCount : null};
+-  }
+-
+-  function state(overrides = {}) {
+-    return Object.assign({
+-      version: 7,
+-      search_id: null,
+-      status: "IDLE",
+-      phase: "IDLE",
+-      started_at: null,
+-      updated_at: new Date().toISOString(),
+-      current_window_id: null,
+-      chatgpt_tab_id: null,
+-      avito_tab_id: null,
+-      user_started: false,
+-      inspection_only: true,
+-      processed_command_turn_id: null,
+-      waiting_for_command: false,
+-      blocked_reason: null,
+-      candidate_audit: null,
+-      report: null
+-    }, overrides);
+-  }
+-
+-  function appendLog(logs, type, fields = {}) {
+-    return [...(Array.isArray(logs) ? logs : []), Object.assign({at: new Date().toISOString(), type}, fields)].slice(-MAX_LOGS);
+-  }
+-
+-  function safeLogAudit(audit) {
+-    const input = audit || {};
+-    return {
+-      conversation_id: input.conversation_id || null,
+-      last_user_turn_id: input.last_user_turn_id || null,
+-      assistant_after_last_user: Number(input.assistant_after_last_user || 0),
+-      writing_blocks_seen: Number(input.writing_blocks_seen || 0),
+-      valid_forms_seen: Number(input.valid_forms_seen || 0),
+-      selected_turn_id: input.selected_turn_id || null,
+-      selected_root_source: input.selected_root_source || null,
+-      selected_copy_available: input.selected_copy_available === true,
+-      ignored_invalid_blocks: Number(input.ignored_invalid_blocks || 0),
+-      ignored_processed_turn: input.ignored_processed_turn === true,
+-      reason: input.reason || null
+-    };
+-  }
+-
+-  function commandSummary(command) {
+-    const fields = command && command.fields ? command.fields : {};
+-    return {
+-      mode: command && command.mode || null,
+-      goal: fields["Цель"] || "",
+-      category: fields["Категория"] || "",
+-      city: fields["Город"] || "",
+-      delivery: fields["Доставка"] || "",
+-      query: fields["Поисковый запрос"] || "",
+-      price: fields["Цена"] || "",
+-      candidate_count: command && command.candidate_count || null
+-    };
+-  }
+-
+-  function formatFilterReport({searchId, command, surface}) {
+-    const summary = commandSummary(command);
+-    const lines = [
+-      "Avito Finder: read-only обследование фильтров завершено",
+-      "",
+-      `Задача: ${searchId}`,
+-      `Режим: ${summary.mode || "не определён"}`,
+-      `Категория: ${summary.category || "не указана"}`,
+-      `Город: ${summary.city || "не указан"}`,
+-      `Поисковый запрос: ${summary.query || "не применять"}`,
+-      "",
+-      `Вкладка Avito: ${surface.url || "неизвестно"}`,
+-      `Формы/поля: ${surface.form_controls_count ?? 0}`,
+-      `Кнопки: ${surface.buttons_count ?? 0}`,
+-      `Признаки login/captcha: ${surface.login_or_captcha ? "обнаружены" : "не обнаружены"}`,
+-      "",
+-      "Видимые элементы:",
+-      ...(surface.controls || []).slice(0, 40).map((item) => `- ${item.kind}: ${item.label || item.placeholder || item.text || "без подписи"}`),
+-      "",
+-      "Это read-only результат: текст не вводился, фильтры не менялись, поиск не запускался, объявления не открывались, сообщения не отправлялись.",
+-      "Финальный статус: REPORT_STAGED"
+-    ];
+-    return lines.join("\n");
+-  }
+-
+-  root.AvitoFinderCore = Object.freeze({STORAGE, COMMAND_LABELS, normalizeText, urlKind, makeSearchId, parseSearchCommand, state, appendLog, safeLogAudit, commandSummary, formatFilterReport});
++  const REQUIRED_COMMAND_LABELS = Object.freeze(["Цель", "Режим", "Категория", "Город", "Доставка", "Поисковый запрос", "Цена", "Обязательные условия", "Желательные условия", "Исключить", "Количество кандидатов", "Действие"]);
++  function safeUrl(value) { try { return new URL(String(value || "")); } catch (_) { return null; } }
++  function isChatGPTUrl(value) { const u=safeUrl(value); return Boolean(u && u.protocol==="https:" && CHATGPT_HOSTS.has(u.hostname)); }
++  function isAvitoUrl(value) { const u=safeUrl(value); return Boolean(u && u.protocol==="https:" && AVITO_HOSTS.has(u.hostname)); }
++  function normalizeText(value) { return String(value || "").replace(/\u00a0/g," ").replace(/\r/g,"").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim(); }
++  function fingerprint(value) { const text=normalizeText(value); let h=2166136261; for(let i=0;i<text.length;i+=1){h^=text.charCodeAt(i);h=Math.imul(h,16777619);} return `${text.length}:${(h>>>0).toString(16)}`; }
++  function makeSearchId(now, random) { const stamp=new Date(now||Date.now()).toISOString().replace(/[-:.TZ]/g,"").slice(0,14); const entropy=Math.floor((random===undefined?Math.random():random)*0xffffff).toString(36).padStart(4,"0").slice(-4); return `af-${stamp}-${entropy}`; }
++  function parseLabeledSections(text) { const out={}; let current=null; for(const raw of normalizeText(text).split("\n")){ const line=raw.trim(); const m=line.match(/^([^:]{2,80}):\s*(.*)$/u); if(m && REQUIRED_COMMAND_LABELS.includes(m[1].trim())){current=m[1].trim();out[current]=m[2].trim();continue;} if(current && line) out[current]=`${out[current]}\n${line}`.trim(); } return out; }
++  function parseCommandForm(text) { const fields=parseLabeledSections(text); const missing=REQUIRED_COMMAND_LABELS.filter(k=>!(k in fields)); const mode=String(fields["Режим"]||"").trim().toUpperCase(); const count=Number.parseInt(String(fields["Количество кандидатов"]||""),10); const errors=[]; if(missing.length) errors.push(`MISSING_LABELS:${missing.join(",")}`); if(!VALID_MODES.has(mode)) errors.push("INVALID_MODE"); if(!Number.isInteger(count)||count<1||count>30) errors.push("INVALID_CANDIDATE_COUNT"); if(mode==="SEARCH"&&!String(fields["Город"]||"").trim()) errors.push("CITY_REQUIRED_FOR_SEARCH"); return {valid:errors.length===0,errors,mode,candidate_count:Number.isInteger(count)?count:null,fields,raw:normalizeText(text)}; }
++  function makeState(overrides) { return Object.assign({version:4,search_id:null,status:"IDLE",phase:"IDLE",started_at:null,updated_at:new Date().toISOString(),current_window_id:null,chatgpt_tab_id:null,avito_tab_id:null,conversation_id:null,anchor_turn_id:null,assistant_turn_id:null,blocked_reason:null,user_started:false,inspection_only:true,report:null},overrides||{}); }
++  function appendLog(existing,type,fields){return [...(Array.isArray(existing)?existing:[]),Object.assign({at:new Date().toISOString(),type},fields||{})].slice(-MAX_LOGS);}
++  function formatInspectionReport(i){const a=i?.avito||{};return ["Avito Finder: read-only обследование завершено","",`Задача: ${i?.search_id||"?"}`,`Статус Avito: ${a.blocked_reason||"DOM доступен"}`,"",`Формы/поля: ${a.input_count??"?"}`,`Кнопки: ${a.button_count??"?"}`,`Ссылки-кандидаты: ${a.listing_link_count??"?"}`,"Поиск, ввод, изменение фильтров, открытие объявлений и отправка сообщений не выполнялись."].join("\n");}
++  root.AvitoFinderCore=Object.freeze({STORAGE,REQUIRED_COMMAND_LABELS,isChatGPTUrl,isAvitoUrl,normalizeText,fingerprint,makeSearchId,parseCommandForm,makeState,appendLog,formatInspectionReport});
++  if(typeof module!=="undefined"&&module.exports) module.exports=root.AvitoFinderCore;
+ })(globalThis);
+
+--- v0.3.0/manifest.json
++++ v0.4.0/manifest.json
+@@ -1,16 +1,15 @@
+ {
+   "manifest_version": 3,
+-  "name": "Avito Finder",
++  "name": "Avito Finder — Bridge Capture Isolated",
+   "short_name": "Avito Finder",
+-  "version": "0.3.0",
+-  "version_name": "0.3.0-tz-command-contract-reset",
+-  "description": "Separate Avito Finder: reads one current ChatGPT search command and performs read-only Avito filter inspection.",
++  "version": "0.4.0",
++  "version_name": "0.4.0-bridge-exact-start-and-local-copy-candidate",
++  "description": "Отдельный Avito Finder: штатный ChatGPT start «Ищи», точный user-anchor и local Copy writing block перед локальной проверкой команды.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+-    "activeTab",
+-    "scripting",
++    "tabs",
+     "storage",
+-    "tabs"
++    "scripting"
+   ],
+   "host_permissions": [
+     "https://chatgpt.com/*",
+
+--- v0.3.0/popup.css
++++ v0.4.0/popup.css
+@@ -1 +1,12 @@
+-:root{font-family:Arial,sans-serif;color:#111;background:#fff}body{width:470px;margin:0;padding:14px;box-sizing:border-box}h1{font-size:20px;margin:0 0 8px}.subtitle,.note{font-size:13px;line-height:1.4}.status{border:1px solid #777;border-radius:8px;padding:10px;white-space:pre-wrap}.status pre{margin:6px 0 0;white-space:pre-wrap}.actions{display:flex;gap:8px;margin:12px 0}button{font:inherit;padding:9px 10px;border:1px solid #777;background:#fff;border-radius:6px;cursor:pointer}button:disabled{opacity:.5;cursor:default}.logs{height:190px;overflow:auto;white-space:pre-wrap;border:1px solid #777;border-radius:8px;padding:8px;font-size:11px}.note code{font-size:12px}textarea{width:100%;height:190px;box-sizing:border-box;border:1px solid #777;border-radius:8px;padding:8px;resize:vertical;white-space:pre-wrap;font:12px/1.4 monospace}h2{font-size:15px;margin:14px 0 6px}
++:root { color-scheme: light dark; font-family: Arial, sans-serif; }
++body { margin: 0; min-width: 360px; }
++main { padding: 14px; display: grid; gap: 10px; }
++h1 { margin: 0; font-size: 18px; }
++.sub, .hint { margin: 0; font-size: 12px; line-height: 1.4; opacity: .85; }
++.status { border: 1px solid #8b8b8b; padding: 8px; border-radius: 6px; display: grid; gap: 4px; }
++.actions { display: flex; gap: 8px; }
++button { min-height: 32px; border-radius: 6px; border: 1px solid #777; padding: 6px 10px; cursor: pointer; }
++button.secondary { background: transparent; }
++textarea, pre { width: 100%; box-sizing: border-box; border: 1px solid #777; border-radius: 6px; padding: 8px; font: 11px/1.35 monospace; white-space: pre-wrap; }
++pre { max-height: 160px; overflow: auto; margin: 0; }
++label { font-weight: 700; font-size: 12px; }
+
+--- v0.3.0/popup.html
++++ v0.4.0/popup.html
+@@ -1,9 +1 @@
+-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avito Finder</title><link rel="stylesheet" href="popup.css"></head><body>
+-<h1>Avito Finder</h1>
+-<p class="subtitle">Этапы 3–4 ТЗ: захват текущей допустимой команды и read-only обследование фильтров.</p>
+-<section class="status"><strong id="status">IDLE</strong><pre id="detail"></pre></section>
+-<div class="actions"><button id="start">Начать: команда и фильтры</button><button id="stop">Стоп</button></div>
+-<p class="note">Расширение не пишет стартовые сообщения. По ТЗ оно берёт только последнюю новую assistant writing form после последнего user-сообщения текущего чата. В режиме <code>INSPECT_FILTERS</code> Avito не изменяется.</p>
+-<h2>Живой журнал</h2><pre id="logs" class="logs">Журнал пока пуст.</pre>
+-<h2>Последний отчёт</h2><textarea id="report" readonly></textarea><button id="copy">Скопировать отчёт</button>
+-<script src="popup.js"></script></body></html>
++<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avito Finder</title><link rel="stylesheet" href="popup.css"></head><body><main><h1>Avito Finder</h1><p class="sub">Этапы 3–4 ТЗ: «Начать» отправляет «Ищи», затем используется точный anchor и local Copy-контур Bridge. Проверка команды выполняется только после получения полного текста.</p><section class="status" aria-live="polite"><strong id="status">Загрузка…</strong><span id="detail"></span></section><div class="actions"><button id="start" type="button">Начать</button><button id="stop" type="button" class="secondary">Стоп</button></div><label for="logs">Живой журнал</label><pre id="logs"></pre><label for="report">Последний отчёт</label><textarea id="report" readonly rows="12" spellcheck="false"></textarea><button id="copy" type="button" class="secondary">Скопировать отчёт</button></main><script src="popup.js"></script></body></html>
+
+--- v0.3.0/popup.js
++++ v0.4.0/popup.js
+@@ -1,10 +1 @@
+-"use strict";
+-const $ = (id) => document.getElementById(id);
+-const statusNode=$("status"), detailNode=$("detail"), logsNode=$("logs"), reportNode=$("report"), startButton=$("start"), stopButton=$("stop"), copyButton=$("copy");
+-function message(payload){return new Promise((resolve)=>chrome.runtime.sendMessage(payload,(response)=>{const error=chrome.runtime.lastError;resolve(error?{ok:false,error:error.message}:response);}));}
+-function render(view){const state=view?.state||{};statusNode.textContent=state.status||"IDLE";const audit=state.candidate_audit||{};detailNode.textContent=[state.search_id||"",state.blocked_reason||"",audit.reason||"",audit.selected_turn_id?`turn=${audit.selected_turn_id}`:""].filter(Boolean).join("\n");reportNode.value=view?.inspection?.report||state.report||"";logsNode.textContent=(view?.logs||[]).slice(-40).map((row)=>{const extra=Object.entries(row).filter(([key])=>!['at','type'].includes(key)).map(([key,value])=>`${key}=${JSON.stringify(value)}`).join(" ");return `${row.at} ${row.type}${extra?` ${extra}`:""}`;}).join("\n")||"Журнал пока пуст.";}
+-async function refresh(){const result=await message({type:"AF_GET_VIEW"});if(result?.ok)render(result);else statusNode.textContent=`Ошибка: ${result?.error||"нет ответа"}`;}
+-startButton.addEventListener("click",async()=>{startButton.disabled=true;const result=await message({type:"AF_START_COMMAND_FILTER_INSPECTION"});startButton.disabled=false;if(result?.ok)await refresh();else await refresh();});
+-stopButton.addEventListener("click",async()=>{await message({type:"AF_STOP"});await refresh();});
+-copyButton.addEventListener("click",async()=>{if(!reportNode.value)return;try{await navigator.clipboard.writeText(reportNode.value);copyButton.textContent="Скопировано";setTimeout(()=>copyButton.textContent="Скопировать отчёт",1000);}catch(_){reportNode.select();document.execCommand("copy");}});
+-chrome.storage.onChanged.addListener((_changes,area)=>{if(area==="local")refresh();});refresh();
++"use strict";const status=document.querySelector("#status"),detail=document.querySelector("#detail"),logs=document.querySelector("#logs"),report=document.querySelector("#report"),start=document.querySelector("#start"),stop=document.querySelector("#stop"),copy=document.querySelector("#copy");const send=m=>new Promise(r=>chrome.runtime.sendMessage(m,r));function render(v){const s=v?.state||{};status.textContent=s.status||"IDLE";detail.textContent=s.blocked_reason||s.search_id||"";report.value=v?.inspection?.report||s.report||"";logs.textContent=(v?.logs||[]).slice(-18).map(x=>`${x.at} ${x.type} ${Object.entries(x).filter(([k])=>!['at','type'].includes(k)).map(([k,val])=>`${k}=${JSON.stringify(val)}`).join(' ')}`).join("\n");}async function refresh(){const v=await send({type:"AF_GET_VIEW"});if(v?.ok)render(v);}start.onclick=async()=>{start.disabled=true;status.textContent="Отправляю «Ищи»…";const r=await send({type:"AF_START"});start.disabled=false;if(r?.state)render({state:r.state,logs:[]});else await refresh();};stop.onclick=async()=>{await send({type:"AF_STOP"});await refresh();};copy.onclick=async()=>{if(!report.value)return;try{await navigator.clipboard.writeText(report.value);copy.textContent="Скопировано";setTimeout(()=>copy.textContent="Скопировать отчёт",1200);}catch(_){report.focus();report.select();document.execCommand("copy");}};refresh();
+--- v0.3.0/service_worker.js
++++ v0.4.0/service_worker.js
+@@ -1,126 +1,34 @@
+-/* Avito Finder service worker. Standalone extension runtime. */
++/* Avito Finder v0.4.0 isolated worker. */
+ "use strict";
+ importScripts("core.js");
+-const Core = globalThis.AvitoFinderCore;
+-const STATE_KEY = Core.STORAGE.state;
+-const LOG_KEY = Core.STORAGE.logs;
+-const INSPECTION_KEY = Core.STORAGE.inspection;
+-const COMMAND_KEY = Core.STORAGE.command;
+-const COMMAND_TIMEOUT_MS = 90000;
+-const RPC_TIMEOUT_MS = 5000;
+-
+-function callback(call) {
+-  return new Promise((resolve, reject) => call((value) => {
+-    const error = chrome.runtime.lastError;
+-    if (error) reject(new Error(error.message)); else resolve(value);
+-  }));
+-}
+-function get(keys) { return callback((done) => chrome.storage.local.get(keys, done)); }
+-function set(values) { return callback((done) => chrome.storage.local.set(values, done)); }
+-function tabsQuery(query) { return callback((done) => chrome.tabs.query(query, done)); }
+-function tabsUpdate(id, props) { return callback((done) => chrome.tabs.update(id, props, done)); }
+-function executeScript(target, files) { return callback((done) => chrome.scripting.executeScript({target, files}, done)); }
+-function sendMessage(tabId, message) { return callback((done) => chrome.tabs.sendMessage(tabId, message, done)); }
+-function withTimeout(promise, ms, code) {
+-  let timer;
+-  return Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(code)), ms); })]).finally(() => clearTimeout(timer));
+-}
+-async function readState() { const data = await get([STATE_KEY]); return Core.state(data[STATE_KEY] || {}); }
+-async function saveState(next) { const current = await readState(); const state = Core.state(Object.assign({}, current, next || {}, {updated_at: new Date().toISOString()})); await set({[STATE_KEY]: state}); return state; }
+-async function log(type, fields = {}) { const data = await get([LOG_KEY]); const logs = Core.appendLog(data[LOG_KEY] || [], type, fields); await set({[LOG_KEY]: logs}); return logs; }
+-function roleFiles(role) { return role === "chatgpt" ? ["core.js", "chatgpt_content.js"] : ["core.js", "avito_content.js"]; }
+-async function messageRole(tabId, role, message) {
+-  try { return await withTimeout(sendMessage(tabId, message), RPC_TIMEOUT_MS, "CONTENT_RPC_TIMEOUT"); }
+-  catch (firstError) {
+-    await log("CONTENT_RECEIVER_MISSING", {role, tab_id: tabId, reason: firstError.message});
+-    await executeScript({tabId}, roleFiles(role));
+-    await log("CONTENT_SCRIPT_INJECTED", {role, tab_id: tabId, files: roleFiles(role)});
+-    return withTimeout(sendMessage(tabId, message), RPC_TIMEOUT_MS, "CONTENT_RPC_TIMEOUT_AFTER_INJECTION");
+-  }
+-}
+-async function activeTabFor(role, windowId, userStarted) {
+-  const tabs = await tabsQuery({windowId});
+-  const found = tabs.find((tab) => Core.urlKind(tab.url) === role);
+-  if (found) return found;
+-  if (role === "avito" && userStarted) {
+-    const created = await callback((done) => chrome.tabs.create({windowId, url: "https://www.avito.ru/", active: true}, done));
+-    await log("AVITO_TAB_CREATED", {tab_id: created.id, window_id: windowId});
+-    return created;
+-  }
+-  throw new Error(role === "chatgpt" ? "BLOCKED_CHATGPT_TAB_MISSING" : "BLOCKED_AVITO_TAB_MISSING");
+-}
+-async function activate(tab, role) {
+-  const activated = await tabsUpdate(tab.id, {active: true});
+-  await log("TAB_ACTIVATED", {role, tab_id: activated.id, window_id: activated.windowId, url: activated.url});
+-  return activated;
+-}
+-async function stopCurrent() {
+-  const old = await readState();
+-  if (old.chatgpt_tab_id) { try { await messageRole(old.chatgpt_tab_id, "chatgpt", {type: "AF_CANCEL_COMMAND_WAIT"}); } catch (_) {} }
+-  await log("STOPPED_BY_USER", {search_id: old.search_id || null});
+-  return saveState({status: "CANCELLED_BY_USER", phase: "CANCELLED", waiting_for_command: false, blocked_reason: null, report: "Avito Finder: задача остановлена пользователем."});
+-}
+-async function commandCaptureAudit(message, sender) {
+-  const state = await readState();
+-  if (!state.waiting_for_command || !sender.tab || sender.tab.id !== state.chatgpt_tab_id || message.search_id !== state.search_id) return {ok: true, ignored: true};
+-  const audit = Core.safeLogAudit(message.audit);
+-  await saveState({candidate_audit: audit, blocked_reason: audit.reason || null});
+-  await log("COMMAND_CAPTURE_AUDIT", {search_id: state.search_id, audit});
+-  return {ok: true};
+-}
+-async function runCommandAndFilterInspection() {
+-  const current = await readState();
+-  if (current.waiting_for_command || ["COMMAND_CAPTURED", "AVITO_TAB_ACTIVE", "INSPECTING_FILTERS"].includes(current.status)) throw new Error("TASK_ALREADY_ACTIVE");
+-  const active = await callback((done) => chrome.tabs.query({active: true, currentWindow: true}, done));
+-  const windowId = active[0] && active[0].windowId;
+-  if (!Number.isInteger(windowId)) throw new Error("BLOCKED_CURRENT_WINDOW_UNKNOWN");
+-  const searchId = Core.makeSearchId();
+-  const chat = await activate(await activeTabFor("chatgpt", windowId, true), "chatgpt_command");
+-  await set({[INSPECTION_KEY]: null, [COMMAND_KEY]: null});
+-  await saveState({search_id: searchId, status: "WAITING_FOR_COMMAND", phase: "CHATGPT_TAB_ACTIVE", started_at: new Date().toISOString(), current_window_id: windowId, chatgpt_tab_id: chat.id, avito_tab_id: null, user_started: true, inspection_only: true, waiting_for_command: true, blocked_reason: null, candidate_audit: null, report: "Avito Finder: читаю только последнюю новую допустимую assistant writing form после последнего user-сообщения. Никакие сообщения в ChatGPT не создаются."});
+-  await log("COMMAND_CAPTURE_STARTED", {search_id: searchId, tab_id: chat.id, window_id: windowId, contract: "tz_5_1_latest_valid_assistant_form_after_last_user"});
+-  const stateBefore = await readState();
+-  let captured = await messageRole(chat.id, "chatgpt", {type: "AF_CAPTURE_CURRENT_COMMAND", processed_turn_id: stateBefore.processed_command_turn_id});
+-  if (!captured.ok && captured.error === "WAITING_FOR_NEW_VALID_COMMAND_FORM") {
+-    captured = await messageRole(chat.id, "chatgpt", {type: "AF_WAIT_FOR_CURRENT_COMMAND", processed_turn_id: stateBefore.processed_command_turn_id, timeout_ms: COMMAND_TIMEOUT_MS, search_id: searchId});
+-  }
+-  if (!captured || !captured.ok) {
+-    const audit = Core.safeLogAudit(captured && captured.audit);
+-    const reason = captured && captured.error ? captured.error : "COMMAND_CAPTURE_FAILED";
+-    await log("COMMAND_CAPTURE_NOT_COMPLETED", {search_id: searchId, reason, audit});
+-    return saveState({status: reason === "COMMAND_WAIT_TIMEOUT" ? "WAITING_FOR_COMMAND_TIMEOUT" : "WAITING_FOR_COMMAND", phase: "CHATGPT_TAB_ACTIVE", waiting_for_command: false, blocked_reason: reason, candidate_audit: audit, report: `Avito Finder: команда не захвачена. Причина: ${reason}`});
+-  }
+-  const command = captured.command;
+-  const audit = Core.safeLogAudit(captured.audit);
+-  await set({[COMMAND_KEY]: command});
+-  await saveState({status: "COMMAND_CAPTURED", phase: "COMMAND_CAPTURED", waiting_for_command: false, processed_command_turn_id: command.turn_id, candidate_audit: audit, blocked_reason: null});
+-  await log("COMMAND_CAPTURED", {search_id: searchId, turn_id: command.turn_id, mode: command.mode, source: command.source, copy_clicked: command.copy_clicked === true});
+-  if (command.mode !== "INSPECT_FILTERS") {
+-    return saveState({status: "BLOCKED_STAGE5_NOT_IMPLEMENTED", phase: "COMMAND_CAPTURED", blocked_reason: "SEARCH_MODE_REQUIRES_STAGE5", report: "Avito Finder: команда SEARCH захвачена, но применение фильтров и поиск ещё не реализованы. Никаких действий на Avito не выполнялось."});
+-  }
+-  const avito = await activate(await activeTabFor("avito", windowId, true), "avito_filters");
+-  await saveState({status: "INSPECTING_FILTERS", phase: "AVITO_TAB_ACTIVE", avito_tab_id: avito.id});
+-  const reply = await messageRole(avito.id, "avito", {type: "AF_INSPECT_FILTER_SURFACE"});
+-  if (!reply || !reply.ok) throw new Error(reply && reply.error ? reply.error : "BLOCKED_AVITO_UI_CHANGED");
+-  const surface = reply.surface;
+-  await log("FILTER_SURFACE_CAPTURED", {search_id: searchId, tab_id: avito.id, controls: surface.form_controls_count, buttons: surface.buttons_count, login_or_captcha: surface.login_or_captcha === true});
+-  const returnChat = await activate(chat, "chatgpt_report");
+-  const report = Core.formatFilterReport({searchId, command, surface});
+-  const inspection = {search_id: searchId, command, surface, report, captured_at: new Date().toISOString(), report_delivery: "not_implemented_until_stage6"};
+-  await set({[INSPECTION_KEY]: inspection});
+-  await saveState({status: "REPORT_STAGED", phase: "CHATGPT_TAB_ACTIVE_FOR_REPORT", chatgpt_tab_id: returnChat.id, waiting_for_command: false, blocked_reason: null, report});
+-  await log("REPORT_STAGED", {search_id: searchId, delivery: "popup_only_stage6_not_implemented"});
+-  return await readState();
+-}
+-async function view() { const data = await get([STATE_KEY, LOG_KEY, INSPECTION_KEY, COMMAND_KEY]); return {ok: true, state: Core.state(data[STATE_KEY] || {}), logs: data[LOG_KEY] || [], inspection: data[INSPECTION_KEY] || null, command: data[COMMAND_KEY] || null}; }
+-async function startExclusive(fn) { try { const state = await fn(); return {ok: true, state}; } catch (error) { const message = error && error.message ? error.message : "UNKNOWN_ERROR"; await log("TASK_BLOCKED_OR_FAILED", {reason: message}); const state = await saveState({status: "FAILED_WITH_EVIDENCE", phase: "FAILED", waiting_for_command: false, blocked_reason: message, report: `Avito Finder: задача остановлена безопасно. Причина: ${message}`}); return {ok: false, error: message, state}; } }
+-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+-  (async () => {
+-    if (message?.type === "AF_GET_VIEW") return view();
+-    if (message?.type === "AF_START_COMMAND_FILTER_INSPECTION") return startExclusive(runCommandAndFilterInspection);
+-    if (message?.type === "AF_STOP") return {ok: true, state: await stopCurrent()};
+-    if (message?.type === "AF_COMMAND_CAPTURE_AUDIT") return commandCaptureAudit(message, sender);
+-    return {ok: false, error: "UNKNOWN_MESSAGE"};
+-  })().then(sendResponse).catch((error) => sendResponse({ok: false, error: error && error.message ? error.message : "UNKNOWN_ERROR"}));
+-  return true;
+-});
++const Core=AvitoFinderCore, STATE_KEY=Core.STORAGE.state, LOG_KEY=Core.STORAGE.logs, INSPECTION_KEY=Core.STORAGE.lastInspection;
++function cb(inv){return new Promise((resolve,reject)=>inv(value=>{const e=chrome.runtime.lastError;e?reject(new Error(e.message)):resolve(value);}));}
++const storageGet=k=>cb(done=>chrome.storage.local.get(k,done)); const storageSet=v=>cb(done=>chrome.storage.local.set(v,done)); const tabsQuery=q=>cb(done=>chrome.tabs.query(q,done)); const tabsUpdate=(id,p)=>cb(done=>chrome.tabs.update(id,p,done)); const tabsCreate=p=>cb(done=>chrome.tabs.create(p,done)); const tabsSend=(id,m)=>cb(done=>chrome.tabs.sendMessage(id,m,done)); const execute=d=>cb(done=>chrome.scripting.executeScript(d,done)); const currentWindow=()=>cb(done=>chrome.windows.getCurrent({populate:false},done));
++async function state(){const x=await storageGet(STATE_KEY);return Core.makeState(x[STATE_KEY]||{});} async function save(s){const n=Core.makeState({...s,updated_at:new Date().toISOString()});await storageSet({[STATE_KEY]:n});return n;} async function log(type,fields={}){const x=await storageGet(LOG_KEY),next=Core.appendLog(x[LOG_KEY],type,fields);await storageSet({[LOG_KEY]:next});}
++function short(t){return {id:t.id,windowId:t.windowId,active:Boolean(t.active),url:t.url||null,title:t.title||null};}
++async function activate(t,role){const u=await tabsUpdate(t.id,{active:true});if(!u?.active){await log("BLOCKED_TAB_ACTIVATION",{role,tab:short(u||t)});throw new Error(`BLOCKED_TAB_ACTIVATION:${role}`);}await log("TAB_ACTIVATED",{role,tab:short(u)});return u;}
++async function find(kind,windowId){const tabs=await tabsQuery({windowId});const pred=kind==="chatgpt"?Core.isChatGPTUrl:Core.isAvitoUrl;return tabs.find(t=>pred(t.url))||null;}
++async function tab(id){return (await tabsQuery({})).find(t=>t.id===id)||null;}
++function noReceiver(e){return /Receiving end does not exist|Could not establish connection/i.test(String(e?.message||e));}
++function files(role){if(role==="chatgpt")return ["core.js","chatgpt_content.js"];if(role==="avito")return ["core.js","avito_content.js"];throw new Error("UNSUPPORTED_CONTENT_ROLE");}
++async function inject(id,role){const t=await tab(id);if(!t)throw new Error("TAB_MISSING");await execute({target:{tabId:id},files:files(role),injectImmediately:true});await log("CONTENT_SCRIPT_INJECTED",{role,tab:short(t),files:files(role)});}
++async function send(id,role,message){try{return await tabsSend(id,message);}catch(e){if(!noReceiver(e))throw e;await log("CONTENT_RECEIVER_MISSING",{role,tab_id:id,message_type:message.type});await inject(id,role);return await tabsSend(id,message);}}
++async function ensureAvito(windowId){const existing=await find("avito",windowId);if(existing)return {tab:existing,created:false};const made=await tabsCreate({windowId,active:true,url:"https://www.avito.ru/"});await log("AVITO_TAB_CREATED",{tab:short(made)});return {tab:made,created:true};}
++async function readAvito(tabId){const r=await send(tabId,"avito",{type:"AF_INSPECT_AVITO_DOM"});if(!r?.ok)throw new Error(`AVITO_DOM_UNAVAILABLE:${r?.error||"unknown"}`);return r.snapshot;}
++async function begin(){const win=await currentWindow(),searchId=Core.makeSearchId(),chat=await find("chatgpt",win.id);let s=await save(Core.makeState({search_id:searchId,status:"SENDING_START_COMMAND",phase:"BRIDGE_START_EXACT_ANCHOR",started_at:new Date().toISOString(),current_window_id:win.id,user_started:true,inspection_only:true}));if(!chat){s=await save({...s,status:"CHATGPT_TAB_NOT_FOUND_CURRENT_WINDOW",blocked_reason:"CHATGPT_TAB_NOT_FOUND_CURRENT_WINDOW"});return {ok:false,state:s,error:s.status};}const active=await activate(chat,"chatgpt_start_command");s=await save({...s,chatgpt_tab_id:active.id});await log("BRIDGE_CAPTURE_START_REQUESTED",{search_id:searchId,start_text:"Ищи",tab_id:active.id,window_id:win.id});const r=await send(active.id,"chatgpt",{type:"AF_START_BRIDGE_CAPTURE",search_id:searchId,start_text:"Ищи"});if(!r?.ok){s=await save({...s,status:"START_TRANSPORT_REJECTED",blocked_reason:r?.error||"START_TRANSPORT_REJECTED"});return {ok:false,state:s,error:s.blocked_reason};}return {ok:true,state:await save({...s,status:"WAITING_FOR_BRIDGE_EXACT_ANCHOR",phase:"CHATGPT_START_SENT"})};}
++async function inspectAfterValidatedCommand(s,parsed){const av=await ensureAvito(s.current_window_id);const active=await activate(av.tab,"avito_inspect_filters");s=await save({...s,status:"AVITO_TAB_ACTIVE",phase:"INSPECTING_FILTERS",avito_tab_id:active.id});const snapshot=await readAvito(active.id);await log("AVITO_FILTER_SURFACE_CAPTURED",{search_id:s.search_id,tab_id:active.id,created:av.created});const chat=await tab(s.chatgpt_tab_id);if(chat)await activate(chat,"chatgpt_return_after_inspect");const inspection={search_id:s.search_id,mode:parsed.mode,captured_at:new Date().toISOString(),avito:snapshot,report:Core.formatInspectionReport({search_id:s.search_id,avito:snapshot})};await storageSet({[INSPECTION_KEY]:inspection});s=await save({...s,status:"INSPECTION_COMPLETE",phase:"READONLY_INSPECTION_COMPLETE",report:inspection.report});await log("READONLY_INSPECTION_COMPLETE",{search_id:s.search_id});}
++async function handleCapture(m){let s=await state();if(!s.search_id||s.search_id!==m.search_id)return;const event=m.event_type||"UNKNOWN";const publicFields={search_id:s.search_id,event_type:event,anchor_turn_id:m.anchor_turn_id||null,assistant_turn_id:m.assistant_turn_id||null,copy_mode:m.copy_mode||null,payload_bytes:m.payload_bytes||null,text_fingerprint:m.text_fingerprint||null,error:m.error||null};await log(event,publicFields);if(event==="START_EXACT_ANCHOR_CAPTURED"){s=await save({...s,status:"WAITING_FOR_ASSISTANT_WRITING_BLOCK",phase:"CHATGPT_CAPTURE",conversation_id:m.conversation_id||s.conversation_id,anchor_turn_id:m.anchor_turn_id||null});return;}
++if(event==="CAPTURE_FAILED"){await save({...s,status:"FAILED_WITH_EVIDENCE",phase:"CHATGPT_CAPTURE_FAILED",blocked_reason:m.error||"CAPTURE_FAILED"});return;}
++if(event==="CAPTURE_PAUSED_MANUAL_USER"){await save({...s,status:"PAUSED_USER_COMPOSER_OCCUPIED",phase:"CHATGPT_CAPTURE_PAUSED",blocked_reason:"MANUAL_USER_TURN_AFTER_EXACT_ANCHOR"});return;}
++if(event!=="FULL_WRITING_BLOCK_TEXT_CAPTURED")return;
++// Required ordering: full local text is received first; only now this extension validates it.
++await save({...s,status:"FORM_TEXT_CAPTURED_UNVALIDATED",phase:"LOCAL_EXTENSION_VALIDATION",assistant_turn_id:m.assistant_turn_id||null});
++const parsed=Core.parseCommandForm(String(m.raw_text||""));
++await log("LOCAL_COMMAND_VALIDATION_COMPLETED",{search_id:s.search_id,valid:parsed.valid,errors:parsed.errors,mode:parsed.mode,candidate_count:parsed.candidate_count,text_fingerprint:Core.fingerprint(m.raw_text||"")});
++if(!parsed.valid){await save({...s,status:"COMMAND_INVALID_AFTER_FULL_COPY",phase:"LOCAL_EXTENSION_VALIDATION",blocked_reason:parsed.errors.join("; "),report:`Avito Finder: текст writing block получен через local Copy, но локальная проверка команды не пройдена.\nПричины: ${parsed.errors.join("; ")}`});return;}
++if(parsed.mode!=="INSPECT_FILTERS"){await save({...s,status:"COMMAND_CAPTURED_SEARCH_NOT_IMPLEMENTED",phase:"COMMAND_CAPTURED",report:"Команда SEARCH получена после local Copy. Этап 5 ТЗ ещё не реализован; Avito не изменялся."});return;}
++s=await save({...s,status:"COMMAND_CAPTURED",phase:"COMMAND_CAPTURED",blocked_reason:null});
++try{await inspectAfterValidatedCommand(s,parsed);}catch(e){await save({...await state(),status:"FAILED_WITH_EVIDENCE",phase:"INSPECTING_FILTERS",blocked_reason:String(e?.message||e)});await log("READONLY_INSPECTION_BLOCKED",{search_id:s.search_id,reason:String(e?.message||e)});}}
++async function stop(){const s=await state();if(s.chatgpt_tab_id)try{await send(s.chatgpt_tab_id,"chatgpt",{type:"AF_STOP_CHATGPT_CAPTURE"});}catch(_){}const next=await save({...s,status:"CANCELLED_BY_USER",phase:"STOPPED",blocked_reason:"CANCELLED_BY_USER"});await log("STOPPED_BY_USER",{search_id:next.search_id});return next;}
++async function view(){const [s,l,i]=await Promise.all([state(),storageGet(LOG_KEY),storageGet(INSPECTION_KEY)]);return {ok:true,state:s,logs:l[LOG_KEY]||[],inspection:i[INSPECTION_KEY]||null};}
++chrome.runtime.onMessage.addListener((m,_sender,reply)=>{if(m?.type==="AF_START"){begin().then(reply).catch(e=>reply({ok:false,error:String(e?.message||e)}));return true;}if(m?.type==="AF_STOP"){stop().then(s=>reply({ok:true,state:s}));return true;}if(m?.type==="AF_GET_VIEW"){view().then(reply);return true;}if(m?.type==="AF_CHATGPT_CAPTURE_EVENT"){handleCapture(m).then(()=>reply({ok:true})).catch(e=>reply({ok:false,error:String(e?.message||e)}));return true;}reply({ok:false,error:"UNKNOWN_MESSAGE"});return false;});
+

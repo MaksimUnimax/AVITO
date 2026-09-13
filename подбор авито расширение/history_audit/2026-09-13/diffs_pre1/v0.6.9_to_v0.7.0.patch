@@ -1,0 +1,500 @@
+--- v0.6.9/avito_content.js
++++ v0.7.0/avito_content.js
+@@ -1,9 +1,9 @@
+-/* Avito Finder v0.6.9 — bounded public diagnostics, trusted visible type and portal-bound dropdown option selection. */
++/* Avito Finder v0.7.0 — bounded public diagnostics, trusted visible input and adaptive menu modelling. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+-  if (globalThis.__avitoFinderAvitoContentV069) return;
+-  globalThis.__avitoFinderAvitoContentV069 = true;
++  if (globalThis.__avitoFinderAvitoContentV070) return;
++  globalThis.__avitoFinderAvitoContentV070 = true;
+ 
+   const Core = AvitoFinderCore;
+   const MAX_TREE_NODES = 160;
+@@ -17,6 +17,9 @@
+   const UI_PLAN_PRE_ACTION_DELAY_MS = Number.isFinite(Number(globalThis.__AF_TEST_UI_DELAY_MS)) ? Number(globalThis.__AF_TEST_UI_DELAY_MS) : 1500;
+   const UI_PLAN_POST_ACTION_DELAY_MS = Number.isFinite(Number(globalThis.__AF_TEST_UI_DELAY_MS)) ? Number(globalThis.__AF_TEST_UI_DELAY_MS) : 2000;
+   const DEBUGGER_TYPE_TIMEOUT_MS = Number.isFinite(Number(globalThis.__AF_TEST_DEBUGGER_TYPE_TIMEOUT_MS)) ? Number(globalThis.__AF_TEST_DEBUGGER_TYPE_TIMEOUT_MS) : 10000;
++  const MENU_CAPTURE_MAX_MS = 5000;
++  const MENU_CAPTURE_POLL_MS = 80;
++  const MENU_MAX_OPTIONS = 12;
+   const debuggerTypeTokens = new Map();
+   const debuggerClickTokens = new Map();
+   const debuggerNativeSelectTokens = new Map();
+@@ -321,117 +324,247 @@
+     const inputs = Array.from(dialog.querySelectorAll("input,textarea,[contenteditable='true']")).filter((node) => editableControl(node) && visible(node));
+     return inputs.length === 1 ? inputs[0] : null;
+   }
++  function menuLabelKey(value) {
++    return Core.normalizeText(value || "").toLocaleLowerCase("ru-RU")
++      .replace(/[\p{P}\p{S}_]+/gu, " ").replace(/\s+/gu, " ").trim();
++  }
++  function rectData(element) {
++    const rect = element?.getBoundingClientRect?.();
++    if (!rect || !Number.isFinite(rect.left) || !Number.isFinite(rect.top)) return null;
++    return { left: Math.round(rect.left), top: Math.round(rect.top), width: Math.round(rect.width), height: Math.round(rect.height) };
++  }
++  function rectIntersectsViewport(rect) {
++    return Boolean(rect && rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0 && rect.left < window.innerWidth && rect.top < window.innerHeight);
++  }
++  function visibleLeafText(element, limit = 260) {
++    if (!(element instanceof Element)) return "";
++    const values = [];
++    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
++    while (walker.nextNode()) {
++      const node = walker.currentNode;
++      const parent = node.parentElement;
++      if (!parent || !visible(parent)) continue;
++      const value = Core.normalizeText(node.nodeValue || "");
++      if (value) values.push(value);
++      if (values.join(" ").length >= limit) break;
++    }
++    return Core.normalizeText(values.join(" ")).slice(0, limit);
++  }
++  function elementSignature(element) {
++    if (!(element instanceof Element)) return "";
++    return [element.tagName.toLowerCase(), element.getAttribute("role") || "", element.getAttribute("aria-label") || "", element.getAttribute("data-marker") || ""].join("|").slice(0, 300);
++  }
++  function candidateInInputZone(element, input) {
++    const rect = element?.getBoundingClientRect?.();
++    const anchor = input?.getBoundingClientRect?.();
++    if (!rectIntersectsViewport(rect) || !rectIntersectsViewport(anchor)) return false;
++    const horizontalGap = Math.max(0, Math.max(anchor.left - rect.right, rect.left - anchor.right));
++    const horizontalLimit = Math.max(64, anchor.width * 0.55);
++    const verticalGap = Math.max(0, rect.top - anchor.bottom, anchor.top - rect.bottom);
++    const verticalLimit = Math.max(40, Math.min(720, window.innerHeight * 0.78));
++    return horizontalGap <= horizontalLimit && verticalGap <= verticalLimit;
++  }
++  function selectedSemanticAncestor(node, input) {
++    let current = node instanceof Element ? node : null;
++    for (let depth = 0; current && current !== document.body && depth < 9; depth += 1, current = current.parentElement) {
++      if (!visible(current) || !candidateInInputZone(current, input)) continue;
++      const role = (current.getAttribute("role") || "").toLowerCase();
++      const tag = current.tagName.toLowerCase();
++      const cursor = window.getComputedStyle(current).cursor;
++      const interactive = tag === "button" || tag === "a" || tag === "label" || ["option", "listitem", "menuitem", "checkbox", "radio", "button"].includes(role) || current.tabIndex >= 0 || cursor === "pointer";
++      if (interactive && !current.disabled && current.getAttribute("aria-disabled") !== "true") return current;
++    }
++    return null;
++  }
++  function repeatedMenuSurface(node, input, capture) {
++    let current = node instanceof Element ? node : null;
++    for (let depth = 0; current && current !== document.body && depth < 6; depth += 1, current = current.parentElement) {
++      if (!visible(current) || !candidateInInputZone(current, input)) continue;
++      if (mutationBelongsToCapture(capture, current)) return true;
++      const siblings = Array.from(current.children || []).filter((child) => visible(child) && candidateInInputZone(child, input) && Core.normalizeText(child.innerText || child.textContent || ""));
++      if (siblings.length >= 2) return true;
++    }
++    return false;
++  }
++  function mutationBelongsToCapture(capture, element) {
++    if (!capture || !(element instanceof Element)) return false;
++    for (const changed of capture.changed) {
++      if (!changed?.isConnected) continue;
++      if (changed === element || changed.contains(element) || element.contains(changed)) return true;
++    }
++    return false;
++  }
+   function portalOptionBoundToDialog(node, input, dialog) {
+-    if (dialog.contains(node)) return true;
+-    const rect = node.getBoundingClientRect();
++    if (!(node instanceof Element) || !(input instanceof Element) || !candidateInInputZone(node, input)) return false;
++    if (!dialog || dialog.contains(node)) return true;
++    const nodeRect = node.getBoundingClientRect();
++    const dialogRect = dialog.getBoundingClientRect();
++    return nodeRect.left >= dialogRect.left - 48 && nodeRect.right <= dialogRect.right + 48 && nodeRect.top >= dialogRect.top - 32 && nodeRect.bottom <= dialogRect.bottom + 48;
++  }
++  function startVisibleMenuCapture(input) {
++    const capture = { input, started_at: Date.now(), changed: new Set(), observer: null, stopped: false, initial_contract: "" };
++    if (!(input instanceof Element)) return capture;
++    const remember = (node) => {
++      const element = node instanceof Element ? node : node?.parentElement;
++      if (element && capture.changed.size < 180) capture.changed.add(element);
++    };
++    try {
++      capture.observer = new MutationObserver((records) => {
++        for (const record of records) {
++          remember(record.target);
++          for (const node of Array.from(record.addedNodes || [])) remember(node);
++        }
++      });
++      capture.observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-expanded", "aria-hidden", "hidden", "style", "class", "role"] });
++    } catch (_) {}
++    return capture;
++  }
++  function stopVisibleMenuCapture(capture) {
++    if (!capture || capture.stopped) return;
++    capture.stopped = true;
++    try { capture.observer?.disconnect(); } catch (_) {}
++  }
++  function directMenuLeaf(node, input, capture) {
++    if (!(node instanceof Element) || !candidateInInputZone(node, input)) return false;
++    const textChildren = Array.from(node.children || []).filter((child) => visible(child) && Core.normalizeText(child.innerText || child.textContent || ""));
++    if (textChildren.length > 1) return false;
++    const dialog = input.closest("[role='dialog']");
++    const nodeRect = node.getBoundingClientRect();
+     const inputRect = input.getBoundingClientRect();
+-    const dialogRect = dialog.getBoundingClientRect();
+-    // A framework may render an autocomplete list through a body-level portal. It
+-    // is eligible only while it is visibly aligned with the active input and lies
+-    // within the modal's painted box. This is geometry-bound, exact-text-only and
+-    // never scans cards or controls elsewhere on the page.
+-    const horizontal = rect.left >= dialogRect.left - 32 && rect.right <= dialogRect.right + 32;
+-    const vertical = rect.top >= inputRect.top - 12 && rect.bottom <= dialogRect.bottom + 32;
+-    return horizontal && vertical;
++    const portaledBelowInput = Boolean(dialog && !dialog.contains(node) && nodeRect.top >= inputRect.top - 8);
++    return portaledBelowInput || repeatedMenuSurface(node, input, capture);
++  }
++  function rawMenuOptionCandidates(input, capture) {
++    const raw = Array.from(document.querySelectorAll("button,a,label,[role],[tabindex],li,div,span,strong,em"));
++    const seen = new Set();
++    const options = [];
++    for (const node of raw) {
++      if (!(node instanceof Element) || !visible(node) || !candidateInInputZone(node, input)) continue;
++      const semantic = selectedSemanticAncestor(node, input);
++      const target = semantic || (directMenuLeaf(node, input, capture) ? node : null);
++      if (!target || seen.has(target) || targetForbidden(target) || !pointerReachable(target)) continue;
++      const label = visibleLeafText(target, 260) || textOf(target, 260);
++      const key = menuLabelKey(label);
++      if (!key || key.length < 2) continue;
++      const role = (target.getAttribute("role") || "").toLowerCase();
++      const explicit = ["option", "listitem", "menuitem", "checkbox", "radio"].includes(role);
++      const changed = mutationBelongsToCapture(capture, target);
++      const surface = repeatedMenuSurface(target, input, capture);
++      const anchorExpanded = input.closest("[role='combobox']")?.getAttribute("aria-expanded") === "true";
++      // A row must either be a changed interaction surface, expose selection
++      // semantics, or live in an expanded combobox. This excludes persistent dialog
++      // controls that happen to sit next to the input.
++      if (!changed && !explicit && !anchorExpanded && !surface) continue;
++      const score = (changed ? 80 : 0) + (explicit ? 40 : 0) + (surface ? 30 : 0) + (anchorExpanded ? 20 : 0) + (target.tagName.toLowerCase() === "button" ? 10 : 0);
++      seen.add(target);
++      options.push({
++        selection_kind: "adaptive_dom_menu",
++        element: target,
++        label,
++        label_key: key,
++        tag: target.tagName.toLowerCase(),
++        role,
++        source: changed ? "mutation_geometry_semantics" : (surface ? "repeated_surface_geometry" : "geometry_semantics"),
++        score,
++        bounds: rectData(target),
++        description: `${elementSignature(target)} text=${label}`.slice(0, 360)
++      });
++    }
++    return options;
+   }
+   function nativeOptionText(option) {
+     if (!(option instanceof HTMLOptionElement)) return "";
+-    const values = [option.label, option.text, option.value, option.textContent];
+-    for (const value of values) {
+-      const normalized = Core.normalizeText(value || "");
+-      if (normalized) return normalized;
+-    }
+-    return "";
+-  }
+-  function selectBelongsToInput(select, input, dialog) {
+-    if (!(select instanceof HTMLSelectElement) || !dialog.contains(select)) return false;
+-    const combobox = input.closest("[role='combobox']");
+-    if (combobox && combobox.contains(select)) return true;
+-    const inputMarker = String(input.getAttribute("data-marker") || "");
+-    const selectMarker = String(select.getAttribute("data-marker") || "");
+-    if (inputMarker && selectMarker) {
+-      const prefix = inputMarker.replace(/\/(?:search-input|input)$/u, "");
+-      if (prefix && (selectMarker === `${prefix}/select` || selectMarker.startsWith(`${prefix}/`))) return true;
+-    }
+-    const wrapper = input.parentElement?.parentElement;
+-    return Boolean(wrapper && wrapper.contains(select));
++    return Core.normalizeText(option.label || option.text || option.value || option.textContent || "");
++  }
++  function associatedNativeSelectOptions(input) {
++    const dialog = input?.closest("[role='dialog']");
++    if (!dialog) return [];
++    const results = [];
++    for (const select of Array.from(dialog.querySelectorAll("select"))) {
++      if (!(select instanceof HTMLSelectElement)) continue;
++      const rect = select.getBoundingClientRect();
++      const anchor = input.getBoundingClientRect();
++      if (rect.width <= 0 || rect.height <= 0 || Math.abs(rect.left - anchor.left) > Math.max(anchor.width, 80) || Math.abs(rect.top - anchor.top) > Math.max(anchor.height, 80)) continue;
++      Array.from(select.options || []).forEach((option, index) => {
++        const label = Core.normalizeText(option.label || option.text || option.value || option.textContent || "");
++        const key = menuLabelKey(label);
++        if (!key || option.disabled) return;
++        results.push({ selection_kind: "native_select", element: select, option_index: index, option_text: label, label, label_key: key, tag: "option", role: "option", source: "associated_native_select", score: 35, bounds: rectData(select), description: `select option=${index} text=${label}`.slice(0, 360) });
++      });
++    }
++    return results;
+   }
+   function nativeSelectOptionCandidates(wanted, dialog, input) {
+-    const matches = [];
+-    const selects = Array.from(dialog.querySelectorAll("select"));
+-    for (const select of selects) {
+-      if (!selectBelongsToInput(select, input, dialog) || !visible(select)) continue;
+-      const exact = Array.from(select.options || []).map((option, index) => ({ option, index, text: nativeOptionText(option) }))
+-        .filter((entry) => !entry.option.disabled && normalizedMatch(entry.text) === wanted);
+-      if (exact.length !== 1) continue;
+-      const entry = exact[0];
+-      matches.push({
+-        selection_kind: "native_select",
+-        element: select,
+-        input,
+-        option_index: entry.index,
+-        option_text: entry.text,
+-        description: `${select.tagName.toLowerCase()}${select.getAttribute("data-marker") ? ` data-marker=${select.getAttribute("data-marker")}` : ""} option=${entry.index} text=${entry.text}`.slice(0, 360),
+-        score: 120,
+-        text: entry.text,
+-        scope: "dialog_native_select"
+-      });
+-    }
+-    return matches;
++    const targetKey = menuLabelKey(wanted);
++    return associatedNativeSelectOptions(input).filter((item) => item.label_key === targetKey);
++  }
++  function modelVisibleMenu(input, capture) {
++    if (!(input instanceof Element) || !input.isConnected || !visible(input)) return { blocked_reason: "UI_MENU_INPUT_UNAVAILABLE", options: [] };
++    const domOptions = rawMenuOptionCandidates(input, capture);
++    const nativeOptions = domOptions.length ? [] : associatedNativeSelectOptions(input);
++    const candidates = [...domOptions, ...nativeOptions];
++    const optionRows = candidates.slice(0, MENU_MAX_OPTIONS).map((item) => ({ label: item.label, tag: item.tag, role: item.role, source: item.source, description: item.description, bounds: item.bounds }));
++    const contract = {
++      anchor: elementSignature(input),
++      expanded: input.closest("[role='combobox']")?.getAttribute("aria-expanded") || "",
++      options: optionRows.map((item) => [menuLabelKey(item.label), item.tag, item.role, item.source])
++    };
++    const contract_fingerprint = Core.fingerprint(JSON.stringify(contract));
++    return {
++      menu_id: `af-menu-${contract_fingerprint}`,
++      contract_fingerprint,
++      anchor_description: `${elementSignature(input)} placeholder=${input.getAttribute("placeholder") || ""}`.slice(0, 360),
++      captured_at: new Date().toISOString(),
++      blocked_reason: candidates.length ? null : "UI_MENU_NOT_OBSERVED",
++      options: optionRows,
++      _targets: candidates,
++      _input: input
++    };
++  }
++  async function waitForVisibleMenu(context, timeoutMs = 2600) {
++    const input = context?.element;
++    const capture = context?.menu_capture || startVisibleMenuCapture(input);
++    const deadline = Date.now() + Math.max(0, Math.min(Number(timeoutMs) || 0, MENU_CAPTURE_MAX_MS));
++    let model = modelVisibleMenu(input, capture);
++    while (!model.options.length && Date.now() < deadline) {
++      await uiDelay(MENU_CAPTURE_POLL_MS);
++      model = modelVisibleMenu(input, capture);
++    }
++    context.menu_capture = capture;
++    context.menu_model = model;
++    return model;
++  }
++  function publicMenuModel(model) {
++    if (!model || typeof model !== "object") return null;
++    return {
++      menu_id: model.menu_id || "",
++      contract_fingerprint: model.contract_fingerprint || "",
++      anchor_description: model.anchor_description || "",
++      captured_at: model.captured_at || "",
++      blocked_reason: model.blocked_reason || null,
++      options: Array.isArray(model.options) ? model.options.map((item) => ({ label: item.label || "", tag: item.tag || "", role: item.role || "", source: item.source || "", description: item.description || "", bounds: item.bounds || null })) : []
++    };
++  }
++  function adaptiveOptionCandidates(text, rememberedContext) {
++    const wanted = menuLabelKey(text);
++    const model = rememberedContext?.menu_model || modelVisibleMenu(rememberedContext?.element, rememberedContext?.menu_capture);
++    if (!wanted) return { ok: false, blocked_reason: "UI_OPTION_TEXT_EMPTY", candidates: [], menu: model };
++    const candidates = Array.isArray(model?._targets) ? model._targets : [];
++    const exact = candidates.filter((item) => item.label_key === wanted);
++    const evidence = candidates.slice(0, MENU_MAX_OPTIONS).map((item) => ({ description: item.description, scope: "adaptive_visible_menu", kind: item.selection_kind, label: item.label }));
++    if (!exact.length) return { ok: false, blocked_reason: model?.blocked_reason || "UI_MENU_OPTION_NOT_VISIBLE", candidates: evidence, menu: model };
++    if (exact.length !== 1) return { ok: false, blocked_reason: "UI_MENU_OPTION_AMBIGUOUS", candidates: evidence, menu: model };
++    return { ok: true, target: exact[0], candidates: evidence, menu: model };
+   }
+   function dialogScopedOptionCandidates(text, rememberedContext) {
+-    const wanted = normalizedMatch(text);
+-    if (!wanted) return { ok: false, blocked_reason: "UI_OPTION_TEXT_EMPTY", candidates: [] };
+-    const dialogs = Array.from(document.querySelectorAll("[role='dialog']")).filter(visible);
+-    // Selection stays bound to one open visible modal and one editable field. A
+-    // visible autocomplete list may be portaled outside the dialog DOM subtree.
+-    if (dialogs.length !== 1) return { ok: false, blocked_reason: dialogs.length ? "UI_OPTION_DIALOG_AMBIGUOUS" : "UI_OPTION_DIALOG_MISSING", candidates: [] };
+-    const dialog = dialogs[0];
+-    const input = selectionInputContext(dialog, rememberedContext);
+-    if (!input) return { ok: false, blocked_reason: "UI_OPTION_INPUT_CONTEXT_MISSING", candidates: [] };
+-    const raw = Array.from(document.querySelectorAll("[role='option'],[role='listitem'],li,button,a,[data-marker*='option'],[data-marker*='suggest'],div,span"));
+-    const seen = new Set();
+-    const matches = [];
+-    for (const node of raw) {
+-      if (!visible(node) || !pointerReachable(node) || targetForbidden(node)) continue;
+-      if (!portalOptionBoundToDialog(node, input, dialog)) continue;
+-      const textValue = normalizedMatch(textOf(node, 220));
+-      if (textValue !== wanted) continue;
+-      // Avoid selecting container copies of the same option. A deepest exact-text
+-      // element is the only generic fallback when the public UI exposes no role.
+-      const hasExactVisibleChild = Array.from(node.children || []).some((child) => visible(child) && pointerReachable(child) && normalizedMatch(textOf(child, 220)) === wanted);
+-      if (hasExactVisibleChild) continue;
+-      const explicit = node.matches("[role='option'],[role='listitem'],li,[data-marker*='option'],[data-marker*='suggest'],button,a");
+-      const semanticTarget = node.closest("button,a,[role='option'],[role='listitem'],li,[data-marker*='option'],[data-marker*='suggest']") || node;
+-      if (targetForbidden(semanticTarget) || semanticTarget.disabled || semanticTarget.getAttribute("aria-disabled") === "true") continue;
+-      const identity = semanticTarget === node ? node : semanticTarget;
+-      if (seen.has(identity)) continue;
+-      seen.add(identity);
+-      matches.push({
+-        selection_kind: "dom_click",
+-        // Keep the exact, currently painted text node as click geometry. A delegated
+-        // click bubbles to an option-row parent without guessing an enclosing node.
+-        element: node,
+-        description: `${node.tagName.toLowerCase()}${node.getAttribute("data-marker") ? ` data-marker=${node.getAttribute("data-marker")}` : ""} text=${textOf(node, 180)}`.slice(0, 360),
+-        score: explicit ? 100 : 70,
+-        text: textOf(node, 180),
+-        scope: dialog.contains(node) ? "dialog" : "portal_bound"
+-      });
+-    }
+-    // Some public controls expose an open browser-native select popup. Browser
+-    // paints its rows outside the DOM tree, so ordinary descendant/portal walking
+-    // cannot see them. The fallback remains exact-text, one-dialog, one-input and
+-    // one-associated-select only; it drives the already visible native control via
+-    // bounded mouse/key Input, never by mutating select.value or calling site code.
+-    matches.push(...nativeSelectOptionCandidates(wanted, dialog, input));
+-    const max = matches.reduce((value, item) => Math.max(value, item.score), 0);
+-    const winners = matches.filter((item) => item.score === max);
+-    const evidence = matches.slice(0, 8).map((item) => ({ description: item.description, score: item.score, scope: item.scope, kind: item.selection_kind }));
+-    if (!winners.length) return { ok: false, blocked_reason: "UI_OPTION_NOT_VISIBLE", candidates: evidence };
+-    if (winners.length !== 1) return { ok: false, blocked_reason: "UI_OPTION_AMBIGUOUS", candidates: evidence };
+-    return { ok: true, target: winners[0], candidates: evidence };
+-  }
+-
++    const context = { ...(rememberedContext || {}) };
++    if (!(context.element instanceof Element)) {
++      const dialogs = Array.from(document.querySelectorAll("[role='dialog']")).filter(visible);
++      if (dialogs.length === 1) context.element = selectionInputContext(dialogs[0], null);
++    }
++    const model = context.menu_model || modelVisibleMenu(context.element, context.menu_capture);
++    return adaptiveOptionCandidates(text, { ...context, menu_model: model });
++  }
+   function resolveVisibleActionTarget(step) {
+     const target = step?.target || {};
+     const wanted = normalizedMatch(target.value || "");
+@@ -738,9 +871,17 @@
+       if (step.type === "COLLECT_LISTINGS") {
+         const listings = collectPublicListings(Math.max(1, Math.min(Number(step.limit || 10), 30))); result.listings = listings; result.steps.push({ index, type: "COLLECT_LISTINGS", status: "completed", count: listings.length }); continue;
+       }
++      if (step.type === "COLLECT_MENU") {
++        const context = latestTypeContext || { element: document.activeElement instanceof Element ? document.activeElement : null, menu_capture: null };
++        const menu = await waitForVisibleMenu(context, 2600);
++        result.menu = publicMenuModel(menu);
++        if (menu.blocked_reason) { result.ok = false; result.blocked_reason = menu.blocked_reason; result.steps.push({ index, type: "COLLECT_MENU", status: "blocked", blocked_reason: menu.blocked_reason }); break; }
++        result.steps.push({ index, type: "COLLECT_MENU", status: "completed", count: menu.options.length, menu_id: menu.menu_id }); continue;
++      }
+       if (!["CLICK", "TYPE", "SELECT_OPTION"].includes(step.type)) { result.ok = false; result.blocked_reason = "UI_PLAN_ACTION_NOT_ALLOWED"; result.steps.push({ index, type: step.type || "?", status: "blocked", blocked_reason: result.blocked_reason }); break; }
++      if (step.type === "SELECT_OPTION" && latestTypeContext) await waitForVisibleMenu(latestTypeContext, 2600);
+       const resolved = step.type === "SELECT_OPTION" ? dialogScopedOptionCandidates(step.text, latestTypeContext) : resolveVisibleActionTarget(step);
+-      if (!resolved.ok) { result.ok = false; result.blocked_reason = resolved.blocked_reason; result.steps.push({ index, type: step.type, status: "blocked", blocked_reason: resolved.blocked_reason, candidates: resolved.candidates }); break; }
++      if (!resolved.ok) { result.ok = false; result.blocked_reason = resolved.blocked_reason; if (resolved.menu) result.menu = publicMenuModel(resolved.menu); result.steps.push({ index, type: step.type, status: "blocked", blocked_reason: resolved.blocked_reason, candidates: resolved.candidates }); break; }
+       await uiDelay(UI_PLAN_PRE_ACTION_DELAY_MS);
+       resolved.target.element.scrollIntoView({ block: "center", inline: "nearest" });
+       let applied = false;
+@@ -753,7 +894,13 @@
+           : await clickVisibleOptionWithDebugger(resolved.target.element, String(step.text || ""));
+         applied = Boolean(selectResult?.ok);
+       }
+-      if (step.type === "TYPE") { typeResult = await setVisibleControlValue(resolved.target.element, String(step.text || "")); applied = Boolean(typeResult?.ok); if (applied) latestTypeContext = { element: resolved.target.element, captured_at: Date.now() }; }
++      if (step.type === "TYPE") {
++        const menuCapture = startVisibleMenuCapture(resolved.target.element);
++        typeResult = await setVisibleControlValue(resolved.target.element, String(step.text || ""));
++        applied = Boolean(typeResult?.ok);
++        if (applied) latestTypeContext = { element: resolved.target.element, captured_at: Date.now(), menu_capture: menuCapture, menu_model: null };
++        else stopVisibleMenuCapture(menuCapture);
++      }
+       if (!applied) {
+         result.ok = false;
+         result.blocked_reason = step.type === "TYPE" ? (typeResult?.reason === "focus_failed" ? "UI_TARGET_FOCUS_FAILED" : "UI_DEBUGGER_TYPE_FAILED") : (step.type === "SELECT_OPTION" ? "UI_DEBUGGER_OPTION_CLICK_FAILED" : "UI_ACTION_APPLY_FAILED");
+@@ -762,8 +909,10 @@
+         break;
+       }
+       await uiDelay(UI_PLAN_POST_ACTION_DELAY_MS);
++      if (step.type === "SELECT_OPTION" && resolved.menu) result.menu = publicMenuModel(resolved.menu);
+       result.steps.push({ index, type: step.type, status: "completed", target_description: resolved.target.description, text: step.type === "TYPE" ? "введено" : (step.type === "SELECT_OPTION" ? String(step.text || "") : ""), input_strategy: step.type === "TYPE" ? typeResult.strategy : "", selection_strategy: step.type === "SELECT_OPTION" ? selectResult.strategy : "" });
+     }
++    if (latestTypeContext?.menu_capture) stopVisibleMenuCapture(latestTypeContext.menu_capture);
+     return result;
+   }
+   function performDiagnosticAction(request) {
+@@ -789,7 +938,7 @@
+     const links = Array.from(document.querySelectorAll("a[href*='/item/'],a[data-marker*='item']")).filter(visible);
+     return { url: location.href, title: document.title, captured_at: new Date().toISOString(), blocked_reason: detectBlock(), input_count: inputs.length, button_count: buttons.length, listing_link_count: links.length, actions_performed: "none_read_only" };
+   }
+-  if (globalThis.__AF_TEST_EXPORTS) globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, portalOptionBoundToDialog, pointerReachable, nativeOptionText, nativeSelectOptionCandidates };
++  if (globalThis.__AF_TEST_EXPORTS) globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, adaptiveOptionCandidates, startVisibleMenuCapture, waitForVisibleMenu, modelVisibleMenu, publicMenuModel, menuLabelKey, pointerReachable, portalOptionBoundToDialog, nativeOptionText, nativeSelectOptionCandidates };
+   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+     try {
+       if (message?.type === "AF_INSPECT_AVITO_DOM") { sendResponse({ ok: true, snapshot: inspect() }); return; }
+
+--- v0.6.9/core.js
++++ v0.7.0/core.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.6.8 isolated shared pure logic with bounded visible-UI selection. */
++/* Avito Finder v0.7.0 isolated shared pure logic with adaptive visible-menu modelling. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+   const STORAGE = Object.freeze({
+@@ -12,7 +12,7 @@
+   const VALID_MODES = new Set(["INSPECT_FILTERS", "SEARCH", "DIAGNOSE_DOM", "AVITO_UI"]);
+   // These are generic action verbs, not per-element features. Targets remain
+   // visible public controls resolved locally by marker/label/placeholder.
+-  const UI_ACTION_TYPES = new Set(["CLICK", "TYPE", "SELECT_OPTION", "WAIT", "WAIT_FOR", "SNAPSHOT", "COLLECT_LISTINGS"]);
++  const UI_ACTION_TYPES = new Set(["CLICK", "TYPE", "COLLECT_MENU", "SELECT_OPTION", "WAIT", "WAIT_FOR", "SNAPSHOT", "COLLECT_LISTINGS"]);
+   const UI_PLAN_MAX_STEPS = 12;
+   const UI_PLAN_MAX_TYPED_TEXT = 160;
+   const UI_PLAN_MAX_LISTINGS = 30;
+@@ -249,6 +249,8 @@
+       if (marker && quoted.length >= 1) return { type: "TYPE", text: quoted[0].slice(0, UI_PLAN_MAX_TYPED_TEXT), target: { by: "marker", value: marker }, source_line: clean };
+       return { type: "INVALID", error: "UI_PLAN_TYPE_TARGET_OR_TEXT_REQUIRED", source_line: clean };
+     }
++    const collectMenu = clean.match(/^(?:собери|верни|покажи|сними)\s+(?:видим(?:ое|ый)\s+)?(?:выпадающ(?:ее|ий)\s+)?(?:меню|список|подсказк)/iu);
++    if (collectMenu) return { type: "COLLECT_MENU", source_line: clean };
+     const collect = clean.match(/^(?:собери|верни)\s+(?:первые\s+|до\s+)?(\d{1,2})?\s*(?:объявлен|карточк|вариант)/iu);
+     if (collect) return { type: "COLLECT_LISTINGS", limit: Math.max(1, Math.min(Number(collect[1] || 10), UI_PLAN_MAX_LISTINGS)), source_line: clean };
+     if (/^(?:сними|верни|покажи)(?=\s|$|[.:;]).*(?:dom|html|сним|разметк)/iu.test(clean)) return { type: "SNAPSHOT", scope: firstScope(clean), source_line: clean };
+@@ -385,6 +387,18 @@
+       const items = step.candidates.slice(0, 8).map((candidate) => `${candidate.description || "?"}${candidate.scope ? ` [${candidate.scope}]` : ""}${candidate.kind ? ` {${candidate.kind}}` : ""}`).join(" | ");
+       return `Шаг ${step.index} ${step.type || "?"}: ${items}`;
+     }).join("\n") : "";
++    const menu = plan.menu || null;
++    const menuOptions = Array.isArray(menu?.options) ? menu.options.map((item, index) =>
++      `${index + 1}. ${item.label || "без текста"}${item.role ? ` [role=${item.role}]` : ""}${item.tag ? ` <${item.tag}>` : ""}${item.source ? ` {${item.source}}` : ""}`).join("\n") : "";
++    const menuSection = menu ? [
++      "", "Обнаруженное видимое меню:",
++      `Меню: ${menu.menu_id || "?"}`,
++      `Поле: ${menu.anchor_description || "?"}`,
++      `Статус: ${menu.blocked_reason || "DOM-модель собрана"}`,
++      `Вариантов: ${Array.isArray(menu.options) ? menu.options.length : 0}`,
++      "Варианты:", menuOptions || "нет видимых вариантов",
++      `Контракт: ${menu.contract_fingerprint || "?"}`
++    ] : [];
+     const snapshot = plan.snapshot || null;
+     const controls = Array.isArray(snapshot?.controls) ? snapshot.controls.map((item, index) =>
+       `${index + 1}. ${item.tag}${item.role ? ` role=${item.role}` : ""}${item.type ? ` type=${item.type}` : ""}${item.text ? ` — ${item.text}` : ""}${item.aria_label ? ` [${item.aria_label}]` : ""}`).join("\n") : "";
+@@ -408,6 +422,7 @@
+       "", "Шаги:", steps || "нет данных",
+       ...(blockedCandidates ? ["", "Диагностические кандидаты заблокированных шагов:", blockedCandidates] : []),
+       "", "Карточки:", listings || "не собирались",
++      ...menuSection,
+       ...snapshotSection,
+       "", "Ограничения: применялись только видимые элементы Avito. Сообщения продавцам, звонки, сделки, оплата, скрытые API и произвольный JavaScript не использовались."
+     ].join("\n").slice(0, 24000);
+
+--- v0.6.9/manifest.json
++++ v0.7.0/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.6.9",
+-  "version_name": "0.6.9-native-select-visible-option-test-candidate",
+-  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; выбор возможен только по точному тексту уже видимого выпадающего списка, включая безопасно привязанный к текущему диалогу portal-слой и стандартный select, без Runtime, Network, cookies или скрытых API.",
++  "version": "0.7.0",
++  "version_name": "0.7.0-adaptive-visible-menu-model-test-candidate",
++  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; выбор возможен только по точному тексту уже видимого выпадающего списка, через адаптивную DOM-модель видимого меню, связанную с активным полем, без Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+

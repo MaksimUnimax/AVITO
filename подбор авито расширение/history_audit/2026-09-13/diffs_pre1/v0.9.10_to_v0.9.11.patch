@@ -1,0 +1,134 @@
+--- v0.9.10/avito_content.js
++++ v0.9.11/avito_content.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.9 — visible public result harvest with worker-side form-submit reconciliation. */
++/* Avito Finder v0.9.11 — event-driven bulk public-DOM harvest with relative-URL normalization. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+@@ -42,13 +42,17 @@
+   function textOf(element, max) {
+     return Core.normalizeText(element && (element.innerText || element.textContent || "")).slice(0, max || MAX_TEXT);
+   }
++  // Listing cards commonly expose relative href values. Normalize them against the
++  // currently rendered Avito document before any public-URL validation.
++  function safeUrl(value, base = location.href) {
++    try {
++      const url = new URL(String(value || ""), base);
++      return Core.isAvitoUrl(url.href) ? url : null;
++    } catch (_) { return null; }
++  }
+   function safeHref(element) {
+-    const raw = element?.getAttribute?.("href") || "";
+-    try {
+-      const url = new URL(raw, location.href);
+-      if (!Core.isAvitoUrl(url.href)) return "";
+-      return `${url.pathname}${url.search}`.slice(0, 500);
+-    } catch (_) { return ""; }
++    const url = safeUrl(element?.getAttribute?.("href") || "");
++    return url ? `${url.pathname}${url.search}`.slice(0, 500) : "";
+   }
+   function navigationHrefForVisibleClick(element) {
+     if (!(element instanceof HTMLAnchorElement)) return "";
+@@ -1059,7 +1063,7 @@
+   }
+ 
+   function canonicalListingHref(href) {
+-    const parsed = safeUrl(href);
++    const parsed = safeUrl(href, location.href);
+     if (!parsed || !Core.isAvitoUrl(parsed.href)) return "";
+     return `${parsed.origin}${parsed.pathname}`;
+   }
+@@ -1074,12 +1078,12 @@
+     return records;
+   }
+   function nextResultsPage() {
+-    const current = safeUrl(location.href); if (!current) return null;
++    const current = safeUrl(location.href, location.href); if (!current) return null;
+     const links = Array.from(document.querySelectorAll("a[href]")).filter(visible);
+     for (const node of links) {
+       const label = Core.normalizeText(`${textOf(node, 140)} ${node.getAttribute("aria-label") || ""} ${node.getAttribute("title") || ""}`);
+       if (!/(?:следующ|далее|впер[её]д|next)/iu.test(label)) continue;
+-      const href = safeHref(node); const target = safeUrl(href);
++      const href = safeHref(node); const target = safeUrl(href, location.href);
+       if (!target || target.origin !== current.origin || target.pathname !== current.pathname || target.href === current.href) continue;
+       return { href: target.href, text: label.slice(0, 160), source: "visible_next_results_anchor" };
+     }
+
+--- v0.9.10/manifest.json
++++ v0.9.11/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.9.10",
+-  "version_name": "0.9.10-bulk-tab-startup-readiness-parent-window-test-candidate",
+-  "description": "Отдельный Avito Finder: после видимой настройки города и фильтров быстро читает только публично отрисованные карточки и паспорта. Массовый сбор ждёт, пока созданная дочерняя Avito-вкладка выйдет из временного chrome://newtab/ или pendingUrl состояния, и строго привязывается к фактическому окну вкладки выдачи. Не использует Avito API, Network, Fetch, Runtime, cookies, сообщения, телефон, покупку или скрытые эндпоинты.",
++  "version": "0.9.11",
++  "version_name": "0.9.11-event-driven-bulk-dom-harvest-test-candidate",
++  "description": "Отдельный Avito Finder: после видимой настройки города и фильтров быстро читает только публично отрисованные карточки и паспорта. Массовый сбор открывает обычные неактивные вкладки с публичными URL Avito, ждёт события готовности вкладки и читает уже отрисованный DOM. Не использует Avito API, Network, Fetch, Runtime, cookies, сообщения, телефон, покупку или скрытые эндпоинты.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.9.10/service_worker.js
++++ v0.9.11/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.10 — robust bulk child-tab startup readiness; retained immediate submit reconciliation and fast public harvest. */
++/* Avito Finder v0.9.11 — event-driven bulk-tab readiness and public DOM harvest. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -488,19 +488,38 @@
+   return { state: "invalid_url", url: committedUrl, committed_url: committedUrl, pending_url: pendingUrl };
+ }
+ async function waitForBulkTabReady(tabId, windowId, timeoutMs = BULK_TAB_READY_TIMEOUT_MS) {
+-  const deadline = Date.now() + Math.max(500, Math.min(Number(timeoutMs) || BULK_TAB_READY_TIMEOUT_MS, BULK_TAB_READY_TIMEOUT_MS));
+-  let last = null;
+-  while (Date.now() < deadline) {
+-    const tab = await getTab(tabId);
+-    const state = bulkTabUrlState(tab, windowId);
+-    if (state.state === "missing") throw new Error(`BULK_TAB_MISSING:${tabId}`);
+-    if (state.state === "wrong_window") throw new Error(`BULK_TAB_CONTEXT_INVALID:${tabId}:WRONG_WINDOW`);
+-    if (state.state === "ready") return tab;
+-    if (state.state === "invalid_url" && tab?.status === "complete") throw new Error(`BULK_TAB_CONTEXT_INVALID:${tabId}:NON_AVITO_FINAL_URL`);
+-    last = state;
+-    await wait(70);
+-  }
+-  throw new Error(`BULK_TAB_READY_TIMEOUT:${tabId}:${last?.state || "unknown"}`);
++  // chrome.tabs.onCreated can precede URL assignment. Listen for real tab updates
++  // instead of polling a transient chrome://newtab or pendingUrl state.
++  const timeout = Math.max(500, Math.min(Number(timeoutMs) || BULK_TAB_READY_TIMEOUT_MS, BULK_TAB_READY_TIMEOUT_MS));
++  return new Promise((resolve, reject) => {
++    let settled = false; let last = null; let timer = null;
++    const finish = (error, tab) => {
++      if (settled) return;
++      settled = true;
++      clearTimeout(timer);
++      chrome.tabs.onUpdated.removeListener(onUpdated);
++      chrome.tabs.onRemoved.removeListener(onRemoved);
++      if (error) reject(error); else resolve(tab);
++    };
++    const assess = (tab) => {
++      const state = bulkTabUrlState(tab, windowId); last = state;
++      if (state.state === "missing") { finish(new Error(`BULK_TAB_MISSING:${tabId}`)); return; }
++      if (state.state === "wrong_window") { finish(new Error(`BULK_TAB_CONTEXT_INVALID:${tabId}:WRONG_WINDOW`)); return; }
++      if (state.state === "ready") { finish(null, tab); return; }
++      if (state.state === "invalid_url" && tab?.status === "complete") finish(new Error(`BULK_TAB_CONTEXT_INVALID:${tabId}:NON_AVITO_FINAL_URL`));
++    };
++    const onUpdated = (updatedId, changeInfo, tab) => {
++      if (updatedId !== tabId) return;
++      if (changeInfo.url || changeInfo.status === "loading" || changeInfo.status === "complete") assess(tab);
++    };
++    const onRemoved = (removedId) => {
++      if (removedId === tabId) finish(new Error(`BULK_TAB_MISSING:${tabId}`));
++    };
++    chrome.tabs.onUpdated.addListener(onUpdated);
++    chrome.tabs.onRemoved.addListener(onRemoved);
++    timer = setTimeout(() => finish(new Error(`BULK_TAB_READY_TIMEOUT:${tabId}:${last?.state || "unknown"}`)), timeout);
++    getTab(tabId).then(assess).catch(() => finish(new Error(`BULK_TAB_MISSING:${tabId}`)));
++  });
+ }
+ async function scanBulkPublicResults(tabId, windowId, limit) {
+   const response = await sendAvito(tabId, windowId, { type: "AF_BULK_SCAN_PUBLIC_RESULTS", request: { limit, max_rounds: 60 } });
+

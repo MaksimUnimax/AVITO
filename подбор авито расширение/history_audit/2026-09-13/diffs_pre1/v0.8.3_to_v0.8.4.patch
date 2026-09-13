@@ -1,0 +1,358 @@
+--- v0.8.3/avito_content.js
++++ v0.8.4/avito_content.js
+@@ -794,40 +794,46 @@
+         else resolve(result || { ok: false, error: "DEBUGGER_RUNTIME_EMPTY_RESPONSE" });
+       };
+       const timer = setTimeout(() => finish({ ok: false, error: "DEBUGGER_RUNTIME_TIMEOUT" }), DEBUGGER_TYPE_TIMEOUT_MS);
+-      try { chrome.runtime.sendMessage({ type: "AF_DEBUGGER_CLICK_VISIBLE_OPTION", request }, finish); }
++      try { chrome.runtime.sendMessage({ type: "AF_DEBUGGER_CLICK_VISIBLE_TARGET", request }, finish); }
+       catch (error) { finish({ ok: false, error: `DEBUGGER_RUNTIME_THROW:${error?.message || String(error)}` }); }
+     });
+   }
+-  async function clickVisibleOptionWithDebugger(element, optionText) {
++  async function clickVisibleTargetWithDebugger(element, intent = "CLICK", optionText = "") {
+     if (!(element instanceof Element) || !visible(element) || !pointerReachable(element)) return { ok: false, reason: "not_visible" };
+     const bounds = element.getBoundingClientRect();
+     if (!Number.isFinite(bounds.left) || !Number.isFinite(bounds.top) || bounds.width <= 0 || bounds.height <= 0) return { ok: false, reason: "invalid_bounds" };
+     const token = makeDebuggerClickToken();
++    const targetText = textOf(element, 180);
+     const record = {
+       token,
+       element,
+-      description: `${element.tagName.toLowerCase()}${element.getAttribute("data-marker") ? ` data-marker=${element.getAttribute("data-marker")}` : ""} text=${textOf(element, 180)}`.slice(0, 360)
++      description: `${element.tagName.toLowerCase()}${element.getAttribute("data-marker") ? ` data-marker=${element.getAttribute("data-marker")}` : ""} text=${targetText}`.slice(0, 360)
+     };
+     debuggerClickTokens.set(token, record);
+     const expiry = setTimeout(() => debuggerClickTokens.delete(token), DEBUGGER_TYPE_TIMEOUT_MS + 1000);
+     try {
+       const result = await requestDebuggerClick({
+         token,
+-        intent: "SELECT_OPTION",
++        intent: String(intent || "CLICK").toUpperCase(),
+         option_text: String(optionText || "").slice(0, 220),
++        target_text: targetText.slice(0, 220),
+         page_url: location.href,
+         target: { tag: element.tagName.toLowerCase(), marker: element.getAttribute("data-marker") || "", role: element.getAttribute("role") || "" },
+         bounds: { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }
+       });
+-      if (!result?.ok || !result?.data?.ok) return { ok: false, reason: "debugger_failed", detail: result?.error || result?.data?.error || "CDP_OPTION_CLICK_FAILED" };
+-      // A successful click may immediately remove the dropdown option from the DOM.
+-      // Its liveness is therefore confirmed by the worker immediately before click,
+-      // while post-selection state is proved by the following bounded snapshot.
+-      return { ok: true, strategy: String(result.data.strategy || "chrome_debugger_input_mouse_click_visible_option"), cdp_methods: Array.isArray(result.data.cdp_methods) ? result.data.cdp_methods.slice(0, 2) : [] };
++      if (!result?.ok || !result?.data?.ok) return { ok: false, reason: "debugger_failed", detail: result?.error || result?.data?.error || "CDP_VISIBLE_CLICK_FAILED" };
++      return {
++        ok: true,
++        strategy: String(result.data.strategy || "chrome_debugger_input_mouse_click_visible_target"),
++        cdp_methods: Array.isArray(result.data.cdp_methods) ? result.data.cdp_methods.slice(0, 2) : []
++      };
+     } finally {
+       clearTimeout(expiry);
+       debuggerClickTokens.delete(token);
+     }
++  }
++  async function clickVisibleOptionWithDebugger(element, optionText) {
++    return clickVisibleTargetWithDebugger(element, "SELECT_OPTION", optionText);
+   }
+   async function setVisibleControlValue(element, value) {
+     const nextValue = String(value || "");
+@@ -1031,8 +1037,17 @@
+     for (const node of Array.from(document.querySelectorAll("[data-marker*='delivery'],[data-marker*='safedeal']"))) { if (!visible(node)) continue; const value = publicText(textOf(node, 240), 240); if (!value || /^(?:купить|доставка)$/iu.test(value) || seen.has(value)) continue; seen.add(value); out.push(value); if (out.length >= 10) break; }
+     return out;
+   }
++  function listingMissingFields(description, specifications) {
++    const missing = []; const specValues = specifications.map((item) => `${item.label}: ${item.value}`).join(" ").toLowerCase();
++    if (!/(?:процессор|intel|amd|ryzen|core\s*i)/iu.test(specValues)) missing.push("точный процессор");
++    if (!/(?:диагональ|разрешение)/iu.test(specValues)) missing.push("диагональ и разрешение экрана");
++    if (!/(?:видеокарт|gpu|radeon|geforce|intel\s*(?:hd|uhd|iris))/iu.test(specValues)) missing.push("графика/видеокарта");
++    if (!/(?:аккумулятор|батаре|заряд)/iu.test(description)) missing.push("фактическое состояние аккумулятора");
++    return missing;
++  }
+   function collectPublicListingDetails() {
+-    const title = firstVisibleText(["[data-marker='item-view/title-info']", "h1[itemprop='name']", "h1"], 360);
++    const titleNode = Array.from(document.querySelectorAll("[data-marker='item-view/title-info'],h1[itemprop='name'],h1")).find(visible) || null;
++    const title = titleNode ? publicText(textOf(titleNode, 360), 360) : "";
+     const price = firstVisibleText(["[data-marker='item-view/item-price']", "[itemprop='price']"], 120);
+     const description = firstVisibleText(["[data-marker='item-view/item-description']"], 2600);
+     const seller = firstVisibleText(["[data-marker='seller-info/name']", "[data-marker='seller-link/link']", "[data-marker='item-view/seller-info'] [title]"], 240);
+@@ -1041,21 +1056,27 @@
+     const specifications = sectionPairs("Характеристики", ["Производитель", "Модель", "Оперативная память, ГБ", "Конфигурация накопителей", "Объем накопителей, ГБ", "Операционная система", "Процессор", "Диагональ экрана, дюйм", "Разрешение экрана", "Видеокарта"]);
+     const locationRoot = boundedSectionRoot(findVisibleHeading("Местоположение")); const location = visibleLeafTexts(locationRoot, 16).filter((value) => !/^местоположение$/iu.test(value))[0] || "";
+     const imageCount = Array.from(document.querySelectorAll("[data-marker='image-preview/item'],[data-marker='image-frame/image']")).filter(visible).length || null;
+-    const missing = []; const specValues = specifications.map((item) => `${item.label}: ${item.value}`).join(" ").toLowerCase();
+-    if (!/(?:процессор|intel|amd|ryzen|core\s*i)/iu.test(specValues)) missing.push("точный процессор");
+-    if (!/(?:диагональ|разрешение)/iu.test(specValues)) missing.push("диагональ и разрешение экрана");
+-    if (!/(?:видеокарт|gpu|radeon|geforce|intel\s*(?:hd|uhd|iris))/iu.test(specValues)) missing.push("графика/видеокарта");
+-    if (!/(?:аккумулятор|батаре|заряд)/iu.test(description)) missing.push("фактическое состояние аккумулятора");
+-    return { title, price, location, seller, seller_rating: sellerRating, seller_badges: sellerBadges(), delivery: deliveryLabels(), image_count: imageCount, condition, specifications, description, missing_fields: missing, source: "visible_public_listing_dom", blocked_reason: title ? null : "LISTING_PUBLIC_SURFACE_UNAVAILABLE" };
++    const hasItemViewTitle = Boolean(titleNode?.matches?.("[data-marker='item-view/title-info']"));
++    const hasItemViewSurface = Array.from(document.querySelectorAll("[data-marker^='item-view/']")).some(visible);
++    const hasListingSurface = Boolean(title && (hasItemViewTitle || (hasItemViewSurface && (price || description || seller || condition.length || specifications.length)) || (price && description)));
++    if (!hasListingSurface) {
++      return {
++        title: "", price: "", location: "", seller: "", seller_rating: "", seller_badges: [], delivery: [], image_count: null,
++        condition: [], specifications: [], description: "", missing_fields: listingMissingFields("", []),
++        source: "visible_public_listing_dom", blocked_reason: "LISTING_PUBLIC_SURFACE_UNAVAILABLE"
++      };
++    }
++    return { title, price, location, seller, seller_rating: sellerRating, seller_badges: sellerBadges(), delivery: deliveryLabels(), image_count: imageCount, condition, specifications, description, missing_fields: listingMissingFields(description, specifications), source: "visible_public_listing_dom", blocked_reason: null };
+   }
+   async function executeUiActionPlan(plan) {
+     const result = { ok: true, url: location.href, plan_fingerprint: String(plan?.plan_fingerprint || ""), steps: [], listings: [], listing_details: null, blocked_reason: null };
+     if (!Core.isAvitoUrl(location.href)) return { ...result, ok: false, blocked_reason: "UI_TARGET_NOT_AVITO" };
+     const steps = Array.isArray(plan?.steps) ? plan.steps.slice(0, UI_PLAN_MAX_STEPS) : [];
++    const stepIndexOffset = Math.max(0, Math.floor(Number(plan?.step_index_offset || 0)));
+     let latestTypeContext = null;
+     if (!steps.length) return { ...result, ok: false, blocked_reason: "UI_PLAN_STEP_REQUIRED" };
+     for (let offset = 0; offset < steps.length; offset += 1) {
+-      const step = steps[offset] || {}; const index = offset + 1;
++      const step = steps[offset] || {}; const index = offset + 1 + stepIndexOffset;
+       if (detectBlock()) { result.ok = false; result.blocked_reason = detectBlock(); result.steps.push({ index, type: step.type || "?", status: "blocked", blocked_reason: result.blocked_reason }); break; }
+       if (step.type === "WAIT") {
+         await uiDelay(Math.min(Number(step.duration_ms || 0), 5000)); result.steps.push({ index, type: "WAIT", status: "completed", duration_ms: Math.min(Number(step.duration_ms || 0), 5000) }); continue;
+@@ -1093,6 +1114,7 @@
+       let applied = false;
+       let typeResult = null;
+       let selectResult = null;
++      let clickResult = null;
+       let clickDispatch = null;
+       if (step.type === "CLICK") {
+         clickDispatch = await recordUiClickDispatch(plan, step, index, resolved.target);
+@@ -1102,8 +1124,8 @@
+           result.steps.push({ index, type: step.type, status: "blocked", blocked_reason: result.blocked_reason, target_description: resolved.target.description });
+           break;
+         }
+-        resolved.target.element.click();
+-        applied = true;
++        clickResult = await clickVisibleTargetWithDebugger(resolved.target.element, "CLICK");
++        applied = Boolean(clickResult?.ok);
+       }
+       if (step.type === "SELECT_OPTION") {
+         selectResult = await clickVisibleOptionWithDebugger(resolved.target.element, String(step.text || ""));
+@@ -1118,17 +1140,17 @@
+       }
+       if (!applied) {
+         result.ok = false;
+-        result.blocked_reason = step.type === "TYPE" ? (typeResult?.reason === "focus_failed" ? "UI_TARGET_FOCUS_FAILED" : "UI_DEBUGGER_TYPE_FAILED") : (step.type === "SELECT_OPTION" ? "UI_DEBUGGER_OPTION_CLICK_FAILED" : "UI_ACTION_APPLY_FAILED");
+-        const failure = step.type === "TYPE" ? typeResult : selectResult;
++        result.blocked_reason = step.type === "TYPE" ? (typeResult?.reason === "focus_failed" ? "UI_TARGET_FOCUS_FAILED" : "UI_DEBUGGER_TYPE_FAILED") : (step.type === "SELECT_OPTION" ? "UI_DEBUGGER_OPTION_CLICK_FAILED" : "UI_DEBUGGER_CLICK_FAILED");
++        const failure = step.type === "TYPE" ? typeResult : (step.type === "SELECT_OPTION" ? selectResult : clickResult);
+         const failureDetail = String(failure?.detail || failure?.reason || "").replace(/[^A-Z0-9_:.-]/giu, "_").slice(0, 220);
+         result.steps.push({ index, type: step.type, status: "blocked", blocked_reason: result.blocked_reason, target_description: resolved.target.description, text: failureDetail ? `diagnostic=${failureDetail}` : "", failure_detail: failureDetail || null });
+         break;
+       }
+-      const nextType = String(plan.steps[index] && plan.steps[index].type || "").toUpperCase();
++      const nextType = String(steps[offset + 1] && steps[offset + 1].type || "").toUpperCase();
+       const followupMenuStep = step.type === "TYPE" && (nextType === "COLLECT_MENU" || nextType === "SELECT_OPTION");
+       await uiDelay(followupMenuStep ? Math.min(120, UI_PLAN_POST_ACTION_DELAY_MS) : UI_PLAN_POST_ACTION_DELAY_MS);
+       if (step.type === "SELECT_OPTION" && resolved.menu) result.menu = publicMenuModel(resolved.menu);
+-      result.steps.push({ index, type: step.type, status: "completed", target_description: resolved.target.description, text: step.type === "TYPE" ? "введено" : (step.type === "SELECT_OPTION" ? String(step.text || "") : (clickDispatch?.dispatch_id ? `dispatch_id=${clickDispatch.dispatch_id}` : "")), input_strategy: step.type === "TYPE" ? typeResult.strategy : "", selection_strategy: step.type === "SELECT_OPTION" ? selectResult.strategy : "", dispatch_id: clickDispatch?.dispatch_id || null });
++      result.steps.push({ index, type: step.type, status: "completed", target_description: resolved.target.description, text: step.type === "TYPE" ? "введено" : (step.type === "SELECT_OPTION" ? String(step.text || "") : (clickDispatch?.dispatch_id ? `dispatch_id=${clickDispatch.dispatch_id}` : "")), input_strategy: step.type === "TYPE" ? typeResult.strategy : "", selection_strategy: step.type === "SELECT_OPTION" ? selectResult.strategy : "", click_strategy: step.type === "CLICK" ? clickResult.strategy : "", dispatch_id: clickDispatch?.dispatch_id || null });
+     }
+     if (latestTypeContext?.menu_capture) stopVisibleMenuCapture(latestTypeContext.menu_capture);
+     return result;
+@@ -1168,7 +1190,7 @@
+       if (message?.type === "AF_DIAGNOSE_AVITO_DOM") { sendResponse({ ok: true, snapshot: diagnose(message.request || {}) }); return; }
+       if (message?.type === "AF_CONFIRM_DEBUGGER_TYPE_TARGET_FOCUSED") { sendResponse({ ok: true, data: debuggerTargetState(message.token) }); return; }
+       if (message?.type === "AF_CONFIRM_DEBUGGER_TYPE_VALUE") { sendResponse({ ok: true, data: debuggerTargetState(message.token, String(message.expected_value || "")) }); return; }
+-      if (message?.type === "AF_CONFIRM_DEBUGGER_OPTION_TARGET_VISIBLE") { sendResponse({ ok: true, data: debuggerClickTargetState(message.token) }); return; }
++      if (message?.type === "AF_CONFIRM_DEBUGGER_CLICK_TARGET_VISIBLE" || message?.type === "AF_CONFIRM_DEBUGGER_OPTION_TARGET_VISIBLE") { sendResponse({ ok: true, data: debuggerClickTargetState(message.token) }); return; }
+       if (message?.type === "AF_EXECUTE_AVITO_UI_PLAN") { executeUiActionPlan(message.plan || {}).then((result) => sendResponse({ ok: true, result })).catch((error) => sendResponse({ ok: false, error: error?.message || "AVITO_UI_PLAN_FAILED" })); return true; }
+       sendResponse({ ok: false, error: "UNKNOWN_MESSAGE" });
+     } catch (error) { sendResponse({ ok: false, error: error?.message || "AVITO_DIAGNOSTIC_FAILED" }); }
+
+--- v0.8.3/manifest.json
++++ v0.8.4/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.8.3",
+-  "version_name": "0.8.3-public-listing-passport-test-candidate",
+-  "description": "Отдельный Avito Finder: локальный разбор Copy и bounded visible-UI plans. Для уже открытой публичной карточки объявления разрешён только read-only сбор паспорта: заголовок, цена, местоположение, публично видимый продавец/рейтинг/бейджи, доставка, состояние, характеристики и ограниченное описание. Без сообщений, телефона, покупки, Runtime, Network, cookies или скрытых API.",
++  "version": "0.8.4",
++  "version_name": "0.8.4-debugger-click-navigation-and-listing-surface-fence-test-candidate",
++  "description": "Отдельный Avito Finder: локальный разбор Copy и bounded visible-UI plans. Для видимого перехода по разрешённой карточке используется только Chrome Debugger Input; публичный паспорт собирается лишь после подтверждения поверхности карточки: заголовок, цена, местоположение, публично видимый продавец/рейтинг/бейджи, доставка, состояние, характеристики и ограниченное описание. Без сообщений, телефона, покупки, Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.8.3/service_worker.js
++++ v0.8.4/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.8.0 — clean run-owned target lifecycle rebuilt from v0.7.6; command URLs never navigate existing Avito tabs. */
++/* Avito Finder v0.8.4 — debugger-backed visible clicks, navigation reconciliation, and listing-surface fence. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -149,8 +149,10 @@
+   if (!["input", "textarea", "div", "span"].includes(String(target.tag || "").toLowerCase())) throw new Error("DEBUGGER_TARGET_TAG_INVALID");
+   return { state, tab: current, request };
+ }
+-function validDebuggerOptionText(value) { return typeof value === "string" && Array.from(value).length > 0 && Array.from(value).length <= 220; }
+-async function verifyDebuggerOptionClickCaller(message, sender) {
++function validDebuggerClickText(value) { return typeof value === "string" && Array.from(value).length <= 220; }
++// Compatibility alias: option text remains subject to the same bounded public-text rule.
++const validDebuggerOptionText = validDebuggerClickText;
++async function verifyDebuggerClickCaller(message, sender) {
+   const state = await getState();
+   const tab = sender?.tab;
+   const request = message?.request || {};
+@@ -159,10 +161,11 @@
+   const current = await getTab(tab.id);
+   if (!current || !current.active || !isAvitoPageReady(current, state.current_window_id)) throw new Error("DEBUGGER_AVITO_TAB_NOT_ACTIVE_OR_READY");
+   if (!Core.isAvitoUrl(request.page_url || "") || new URL(request.page_url).origin !== new URL(current.url).origin) throw new Error("DEBUGGER_PAGE_URL_MISMATCH");
+-  if (request.intent !== "SELECT_OPTION") throw new Error("DEBUGGER_OPTION_INTENT_REJECTED");
++  if (!['CLICK', 'SELECT_OPTION'].includes(String(request.intent || '').toUpperCase())) throw new Error("DEBUGGER_CLICK_INTENT_REJECTED");
+   if (!/^afdc-[a-z0-9-]{12,}$/iu.test(String(request.token || ""))) throw new Error("DEBUGGER_TOKEN_INVALID");
+   if (!validDebuggerBounds(request.bounds)) throw new Error("DEBUGGER_BOUNDS_INVALID");
+-  if (!validDebuggerOptionText(request.option_text)) throw new Error("DEBUGGER_OPTION_TEXT_INVALID");
++  if (!validDebuggerClickText(request.target_text) || !validDebuggerClickText(request.option_text)) throw new Error("DEBUGGER_CLICK_TEXT_INVALID");
++  if (String(request.intent || '').toUpperCase() === 'SELECT_OPTION' && !String(request.option_text || '')) throw new Error("DEBUGGER_OPTION_TEXT_REQUIRED");
+   const target = request.target || {};
+   if (!['button', 'a', 'div', 'span', 'li', 'label'].includes(String(target.tag || '').toLowerCase())) throw new Error("DEBUGGER_TARGET_TAG_INVALID");
+   return { state, tab: current, request };
+@@ -182,41 +185,43 @@
+   await inputKey(target, "keyDown", { key: "Backspace", code: "Backspace", windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8 });
+   await inputKey(target, "keyUp", { key: "Backspace", code: "Backspace", windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8 });
+ }
+-async function clickVisibleOptionWithDebugger(message, sender) {
++async function clickVisibleTargetWithDebugger(message, sender) {
+   let verified;
+-  try { verified = await verifyDebuggerOptionClickCaller(message, sender); }
+-  catch (error) { return { ok: false, error: `CDP_OPTION_CLICK_REQUEST_BLOCKED:${debuggerErrorCode(error)}` }; }
++  try { verified = await verifyDebuggerClickCaller(message, sender); }
++  catch (error) { return { ok: false, error: `CDP_VISIBLE_CLICK_REQUEST_BLOCKED:${debuggerErrorCode(error)}` }; }
+   const { state, tab, request } = verified;
+   const target = { tabId: tab.id };
++  const intent = String(request.intent || 'CLICK').toUpperCase();
+   let attached = false;
+   let detachError = null;
+   let stage = "attach";
+   try {
+     await debuggerAttach(target);
+     attached = true;
+-    await log("CDP_OPTION_CLICK_ATTACHED", { search_id: state.search_id, tab_id: tab.id, protocol: DEBUGGER_PROTOCOL_VERSION, allowed_methods: Array.from(DEBUGGER_ALLOWED_METHODS), option_text_length: Array.from(String(request.option_text || "")).length });
++    await log("CDP_VISIBLE_CLICK_ATTACHED", { search_id: state.search_id, tab_id: tab.id, protocol: DEBUGGER_PROTOCOL_VERSION, allowed_methods: Array.from(DEBUGGER_ALLOWED_METHODS), intent, target_text_length: Array.from(String(request.target_text || "")).length });
+     stage = "target_confirmation";
+-    const confirm = await tabsSend(tab.id, { type: "AF_CONFIRM_DEBUGGER_OPTION_TARGET_VISIBLE", token: request.token });
++    const confirm = await tabsSend(tab.id, { type: "AF_CONFIRM_DEBUGGER_CLICK_TARGET_VISIBLE", token: request.token });
+     const confirmation = confirm?.data || {};
+-    if (!confirm?.ok || !confirmation.ok) throw new Error(`CDP_OPTION_CLICK_TARGET_CONFIRMATION_UNAVAILABLE:${String(confirmation.reason || "NO_RESPONSE")}`);
+-    if (!confirmation.intact) throw new Error("CDP_OPTION_CLICK_TARGET_DETACHED");
+-    if (!confirmation.pointer_reachable) throw new Error("CDP_OPTION_CLICK_TARGET_NOT_POINTER_REACHABLE");
++    if (!confirm?.ok || !confirmation.ok) throw new Error(`CDP_VISIBLE_CLICK_TARGET_CONFIRMATION_UNAVAILABLE:${String(confirmation.reason || "NO_RESPONSE")}`);
++    if (!confirmation.intact) throw new Error("CDP_VISIBLE_CLICK_TARGET_DETACHED");
++    if (!confirmation.pointer_reachable) throw new Error("CDP_VISIBLE_CLICK_TARGET_NOT_POINTER_REACHABLE");
+     await inputMouseFocus(target, request.bounds, (nextStage) => { stage = nextStage; });
+     stage = "completed";
+-    await log("CDP_OPTION_CLICK_COMPLETED", { search_id: state.search_id, tab_id: tab.id, target_marker: String(request.target?.marker || "").slice(0, 160), target_role: String(request.target?.role || "").slice(0, 80), option_text_length: Array.from(String(request.option_text || "")).length });
+-    return { ok: true, data: { ok: true, strategy: "chrome_debugger_input_mouse_click_visible_option", cdp_methods: Array.from(DEBUGGER_ALLOWED_METHODS) } };
++    await log("CDP_VISIBLE_CLICK_COMPLETED", { search_id: state.search_id, tab_id: tab.id, intent, target_marker: String(request.target?.marker || "").slice(0, 160), target_role: String(request.target?.role || "").slice(0, 80), target_text_length: Array.from(String(request.target_text || "")).length });
++    return { ok: true, data: { ok: true, strategy: intent === 'SELECT_OPTION' ? "chrome_debugger_input_mouse_click_visible_option" : "chrome_debugger_input_mouse_click_visible_target", cdp_methods: Array.from(DEBUGGER_ALLOWED_METHODS) } };
+   } catch (error) {
+     const reason = `${stage}:${debuggerErrorCode(error)}`;
+-    await log("CDP_OPTION_CLICK_FAILED", { search_id: state.search_id, tab_id: tab.id, stage, reason, option_text_length: Array.from(String(request.option_text || "")).length });
+-    return { ok: false, error: `CDP_OPTION_CLICK_FAILED:${reason}` };
++    await log("CDP_VISIBLE_CLICK_FAILED", { search_id: state.search_id, tab_id: tab.id, stage, reason, intent, target_text_length: Array.from(String(request.target_text || "")).length });
++    return { ok: false, error: `CDP_VISIBLE_CLICK_FAILED:${reason}` };
+   } finally {
+     if (attached) {
+-      try { await debuggerDetach(target); await log("CDP_OPTION_CLICK_DETACHED", { search_id: state.search_id, tab_id: tab.id }); }
+-      catch (error) { detachError = debuggerErrorCode(error); await log("CDP_OPTION_CLICK_DETACH_FAILED", { search_id: state.search_id, tab_id: tab.id, reason: detachError }); }
++      try { await debuggerDetach(target); await log("CDP_VISIBLE_CLICK_DETACHED", { search_id: state.search_id, tab_id: tab.id, intent }); }
++      catch (error) { detachError = debuggerErrorCode(error); await log("CDP_VISIBLE_CLICK_DETACH_FAILED", { search_id: state.search_id, tab_id: tab.id, reason: detachError, intent }); }
+     }
+-    if (detachError) return { ok: false, error: `CDP_OPTION_CLICK_DETACH_FAILED:${detachError}` };
+-  }
+-}
++    if (detachError) return { ok: false, error: `CDP_VISIBLE_CLICK_DETACH_FAILED:${detachError}` };
++  }
++}
++async function clickVisibleOptionWithDebugger(message, sender) { return clickVisibleTargetWithDebugger(message, sender); }
+ async function typeVisibleAvitoTargetWithDebugger(message, sender) {
+   let verified;
+   try { verified = await verifyDebuggerTypeCaller(message, sender); }
+@@ -464,18 +469,47 @@
+ async function completeUiClickReconciliation(state, readyTab, source) {
+   if (state.status !== "WAITING_FOR_UI_CLICK_RECONCILIATION" || !pendingUiClickMatches(state, readyTab.id)) return;
+   clearUiClickReconcileDeadline(state.search_id);
++  const pending = state.pending_ui_click || {};
++  if (String(readyTab.url || "") === String(pending.page_url || "")) {
++    await finishUiClickReconciliationFailure(state, `UI_CLICK_NAVIGATION_UNCONFIRMED:${readyTab.id}`);
++    return;
++  }
+   const active = await activate(readyTab, "avito_ui_post_click_reconciliation");
+   const verified = await requireReadyAvitoTarget(active.id, state.current_window_id);
+-  const working = await saveState({ ...state, status: "AVITO_TAB_ACTIVE", phase: "AVITO_UI_POST_CLICK_RECONCILIATION", avito_tab_id: verified.id, blocked_reason: null, pending_ui_click: { ...state.pending_ui_click, reconciliation: "capturing" } });
++  const working = await saveState({ ...state, status: "AVITO_TAB_ACTIVE", phase: "AVITO_UI_POST_CLICK_RECONCILIATION", avito_tab_id: verified.id, blocked_reason: null, pending_ui_click: { ...pending, reconciliation: "resuming" } });
+   await visibleAvitoDelay(working, "after_dispatched_click_before_reconciliation_capture", AVITO_VISIBLE_POST_ACTION_DELAY_MS);
+-  const snapshot = await diagnoseAvito(verified.id, working.current_window_id, { scope: "PAGE_MAIN_VISIBLE" });
+-  const pending = working.pending_ui_click || {};
+-  const result = { ok: !snapshot.blocked_reason, url: snapshot.url || verified.url || pending.page_url || null, plan_fingerprint: working.ui_action_plan?.plan_fingerprint || "", steps: [{ index: pending.step_index || null, type: "CLICK", status: "dispatched_reconciled", target_description: pending.target_description || null, text: pending.dispatch_id ? `dispatch_id=${pending.dispatch_id}` : "" }], listings: [], snapshot, blocked_reason: snapshot.blocked_reason || null };
++  const plan = working.ui_action_plan || { steps: [] };
++  const clickIndex = Number(pending.step_index || 0);
++  const remainingSteps = Array.isArray(plan.steps) ? plan.steps.slice(Math.max(0, clickIndex)) : [];
++  let resumed = null;
++  let blockedReason = null;
++  if (remainingSteps.some((step) => String(step?.type || "").toUpperCase() === "CLICK")) {
++    blockedReason = "UI_CLICK_CONTINUATION_SECOND_CLICK_NOT_SUPPORTED";
++    resumed = { ok: false, url: verified.url || null, plan_fingerprint: plan.plan_fingerprint || "", steps: [], listings: [], listing_details: null, blocked_reason: blockedReason };
++  } else if (remainingSteps.length) {
++    resumed = await executeAvitoUiActionPlan(verified.id, working.current_window_id, { ...plan, steps: remainingSteps, step_index_offset: clickIndex });
++    blockedReason = resumed.blocked_reason || null;
++  } else {
++    const snapshot = await diagnoseAvito(verified.id, working.current_window_id, { scope: "PAGE_MAIN_VISIBLE" });
++    resumed = { ok: !snapshot.blocked_reason, url: snapshot.url || verified.url || null, plan_fingerprint: plan.plan_fingerprint || "", steps: [], listings: [], listing_details: null, snapshot, blocked_reason: snapshot.blocked_reason || null };
++    blockedReason = resumed.blocked_reason;
++  }
++  const clickStep = { index: clickIndex || null, type: "CLICK", status: "dispatched_reconciled", target_description: pending.target_description || null, text: pending.dispatch_id ? `dispatch_id=${pending.dispatch_id}` : "", navigation_url: verified.url || null };
++  const result = {
++    ok: !blockedReason && Boolean(resumed?.ok !== false),
++    url: resumed?.url || verified.url || pending.page_url || null,
++    plan_fingerprint: plan.plan_fingerprint || "",
++    steps: [clickStep, ...(Array.isArray(resumed?.steps) ? resumed.steps : [])],
++    listings: Array.isArray(resumed?.listings) ? resumed.listings : [],
++    listing_details: resumed?.listing_details || null,
++    snapshot: resumed?.snapshot || null,
++    blocked_reason: blockedReason
++  };
+   const actionPlan = { search_id: working.search_id, mode: "AVITO_UI", captured_at: new Date().toISOString(), avito: result };
+   const report = Core.formatUiActionPlanReport(actionPlan);
+   await storageSet({ [INSPECTION_KEY]: actionPlan });
+   const ready = await saveState({ ...working, status: "REPORT_READY_FOR_DELIVERY", phase: "AVITO_UI_CLICK_HANDOFF_REPORT_READY", report, report_kind: "ui_action_plan", blocked_reason: result.blocked_reason, pending_ui_click: { ...pending, reconciliation: "completed" } });
+-  await log("AVITO_UI_CLICK_RECONCILIATION_CAPTURED", { search_id: ready.search_id, tab_id: verified.id, dispatch_id: pending.dispatch_id || null, source, snapshot_fingerprint: snapshot.snapshot_fingerprint || null, blocked_reason: snapshot.blocked_reason || null });
++  await log("AVITO_UI_CLICK_RECONCILIATION_CAPTURED", { search_id: ready.search_id, tab_id: verified.id, dispatch_id: pending.dispatch_id || null, source, resumed_step_count: Array.isArray(resumed?.steps) ? resumed.steps.length : 0, blocked_reason: result.blocked_reason || null });
+   await deliverReportToPinnedChat(ready, report, "ui_action_plan");
+ }
+ async function startUiClickReconciliation(state, tabId, error) {
+@@ -494,8 +528,9 @@
+   const tab = await getTab(state.avito_tab_id);
+   if (!tab) { await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_TAB_MISSING:${state.avito_tab_id}`); return; }
+   if (tab.windowId !== state.current_window_id) { await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_TAB_WINDOW_MISMATCH:${state.avito_tab_id}`); return; }
+-  if (isAvitoPageReady(tab, state.current_window_id)) { await completeUiClickReconciliation(state, tab, "reconcile"); return; }
+-  if (Number.isFinite(deadline) && Date.now() >= deadline) { await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_TIMEOUT:${state.avito_tab_id}`); return; }
++  const pending = state.pending_ui_click || {};
++  if (isAvitoPageReady(tab, state.current_window_id) && String(tab.url || "") !== String(pending.page_url || "")) { await completeUiClickReconciliation(state, tab, "reconcile"); return; }
++  if (Number.isFinite(deadline) && Date.now() >= deadline) { await finishUiClickReconciliationFailure(state, `UI_CLICK_NAVIGATION_UNCONFIRMED:${state.avito_tab_id}`); return; }
+   scheduleUiClickReconcile(state);
+ }
+ async function completeAvitoTask(queuedState, readyTab, source) {
+@@ -778,7 +813,7 @@
+ async function contextBlockedFromContent(message, sender) { const state = await getState(); if (!state.search_id || message.search_id !== state.search_id || sender?.tab?.id !== state.chatgpt_tab_id) return { ok: true, data: { ignored: true } }; const next = await blockConversationContext(state, message.reason || "CONTENT_CONTEXT_CHANGED", { actual_conversation_id: message.actual_identity?.conversation_id || null, actual_chat_path: message.actual_identity?.chat_path || null, actual_tab: shortTab(sender?.tab) }); return { ok: true, data: { blocked: true, state: next } }; }
+ 
+ if (globalThis.__AF_TEST_EXPORTS) {
+-  globalThis.__AF_TEST_EXPORTS.debuggerInput = { DEBUGGER_ALLOWED_METHODS, validDebuggerBounds, validDebuggerText, validDebuggerOptionText, debuggerSend, inputMouseFocus, inputClearExistingValue, typeVisibleAvitoTargetWithDebugger, clickVisibleOptionWithDebugger };
++  globalThis.__AF_TEST_EXPORTS.debuggerInput = { DEBUGGER_ALLOWED_METHODS, validDebuggerBounds, validDebuggerText, validDebuggerOptionText, debuggerSend, inputMouseFocus, inputClearExistingValue, typeVisibleAvitoTargetWithDebugger, clickVisibleTargetWithDebugger, clickVisibleOptionWithDebugger };
+   globalThis.__AF_TEST_EXPORTS.uiClickHandoff = { asyncResponseChannelClosed, pendingUiClickMatches };
+   globalThis.__AF_TEST_EXPORTS.targetBinding = { ensureAvitoTarget, buildAvitoTargetRequest, avitoTargetWasEstablished };
+ }
+@@ -798,6 +833,7 @@
+     case "AF_CAPTURE_CONTEXT_BLOCKED": sendResponse(await contextBlockedFromContent(message, sender)); return;
+     case "AF_CAPTURE_FULL_TEXT": sendResponse(await handleFullText(message, sender)); return;
+     case "AF_DEBUGGER_TYPE_VISIBLE_TARGET": sendResponse(await typeVisibleAvitoTargetWithDebugger(message, sender)); return;
++    case "AF_DEBUGGER_CLICK_VISIBLE_TARGET": sendResponse(await clickVisibleTargetWithDebugger(message, sender)); return;
+     case "AF_DEBUGGER_CLICK_VISIBLE_OPTION": sendResponse(await clickVisibleOptionWithDebugger(message, sender)); return;
+     case "AF_UI_CLICK_DISPATCHED": sendResponse(await recordUiClickDispatched(message, sender)); return;
+     case "AF_CAPTURE_RECOVER_CONTINUOUS": sendResponse(await recoverContinuousPromptPoll(message, sender)); return;
+

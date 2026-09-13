@@ -1,0 +1,95 @@
+--- v0.7.6/manifest.json
++++ v0.7.7/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.7.6",
+-  "version_name": "0.7.6-navigation-safe-ui-handoff-test-candidate",
+-  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; перед любым обычным CLICK расширение фиксирует отправку действия в Worker и при выгрузке страницы переходит к отдельной проверке результата без повторного клика. Без Runtime, Network, cookies или скрытых API.",
++  "version": "0.7.7",
++  "version_name": "0.7.7-bound-readonly-target-guard-test-candidate",
++  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; перед любым обычным CLICK расширение фиксирует отправку действия в Worker и при выгрузке страницы переходит к отдельной проверке результата без повторного клика. Read-only диагностика и обследование фильтров работают только в сохранённой вкладке текущего запуска и никогда не выполняют навигацию. Без Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.7.6/service_worker.js
++++ v0.7.7/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.7.6 — bounded visible input, query-correlated menus and click-stage evidence. */
++/* Avito Finder v0.7.7 — bound read-only target guard; no diagnostic or filter inspection navigation. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -288,6 +288,26 @@
+   const windowId = state.current_window_id;
+   const reuseWindowWhenUnspecified = policy.reuse_window_when_unspecified === true;
+   const fallbackUrl = Core.isAvitoUrl(policy.fallback_url || "") ? policy.fallback_url : null;
++
++  // A read-only request must never create, navigate or switch to an arbitrary
++  // Avito page. It is bound to the run-owned tab already persisted in state.
++  // A page URL written in a diagnostic form is evidence text only, never a
++  // navigation instruction. This prevents a filter/DOM snapshot from resetting
++  // a working search page to the public root or another city.
++  if (policy.require_bound_target === true) {
++    const bound = await preferredPersistedAvitoTab(state, null);
++    if (!bound) {
++      await log("AVITO_READONLY_BOUND_TARGET_UNAVAILABLE", { search_id: state.search_id, purpose, expected_tab_id: state.avito_tab_id ?? null, current_window_id: windowId });
++      throw new Error("READONLY_BOUND_TARGET_UNAVAILABLE");
++    }
++    const suppliedUrl = Core.isAvitoUrl(policy.readonly_requested_url || "") ? policy.readonly_requested_url : null;
++    if (suppliedUrl && suppliedUrl !== bound.url) {
++      await log("AVITO_READONLY_REQUESTED_URL_IGNORED", { search_id: state.search_id, purpose, tab_id: bound.id, bound_url: bound.url || null, requested_url: suppliedUrl });
++    }
++    await log("AVITO_TAB_REUSED_BY_BOUND_STATE", { search_id: state.search_id, purpose, tab: shortTab(bound), requested_url: suppliedUrl, navigation_allowed: false });
++    return { tab: bound, created: false, navigated: false, reused: true, source: "bound_state" };
++  }
++
+   const preferred = await preferredPersistedAvitoTab(state, requestedUrl);
+   if (preferred) {
+     await log("AVITO_TAB_REUSED_BY_STATE", { search_id: state.search_id, purpose, tab: shortTab(preferred), requested_url: requestedUrl || null });
+@@ -581,14 +601,28 @@
+   await log("READONLY_INSPECTION_REPORT_READY", { search_id: readyForReport.search_id, report_fingerprint: Core.fingerprint(report) });
+   await deliverReportToPinnedChat(readyForReport, report, "inspection");
+ }
+-async function queueAvitoTask(initialState, parsed) {
++function buildAvitoTargetRequest(parsed) {
+   const request = parsed.mode === "DIAGNOSE_DOM" ? parsed.diagnostic : null;
+   const uiPlan = parsed.mode === "AVITO_UI" ? parsed.ui_plan : null;
+-  const requestedUrl = parsed.mode === "DIAGNOSE_DOM" ? (request?.page_url || null) : (parsed.mode === "AVITO_UI" ? (uiPlan?.page_url || null) : "https://www.avito.ru/");
+-  const purpose = parsed.mode === "DIAGNOSE_DOM" ? "avito_diagnose_dom" : (parsed.mode === "AVITO_UI" ? "avito_ui_action_plan" : "avito_inspect_filters");
+-  const targetPolicy = parsed.mode === "AVITO_UI"
+-    ? { reuse_window_when_unspecified: true, fallback_url: "https://www.avito.ru/" }
+-    : {};
++  const readOnlyMode = parsed.mode === "DIAGNOSE_DOM" || parsed.mode === "INSPECT_FILTERS";
++  const readonlyRequestedUrl = parsed.mode === "DIAGNOSE_DOM" ? (request?.page_url || null) : null;
++  return {
++    request,
++    uiPlan,
++    requestedUrl: readOnlyMode ? null : (uiPlan?.page_url || null),
++    purpose: parsed.mode === "DIAGNOSE_DOM" ? "avito_diagnose_dom" : (parsed.mode === "AVITO_UI" ? "avito_ui_action_plan" : "avito_inspect_filters"),
++    targetPolicy: readOnlyMode
++      ? { require_bound_target: true, readonly_requested_url: readonlyRequestedUrl }
++      : { reuse_window_when_unspecified: true, fallback_url: "https://www.avito.ru/" }
++  };
++}
++async function queueAvitoTask(initialState, parsed) {
++  const targetRequest = buildAvitoTargetRequest(parsed);
++  const request = targetRequest.request;
++  const uiPlan = targetRequest.uiPlan;
++  const requestedUrl = targetRequest.requestedUrl;
++  const purpose = targetRequest.purpose;
++  const targetPolicy = targetRequest.targetPolicy;
+   const avito = await ensureAvitoTarget(initialState, requestedUrl, purpose, targetPolicy);
+   const deadline = new Date(Date.now() + AVITO_READY_TIMEOUT_MS).toISOString();
+   const state = await saveState({ ...initialState, status: "WAITING_FOR_AVITO_PAGE_READY", phase: "AVITO_NAVIGATION", avito_tab_id: avito.tab.id, avito_tab_created: avito.created, command_mode: parsed.mode, diagnostic_request: request, ui_action_plan: uiPlan, avito_ready_deadline_at: deadline, ui_click_reconcile_deadline_at: null, pending_ui_click: null, blocked_reason: null });
+@@ -785,6 +819,7 @@
+ if (globalThis.__AF_TEST_EXPORTS) {
+   globalThis.__AF_TEST_EXPORTS.debuggerInput = { DEBUGGER_ALLOWED_METHODS, validDebuggerBounds, validDebuggerText, validDebuggerOptionText, debuggerSend, inputMouseFocus, inputClearExistingValue, typeVisibleAvitoTargetWithDebugger, clickVisibleOptionWithDebugger };
+   globalThis.__AF_TEST_EXPORTS.uiClickHandoff = { asyncResponseChannelClosed, pendingUiClickMatches };
++  globalThis.__AF_TEST_EXPORTS.targetBinding = { ensureAvitoTarget, buildAvitoTargetRequest };
+ }
+ chrome.runtime.onInstalled.addListener(async () => { const current = await getState(); await saveState(current); await log("EXTENSION_INSTALLED_OR_UPDATED", { version: chrome.runtime.getManifest().version }); });
+ chrome.tabs.onUpdated.addListener(() => { reconcilePendingAvitoReadiness().catch(async (error) => { const state = await getState(); if (state.status === "WAITING_FOR_AVITO_PAGE_READY") await blockAvitoPageReady(state, `AVITO_READY_EVENT_FAILED:${String(error?.message || error)}`); }); reconcilePendingUiClickHandoff().catch(async (error) => { const state = await getState(); if (state.status === "WAITING_FOR_UI_CLICK_RECONCILIATION") await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_EVENT_FAILED:${String(error?.message || error)}`); }); });
+

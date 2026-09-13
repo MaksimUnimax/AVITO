@@ -1,0 +1,733 @@
+--- v0.2.2/chatgpt_content.js
++++ v0.2.3/chatgpt_content.js
+@@ -1,6 +1,7 @@
+ /* global chrome, AvitoFinderCore */
+ (function chatGPTContent() {
+   "use strict";
++
+   const Core = AvitoFinderCore;
+   const confirmedLocalWritingBlockCopyButtons = new WeakSet();
+   let commandWaitGeneration = 0;
+@@ -51,9 +52,6 @@
+     return [snapshot.testid, snapshot.aria, snapshot.title, snapshot.text].join(" ").toLowerCase();
+   }
+ 
+-  // These three functions are the exact structural strategy taken from the
+-  // working Business Bridge writing-block adapter: explicit legacy root first,
+-  // then a current local Edit+Copy toolbar within one assistant turn.
+   function isCurrentWritingBlockEditButton(button) {
+     const snapshot = buttonSnapshot(button);
+     return snapshot.testid === "writing-block-header-magic-edit-button" ||
+@@ -62,20 +60,26 @@
+ 
+   function isCurrentWritingBlockLocalCopyButton(button) {
+     const snapshot = buttonSnapshot(button);
++    // The turn-wide Copy control is never a writing-block-local button.
+     if (snapshot.testid === "copy-turn-action-button" || /копировать\s+ответ|copy\s+response/u.test(buttonToken(snapshot))) return false;
+-    return snapshot.aria === "Копировать" || /(?:^|\s)(?:копировать|copy)(?:\s|$)/u.test(buttonToken(snapshot));
++    return snapshot.aria === "Копировать" || snapshot.aria === "Copy" || /(?:^|\s)(?:копировать|copy)(?:\s|$)/u.test(buttonToken(snapshot));
+   }
+ 
+   function cleanLocalWritingBlockText(root) {
+     if (!(root instanceof Element)) return "";
+     const clone = root.cloneNode(true);
+-    // Do not remove [aria-live]: current ChatGPT can mount the visible body there.
++    // Keep aria-live bodies. Remove only controls that are not command text.
+     clone.querySelectorAll("button, [role=button], svg, script, style").forEach((node) => node.remove());
+     return Core.normalizeText(clone.innerText || clone.textContent || "");
+   }
+ 
+   function legacyWritingBlockElement(section) {
+     return section && section.querySelector && section.querySelector("[data-writing-block], [data-writing-block-id], #code-block-viewer") || null;
++  }
++
++  function hasFourSectionForm(text) {
++    const parsed = Core.parseCommandForm(text);
++    return parsed && parsed.valid === true;
+   }
+ 
+   function currentWritingBlockBinding(section) {
+@@ -83,6 +87,8 @@
+     const buttons = Array.from(section.querySelectorAll("button"));
+     const edits = buttons.filter(isCurrentWritingBlockEditButton);
+     const copies = buttons.filter(isCurrentWritingBlockLocalCopyButton);
++
++    // Proven Business Bridge path: Edit and Copy share one local toolbar root.
+     for (const editButton of edits) {
+       for (const copyButton of copies) {
+         let root = copyButton.parentElement;
+@@ -95,6 +101,21 @@
+         }
+       }
+     }
++
++    // Current ChatGPT rendering observed in the supplied live screenshot has a
++    // local Copy icon and Expand icon but no Edit control. Accept it only when
++    // the smallest local ancestor itself contains a fully valid four-section
++    // read-only command. Generic assistant-turn Copy remains excluded above.
++    for (const copyButton of copies) {
++      let root = copyButton.parentElement;
++      while (root && root !== section) {
++        const body = cleanLocalWritingBlockText(root);
++        if (hasFourSectionForm(body)) {
++          return {root, edit_button: null, copy_button: copyButton, source: "current_local_copy_only_form"};
++        }
++        root = root.parentElement;
++      }
++    }
+     return null;
+   }
+ 
+@@ -110,7 +131,7 @@
+   function sectionWritingBlockText(section, binding) {
+     const resolved = binding || resolveWritingBlockBinding(section);
+     if (!resolved || !resolved.root) return "";
+-    if (resolved.source === "current_local_toolbar") return cleanLocalWritingBlockText(resolved.root);
++    if (resolved.source === "current_local_toolbar" || resolved.source === "current_local_copy_only_form") return cleanLocalWritingBlockText(resolved.root);
+     return Core.normalizeText((resolved.root.innerText || resolved.root.textContent || "")
+       .replace(/^Редактировать\s*/u, "")
+       .replace(/\s*Копировать(?:\s+ответ)?\s*$/u, "")
+@@ -118,23 +139,41 @@
+   }
+ 
+   function turnSections() {
+-    // Same authoritative turn contour as the working Bridge flow. Generic
+-    // assistant text is deliberately not a command source.
+-    return Array.from(document.querySelectorAll('section[data-turn][data-turn-id]')).filter(visible);
+-  }
+-
+-  function latestAssistantAfterLatestUser() {
++    return Array.from(document.querySelectorAll("section[data-turn][data-turn-id]")).filter(visible);
++  }
++
++  function latestUserTurnId() {
+     const sections = turnSections();
+-    let lastUserIndex = -1;
+-    for (let index = 0; index < sections.length; index += 1) {
+-      if (sections[index].getAttribute("data-turn") === "user") lastUserIndex = index;
+-    }
+-    if (lastUserIndex < 0) return {sections, last_user_turn_id: null, assistant: null};
++    for (let index = sections.length - 1; index >= 0; index -= 1) {
++      if (sections[index].getAttribute("data-turn") === "user") return sections[index].getAttribute("data-turn-id") || null;
++    }
++    return null;
++  }
++
++  function assistantCandidateAfterAnchor(anchorTurnId) {
++    const sections = turnSections();
++    const anchorIndex = sections.findIndex((section) => section.getAttribute("data-turn") === "user" && section.getAttribute("data-turn-id") === anchorTurnId);
++    if (anchorIndex < 0) return {sections, anchor_turn_id: anchorTurnId || null, missing_anchor: true, assistant: null, manual_interruption: false};
++
+     let assistant = null;
+-    for (let index = lastUserIndex + 1; index < sections.length; index += 1) {
+-      if (sections[index].getAttribute("data-turn") === "assistant") assistant = sections[index];
+-    }
+-    return {sections, last_user_turn_id: sections[lastUserIndex].getAttribute("data-turn-id") || null, assistant};
++    let manualTurnId = null;
++    for (let index = anchorIndex + 1; index < sections.length; index += 1) {
++      const section = sections[index];
++      const role = section.getAttribute("data-turn");
++      if (role === "user") {
++        manualTurnId = section.getAttribute("data-turn-id") || null;
++        break;
++      }
++      if (role === "assistant" && !assistant) assistant = section;
++    }
++    return {
++      sections,
++      anchor_turn_id: anchorTurnId || null,
++      missing_anchor: false,
++      assistant,
++      manual_interruption: Boolean(manualTurnId),
++      manual_turn_id: manualTurnId
++    };
+   }
+ 
+   function writingBlockStructuralId(section, binding) {
+@@ -144,19 +183,20 @@
+       resolved && resolved.source || section && section.getAttribute("data-turn-id") || "writing-block";
+   }
+ 
+-  function commandAudit(baselineTurnId) {
+-    const candidate = latestAssistantAfterLatestUser();
++  function commandAudit(anchorTurnId) {
++    const candidate = assistantCandidateAfterAnchor(anchorTurnId);
+     const assistant = candidate.assistant;
+     const binding = assistant ? resolveWritingBlockBinding(assistant) : null;
+     const text = assistant ? sectionWritingBlockText(assistant, binding) : "";
+     const parsed = text ? Core.parseCommandForm(text) : null;
+     const buttons = assistant ? Array.from(assistant.querySelectorAll("button")).map(buttonSnapshot) : [];
+     return {
+-      baseline_turn_id: baselineTurnId || null,
++      anchor_turn_id: anchorTurnId || null,
+       exact_turn_section_count: candidate.sections.length,
+-      last_user_turn_id: candidate.last_user_turn_id,
++      anchor_present: candidate.missing_anchor !== true,
+       candidate_assistant_turn_id: assistant && assistant.getAttribute("data-turn-id") || null,
+-      candidate_is_baseline: Boolean(assistant && baselineTurnId && assistant.getAttribute("data-turn-id") === baselineTurnId),
++      manual_interruption: candidate.manual_interruption === true,
++      manual_turn_id: candidate.manual_turn_id || null,
+       writing_block_present: Boolean(binding && binding.root),
+       writing_block_source: binding && binding.source || null,
+       writing_block_id: assistant ? writingBlockStructuralId(assistant, binding) : null,
+@@ -164,7 +204,7 @@
+       local_copy_enabled: Boolean(binding && binding.copy_button && buttonSnapshot(binding.copy_button).enabled),
+       body_bytes: text ? new TextEncoder().encode(text).byteLength : 0,
+       form_valid: Boolean(parsed && parsed.valid),
+-      form_errors: parsed ? parsed.errors : [assistant ? "WRITING_BLOCK_BODY_UNAVAILABLE" : "NO_ASSISTANT_AFTER_LAST_USER"],
++      form_errors: parsed ? parsed.errors : [candidate.missing_anchor ? "ANCHOR_USER_TURN_NOT_FOUND" : candidate.manual_interruption ? "MANUAL_USER_TURN_AFTER_ANCHOR" : assistant ? "WRITING_BLOCK_BODY_UNAVAILABLE" : "NO_ASSISTANT_AFTER_ANCHOR"],
+       button_signatures: buttons.map((item) => ({testid: item.testid, aria: item.aria, title: item.title, svg: item.svg, enabled: item.enabled}))
+     };
+   }
+@@ -173,7 +213,7 @@
+     const resolved = binding || resolveWritingBlockBinding(section);
+     const text = sectionWritingBlockText(section, resolved);
+     if (!text) return {ok: false, error: "WRITING_BLOCK_LOCAL_BODY_UNAVAILABLE"};
+-    if (resolved && resolved.source === "current_local_toolbar" && resolved.copy_button instanceof HTMLElement) {
++    if (resolved && (resolved.source === "current_local_toolbar" || resolved.source === "current_local_copy_only_form") && resolved.copy_button instanceof HTMLElement) {
+       const snapshot = buttonSnapshot(resolved.copy_button);
+       if (!snapshot.enabled) return {ok: false, error: "WRITING_BLOCK_COPY_CONTROL_UNAVAILABLE"};
+       if (!confirmedLocalWritingBlockCopyButtons.has(resolved.copy_button)) {
+@@ -184,32 +224,46 @@
+     return {ok: true, text, source: resolved && resolved.source || "legacy_explicit_root"};
+   }
+ 
+-  function captureCommand(baselineTurnId) {
+-    const candidate = latestAssistantAfterLatestUser();
++  function captureCommand(anchorTurnId) {
++    const candidate = assistantCandidateAfterAnchor(anchorTurnId);
++    if (candidate.missing_anchor) return {ok: false, error: "COMMAND_ANCHOR_NOT_FOUND", audit: commandAudit(anchorTurnId)};
++    if (candidate.manual_interruption) return {ok: false, error: "MANUAL_USER_TURN_AFTER_ANCHOR", audit: commandAudit(anchorTurnId)};
+     const assistant = candidate.assistant;
+-    if (!assistant) return {ok: false, error: "NO_NEW_VALID_WRITING_BLOCK_COMMAND", audit: commandAudit(baselineTurnId)};
++    if (!assistant) return {ok: false, error: "NO_NEW_VALID_WRITING_BLOCK_COMMAND", audit: commandAudit(anchorTurnId)};
+     const turnId = assistant.getAttribute("data-turn-id") || "";
+-    if (!turnId || (baselineTurnId && turnId === baselineTurnId)) return {ok: false, error: "NO_NEW_VALID_WRITING_BLOCK_COMMAND", audit: commandAudit(baselineTurnId)};
++    if (!turnId) return {ok: false, error: "ASSISTANT_TURN_ID_MISSING", audit: commandAudit(anchorTurnId)};
+     const binding = resolveWritingBlockBinding(assistant);
+-    if (!binding || !binding.root) return {ok: false, error: "LATEST_COMMAND_IS_NOT_WRITING_BLOCK", audit: commandAudit(baselineTurnId)};
++    if (!binding || !binding.root) return {ok: false, error: "LATEST_COMMAND_IS_NOT_WRITING_BLOCK", audit: commandAudit(anchorTurnId)};
+     const rawBeforeCopy = sectionWritingBlockText(assistant, binding);
+     const parsedBeforeCopy = Core.parseCommandForm(rawBeforeCopy);
+-    if (!parsedBeforeCopy.valid) return {ok: false, error: `WRITING_BLOCK_COMMAND_INVALID:${parsedBeforeCopy.errors.join(",")}`, audit: commandAudit(baselineTurnId)};
++    if (!parsedBeforeCopy.valid) return {ok: false, error: `WRITING_BLOCK_COMMAND_INVALID:${parsedBeforeCopy.errors.join(",")}`, audit: commandAudit(anchorTurnId)};
+     const copied = confirmLocalWritingBlockCopyAndExtract(assistant, binding);
+-    if (!copied.ok) return {ok: false, error: copied.error, audit: commandAudit(baselineTurnId)};
++    if (!copied.ok) return {ok: false, error: copied.error, audit: commandAudit(anchorTurnId)};
+     const parsed = Core.parseCommandForm(copied.text);
+-    if (!parsed.valid) return {ok: false, error: `WRITING_BLOCK_COMMAND_INVALID_AFTER_COPY:${parsed.errors.join(",")}`, audit: commandAudit(baselineTurnId)};
+-    return {ok: true, command: {turnId, parsed, raw: copied.text, writing_block: true, copy_confirmed: true, copy_source: copied.source}};
+-  }
+-
+-  function waitForCommand(baselineTurnId, timeoutMs) {
+-    const immediate = captureCommand(baselineTurnId);
++    if (!parsed.valid) return {ok: false, error: `WRITING_BLOCK_COMMAND_INVALID_AFTER_COPY:${parsed.errors.join(",")}`, audit: commandAudit(anchorTurnId)};
++    return {ok: true, command: {turnId, anchorTurnId, parsed, raw: copied.text, writing_block: true, copy_confirmed: true, copy_source: copied.source}};
++  }
++
++  function auditSignature(audit, error) {
++    return Core.stableShortHash(JSON.stringify({audit, error: error || ""}));
++  }
++
++  function publishAudit(searchId, anchorTurnId, audit, error, previousSignature) {
++    const signature = auditSignature(audit, error);
++    if (signature === previousSignature) return signature;
++    chrome.runtime.sendMessage({type: "AF_COMMAND_WATCH_AUDIT", search_id: searchId || null, anchor_turn_id: anchorTurnId || null, audit, reason: error || null}, () => void chrome.runtime.lastError);
++    return signature;
++  }
++
++  function waitForCommand(anchorTurnId, timeoutMs, searchId) {
++    const immediate = captureCommand(anchorTurnId);
+     if (immediate.ok) return Promise.resolve(immediate);
+     const generation = ++commandWaitGeneration;
+     const timeout = Number.isFinite(timeoutMs) ? Math.max(1000, Math.min(timeoutMs, 120000)) : 90000;
+     return new Promise((resolve) => {
+       let complete = false;
+       let timer = null;
++      let lastSignature = publishAudit(searchId, anchorTurnId, immediate.audit || commandAudit(anchorTurnId), immediate.error || null, "");
+       const observer = new MutationObserver(() => check());
+       function finish(result) {
+         if (complete) return;
+@@ -220,14 +274,25 @@
+       }
+       function check() {
+         if (generation !== commandWaitGeneration) {
+-          finish({ok: false, error: "COMMAND_WAIT_CANCELLED", audit: commandAudit(baselineTurnId)});
++          const audit = commandAudit(anchorTurnId);
++          lastSignature = publishAudit(searchId, anchorTurnId, audit, "COMMAND_WAIT_CANCELLED", lastSignature);
++          finish({ok: false, error: "COMMAND_WAIT_CANCELLED", audit});
+           return;
+         }
+-        const attempt = captureCommand(baselineTurnId);
+-        if (attempt.ok) finish(attempt);
++        const attempt = captureCommand(anchorTurnId);
++        if (attempt.ok) {
++          lastSignature = publishAudit(searchId, anchorTurnId, commandAudit(anchorTurnId), null, lastSignature);
++          finish(attempt);
++          return;
++        }
++        lastSignature = publishAudit(searchId, anchorTurnId, attempt.audit || commandAudit(anchorTurnId), attempt.error || null, lastSignature);
+       }
+       observer.observe(document.documentElement, {subtree: true, childList: true, attributes: true, characterData: true});
+-      timer = setTimeout(() => finish({ok: false, error: "COMMAND_WAIT_TIMEOUT", audit: commandAudit(baselineTurnId)}), timeout);
++      timer = setTimeout(() => {
++        const audit = commandAudit(anchorTurnId);
++        publishAudit(searchId, anchorTurnId, audit, "COMMAND_WAIT_TIMEOUT", lastSignature);
++        finish({ok: false, error: "COMMAND_WAIT_TIMEOUT", audit});
++      }, timeout);
+       check();
+     });
+   }
+@@ -238,12 +303,13 @@
+     const messageSelectors = ["section[data-turn][data-turn-id]", "[data-message-author-role]", "article", "main [role='article']"];
+     const composerSelectors = ["textarea", "[contenteditable='true']", "[role='textbox']"];
+     const sendSelectors = ["button[aria-label*='Send' i]", "button[aria-label*='Отправ' i]", "button[data-testid*='send' i]"];
+-    const candidate = latestAssistantAfterLatestUser();
++    const latestAnchor = latestUserTurnId();
++    const candidate = latestAnchor ? assistantCandidateAfterAnchor(latestAnchor) : {assistant: null};
+     return {
+       url: location.href, title: document.title, captured_at: new Date().toISOString(),
+       message_container_count: turnSections().length,
+       exact_turn_section_count: turnSections().length,
+-      last_user_turn_id_present: Boolean(candidate.last_user_turn_id),
++      last_user_turn_id_present: Boolean(latestAnchor),
+       latest_assistant_after_user_present: Boolean(candidate.assistant),
+       composer_count: composerSelectors.reduce((total, selector) => total + elementEvidence(selector).length, 0),
+       send_button_count: sendSelectors.reduce((total, selector) => total + elementEvidence(selector).length, 0),
+@@ -257,11 +323,16 @@
+   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+     try {
+       if (message && message.type === "AF_INSPECT_CHATGPT_DOM") { sendResponse({ok: true, snapshot: inspect()}); return; }
+-      if (message && message.type === "AF_CAPTURE_COMMAND") { sendResponse(captureCommand(message.baseline_turn_id)); return; }
+-      if (message && message.type === "AF_AUDIT_COMMAND_CANDIDATE") { sendResponse({ok: true, audit: commandAudit(message.baseline_turn_id)}); return; }
++      if (message && message.type === "AF_GET_COMMAND_ANCHOR") {
++        const anchorTurnId = latestUserTurnId();
++        sendResponse(anchorTurnId ? {ok: true, anchor_turn_id: anchorTurnId, exact_turn_section_count: turnSections().length} : {ok: false, error: "NO_USER_TURN_FOR_COMMAND_ANCHOR"});
++        return;
++      }
++      if (message && message.type === "AF_CAPTURE_COMMAND") { sendResponse(captureCommand(message.anchor_turn_id)); return; }
++      if (message && message.type === "AF_AUDIT_COMMAND_CANDIDATE") { sendResponse({ok: true, audit: commandAudit(message.anchor_turn_id)}); return; }
+       if (message && message.type === "AF_CANCEL_COMMAND_WAIT") { sendResponse(cancelCommandWait()); return; }
+       if (message && message.type === "AF_WAIT_FOR_COMMAND") {
+-        waitForCommand(message.baseline_turn_id, message.timeout_ms).then(sendResponse).catch((error) => sendResponse({ok: false, error: String(error && error.message || error || "COMMAND_WAIT_FAILED")}));
++        waitForCommand(message.anchor_turn_id, message.timeout_ms, message.search_id).then(sendResponse).catch((error) => sendResponse({ok: false, error: String(error && error.message || error || "COMMAND_WAIT_FAILED")}));
+         return true;
+       }
+       sendResponse({ok: false, error: "UNKNOWN_MESSAGE"});
+
+--- v0.2.2/core.js
++++ v0.2.3/core.js
+@@ -161,7 +161,7 @@
+ 
+   function makeState(overrides) {
+     return Object.assign({
+-      version: 3,
++      version: 4,
+       search_id: null,
+       status: "IDLE",
+       phase: "IDLE",
+@@ -175,6 +175,7 @@
+       inspection_only: true,
+       processed_command_turn_id: null,
+       command_capture_contract: null,
++      command_anchor_turn_id: null,
+       command_waiting: false,
+       candidate_audit: null,
+       report: null
+@@ -203,8 +204,9 @@
+       "",
+       `Причина: ${reason}`,
+       `Точных ChatGPT turn-секций: ${audit.exact_turn_section_count ?? "?"}`,
+-      `Последний user turn найден: ${audit.last_user_turn_id ? "да" : "нет"}`,
+-      `Assistant после последнего user найден: ${audit.candidate_assistant_turn_id ? "да" : "нет"}`,
++      `Заякоренный user turn найден: ${audit.anchor_present ? "да" : "нет"}`,
++      `Assistant после заякоренного user найден: ${audit.candidate_assistant_turn_id ? "да" : "нет"}`,
++      `Ручной user turn после anchor: ${audit.manual_interruption ? "да" : "нет"}`,
+       `Writing block найден: ${audit.writing_block_present ? "да" : "нет"}`,
+       `Источник writing block: ${audit.writing_block_source || "не определён"}`,
+       `Локальная Copy найдена: ${audit.local_copy_present ? "да" : "нет"}`,
+
+--- v0.2.2/manifest.json
++++ v0.2.3/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder — Command & Filter Inspector",
+   "short_name": "Avito Finder",
+-  "version": "0.2.2",
+-  "version_name": "0.2.2-bridge-turn-anchor-command-wait",
+-  "description": "Avito Finder: отдельный read-only захват writing-block команды и обследование фильтров Avito.",
++  "version": "0.2.3",
++  "version_name": "0.2.3-anchor-copy-only-live-log-repair",
++  "description": "Avito Finder: заякоренный read-only захват writing-block команды и обследование фильтров Avito.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.2.2/popup.html
++++ v0.2.3/popup.html
+@@ -9,12 +9,12 @@
+ <body>
+   <main>
+     <h1>Avito Finder</h1>
+-    <p class="sub">Этап 2: ожидание новой assistant writing-block формы по контуру Business Bridge и read-only обследование фильтров Avito.</p>
++    <p class="sub">Этап 2: заякоренное ожидание новой assistant writing-block формы и read-only обследование фильтров Avito.</p>
+     <section class="status" aria-live="polite"><strong id="status">Загрузка…</strong><span id="detail"></span></section>
+     <div class="actions"><button id="inspect" type="button">Обследовать DOM</button><button id="command-filter" type="button">Ждать команду и фильтры</button><button id="stop" type="button" class="secondary">Стоп</button></div>
+-    <p class="hint">После нажатия расширение ожидает новую assistant writing-block форму после последнего user-сообщения: Цель / Рабочая область / Изменения / Проверка. На этом этапе расширение не вводит текст, не меняет фильтры, не запускает поиск и не отправляет сообщения.</p>
+-    <label for="report">Последний отчёт</label><textarea id="report" readonly rows="14" spellcheck="false"></textarea><button id="copy" type="button" class="secondary">Скопировать отчёт</button>
+-    <label for="logs">Последние события</label><pre id="logs"></pre>
++    <p class="hint">После нажатия расширение запоминает последний user-turn и ждёт только следующую assistant writing-block форму: Цель / Рабочая область / Изменения / Проверка. На этом этапе расширение не вводит текст, не меняет фильтры, не запускает поиск и не отправляет сообщения.</p>
++    <label for="logs">Живой журнал</label><pre id="logs" aria-live="polite"></pre>
++    <label for="report">Последний отчёт</label><textarea id="report" readonly rows="11" spellcheck="false"></textarea><button id="copy" type="button" class="secondary">Скопировать отчёт</button>
+   </main>
+   <script src="popup.js"></script>
+ </body>
+
+--- v0.2.2/popup.js
++++ v0.2.3/popup.js
+@@ -1,12 +1,40 @@
+ "use strict";
+ const statusNode = document.getElementById("status"); const detailNode = document.getElementById("detail"); const reportNode = document.getElementById("report"); const logsNode = document.getElementById("logs");
+ const inspectButton = document.getElementById("inspect"); const commandFilterButton = document.getElementById("command-filter"); const stopButton = document.getElementById("stop"); const copyButton = document.getElementById("copy");
+-function send(message) { return new Promise((resolve) => chrome.runtime.sendMessage(message, resolve)); }
+-function render(view) { const state = view && view.state ? view.state : {}; const inspection = view && view.inspection ? view.inspection : null; statusNode.textContent = state.status || "IDLE"; detailNode.textContent = state.blocked_reason || state.search_id || ""; reportNode.value = (inspection && inspection.report) || state.report || ""; logsNode.textContent = (view && Array.isArray(view.logs) ? view.logs : []).slice(-16).map((entry) => { const extras = Object.entries(entry).filter(([key]) => !["at", "type"].includes(key)).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(" "); return `${entry.at} ${entry.type}${extras ? ` ${extras}` : ""}`; }).join("\n"); }
++function send(message) { return new Promise((resolve) => chrome.runtime.sendMessage(message, (response) => { const error = chrome.runtime.lastError; resolve(error ? {ok: false, error: error.message} : response); })); }
++function compactAudit(audit) {
++  if (!audit) return "";
++  return [
++    `anchor=${audit.anchor_turn_id || "-"}`,
++    `assistant=${audit.candidate_assistant_turn_id || "-"}`,
++    `manual=${audit.manual_interruption === true ? "yes" : "no"}`,
++    `writing_block=${audit.writing_block_present === true ? "yes" : "no"}`,
++    `source=${audit.writing_block_source || "-"}`,
++    `copy=${audit.local_copy_present === true ? "yes" : "no"}`,
++    `form=${audit.form_valid === true ? "valid" : (audit.form_errors || []).join(",") || "pending"}`
++  ].join(" ");
++}
++function render(view) {
++  const state = view && view.state ? view.state : {}; const inspection = view && view.inspection ? view.inspection : null;
++  statusNode.textContent = state.status || "IDLE";
++  detailNode.textContent = [state.blocked_reason || state.search_id || "", compactAudit(state.candidate_audit)].filter(Boolean).join("\n");
++  reportNode.value = (inspection && inspection.report) || state.report || "";
++  logsNode.textContent = (view && Array.isArray(view.logs) ? view.logs : []).slice(-16).map((entry) => {
++    const extras = Object.entries(entry).filter(([key]) => !["at", "type"].includes(key)).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(" ");
++    return `${entry.at} ${entry.type}${extras ? ` ${extras}` : ""}`;
++  }).join("\n") || "Журнал пока пуст.";
++}
+ async function refresh() { const view = await send({type: "AF_GET_VIEW"}); if (view && view.ok) render(view); else statusNode.textContent = `Ошибка: ${(view && view.error) || "нет ответа"}`; }
+-async function start(type, button, label) { inspectButton.disabled = true; commandFilterButton.disabled = true; statusNode.textContent = label; const result = await send({type}); inspectButton.disabled = false; commandFilterButton.disabled = false; if (result && result.ok) render({state: result.state, inspection: result.inspection, logs: []}); else { statusNode.textContent = `Ожидание/блокировка: ${(result && result.error) || "неизвестно"}`; await refresh(); } }
+-inspectButton.addEventListener("click", () => start("AF_START_READONLY_INSPECTION", inspectButton, "Запуск read-only обследования…"));
+-commandFilterButton.addEventListener("click", () => start("AF_START_COMMAND_FILTER_INSPECTION", commandFilterButton, "Ожидание команды и фильтров…"));
++async function start(type, label) {
++  inspectButton.disabled = true; commandFilterButton.disabled = true; statusNode.textContent = label; detailNode.textContent = "";
++  const result = await send({type});
++  inspectButton.disabled = false; commandFilterButton.disabled = false;
++  if (result && result.ok) render({state: result.state, inspection: result.inspection, logs: []});
++  else await refresh();
++}
++inspectButton.addEventListener("click", () => start("AF_START_READONLY_INSPECTION", "Запуск read-only обследования…"));
++commandFilterButton.addEventListener("click", () => start("AF_START_COMMAND_FILTER_INSPECTION", "Заякоренное ожидание writing-block команды…"));
+ stopButton.addEventListener("click", async () => { await send({type: "AF_STOP"}); await refresh(); });
+ copyButton.addEventListener("click", async () => { if (!reportNode.value) return; try { await navigator.clipboard.writeText(reportNode.value); copyButton.textContent = "Скопировано"; setTimeout(() => { copyButton.textContent = "Скопировать отчёт"; }, 1200); } catch (_) { reportNode.focus(); reportNode.select(); document.execCommand("copy"); } });
++chrome.storage.onChanged.addListener((_changes, areaName) => { if (areaName === "local") refresh(); });
+ refresh();
+
+--- v0.2.2/service_worker.js
++++ v0.2.3/service_worker.js
+@@ -7,10 +7,15 @@
+ const LOG_KEY = Core.STORAGE.logs;
+ const INSPECTION_KEY = Core.STORAGE.lastInspection;
+ const COMMAND_KEY = Core.STORAGE.lastCommand;
+-const COMMAND_CAPTURE_CONTRACT = "bridge_turn_anchor_v1";
++const COMMAND_CAPTURE_CONTRACT = "bridge_anchor_copy_only_form_v2";
+ let operationInFlight = null;
+ 
+-function callbackToPromise(callbackInvoker) { return new Promise((resolve, reject) => callbackInvoker((value) => { const error = chrome.runtime.lastError; if (error) reject(new Error(error.message)); else resolve(value); })); }
++function callbackToPromise(callbackInvoker) {
++  return new Promise((resolve, reject) => callbackInvoker((value) => {
++    const error = chrome.runtime.lastError;
++    if (error) reject(new Error(error.message)); else resolve(value);
++  }));
++}
+ function storageGet(keys) { return callbackToPromise((done) => chrome.storage.local.get(keys, done)); }
+ function storageSet(values) { return callbackToPromise((done) => chrome.storage.local.set(values, done)); }
+ function tabsQuery(query) { return callbackToPromise((done) => chrome.tabs.query(query, done)); }
+@@ -20,6 +25,7 @@
+ function scriptingExecuteScript(details) { return callbackToPromise((done) => chrome.scripting.executeScript(details, done)); }
+ function currentWindow() { return callbackToPromise((done) => chrome.windows.getCurrent({populate: false}, done)); }
+ function isNoReceiverError(error) { return Boolean(error && /Receiving end does not exist|Could not establish connection/i.test(String(error.message || error))); }
++
+ async function getState() { const data = await storageGet(STATE_KEY); return Core.makeState(data[STATE_KEY] || {}); }
+ async function setState(next) { const state = Core.makeState(Object.assign({}, next, {updated_at: new Date().toISOString()})); await storageSet({[STATE_KEY]: state}); return state; }
+ async function log(type, fields) { const data = await storageGet(LOG_KEY); const next = Core.appendLog(data[LOG_KEY], type, fields); await storageSet({[LOG_KEY]: next}); return next[next.length - 1]; }
+@@ -27,68 +33,228 @@
+ 
+ async function activateTab(tab, role) {
+   const updated = await tabsUpdate(tab.id, {active: true});
+-  if (!updated || !updated.active) { await log("BLOCKED_TAB_ACTIVATION", {role, tab: shortTab(updated || tab)}); throw new Error(`BLOCKED_TAB_ACTIVATION:${role}`); }
++  if (!updated || !updated.active) {
++    await log("BLOCKED_TAB_ACTIVATION", {role, tab: shortTab(updated || tab)});
++    throw new Error(`BLOCKED_TAB_ACTIVATION:${role}`);
++  }
+   await log("TAB_ACTIVATED", {role, tab: shortTab(updated)});
+   return updated;
+ }
+-async function findTabInWindow(kind, windowId) { const tabs = await tabsQuery({windowId}); const predicate = kind === "chatgpt" ? Core.isChatGPTUrl : Core.isAvitoUrl; return tabs.find((tab) => predicate(tab.url)) || null; }
++async function findTabInWindow(kind, windowId) {
++  const tabs = await tabsQuery({windowId});
++  const predicate = kind === "chatgpt" ? Core.isChatGPTUrl : Core.isAvitoUrl;
++  return tabs.find((tab) => predicate(tab.url)) || null;
++}
+ async function getTab(tabId) { const tabs = await tabsQuery({}); return tabs.find((tab) => tab.id === tabId) || null; }
+ async function waitForTabLoad(tabId, timeoutMs) {
+   const timeout = Number.isFinite(timeoutMs) ? timeoutMs : 15000;
+-  const existing = await getTab(tabId); if (existing && existing.status === "complete") return existing;
+-  return new Promise((resolve, reject) => { const timer = setTimeout(() => { chrome.tabs.onUpdated.removeListener(listener); reject(new Error("TAB_LOAD_TIMEOUT")); }, timeout); function listener(updatedTabId, changeInfo, tab) { if (updatedTabId === tabId && changeInfo.status === "complete") { clearTimeout(timer); chrome.tabs.onUpdated.removeListener(listener); resolve(tab); } } chrome.tabs.onUpdated.addListener(listener); });
+-}
+-async function ensureAvitoTab(windowId, userStarted) { const found = await findTabInWindow("avito", windowId); if (found) return {tab: found, created: false}; if (!userStarted) throw new Error("AVITO_TAB_MISSING_NOT_USER_STARTED"); const created = await tabsCreate({windowId, active: true, url: "https://www.avito.ru/"}); await log("AVITO_TAB_CREATED", {tab: shortTab(created)}); await waitForTabLoad(created.id, 15000); return {tab: created, created: true}; }
+-function roleFiles(role) { if (role === "chatgpt") return ["core.js", "chatgpt_content.js"]; if (role === "avito") return ["core.js", "avito_content.js"]; throw new Error("UNSUPPORTED_CONTENT_ROLE"); }
++  const existing = await getTab(tabId);
++  if (existing && existing.status === "complete") return existing;
++  return new Promise((resolve, reject) => {
++    const timer = setTimeout(() => { chrome.tabs.onUpdated.removeListener(listener); reject(new Error("TAB_LOAD_TIMEOUT")); }, timeout);
++    function listener(updatedTabId, changeInfo, tab) {
++      if (updatedTabId === tabId && changeInfo.status === "complete") {
++        clearTimeout(timer); chrome.tabs.onUpdated.removeListener(listener); resolve(tab);
++      }
++    }
++    chrome.tabs.onUpdated.addListener(listener);
++  });
++}
++async function ensureAvitoTab(windowId, userStarted) {
++  const found = await findTabInWindow("avito", windowId);
++  if (found) return {tab: found, created: false};
++  if (!userStarted) throw new Error("AVITO_TAB_MISSING_NOT_USER_STARTED");
++  const created = await tabsCreate({windowId, active: true, url: "https://www.avito.ru/"});
++  await log("AVITO_TAB_CREATED", {tab: shortTab(created)});
++  await waitForTabLoad(created.id, 15000);
++  return {tab: created, created: true};
++}
++function roleFiles(role) {
++  if (role === "chatgpt") return ["core.js", "chatgpt_content.js"];
++  if (role === "avito") return ["core.js", "avito_content.js"];
++  throw new Error("UNSUPPORTED_CONTENT_ROLE");
++}
+ function roleUrlAllowed(role, url) { return role === "chatgpt" ? Core.isChatGPTUrl(url) : role === "avito" ? Core.isAvitoUrl(url) : false; }
+-async function injectRoleContentScript(tabId, role) { const tab = await getTab(tabId); if (!tab || !roleUrlAllowed(role, tab.url)) throw new Error(`CONTENT_TARGET_URL_REJECTED:${role}`); await scriptingExecuteScript({target: {tabId}, files: roleFiles(role), injectImmediately: true}); await log("CONTENT_SCRIPT_INJECTED", {role, tab: shortTab(tab), files: roleFiles(role)}); }
+-async function sendToRole(tabId, role, message) { try { return await tabsSendMessage(tabId, message); } catch (error) { if (!isNoReceiverError(error)) throw error; await log("CONTENT_RECEIVER_MISSING", {role, tab_id: tabId, message_type: message.type}); await injectRoleContentScript(tabId, role); try { return await tabsSendMessage(tabId, message); } catch (retryError) { throw new Error(`${isNoReceiverError(retryError) ? "NO_RECEIVER_AFTER_INJECTION" : "MESSAGE_RETRY_FAILED"}:${role}`); } } }
+-async function readChatGPTDom(tabId) { const response = await sendToRole(tabId, "chatgpt", {type: "AF_INSPECT_CHATGPT_DOM"}); if (!response || !response.ok) throw new Error(`CHATGPT_DOM_UNAVAILABLE:${response && response.error ? response.error : "unknown"}`); return response.snapshot; }
+-async function readAvitoDom(tabId) { const response = await sendToRole(tabId, "avito", {type: "AF_INSPECT_AVITO_DOM"}); if (!response || !response.ok) throw new Error(`AVITO_DOM_UNAVAILABLE:${response && response.error ? response.error : "unknown"}`); return response.snapshot; }
+-async function waitForCommand(tabId, baselineTurnId) { const response = await sendToRole(tabId, "chatgpt", {type: "AF_WAIT_FOR_COMMAND", baseline_turn_id: baselineTurnId || null, timeout_ms: 90000}); if (!response || !response.ok) { const error = new Error(response && response.error ? response.error : "COMMAND_CAPTURE_FAILED"); error.audit = response && response.audit || null; throw error; } return response.command; }
+-async function inspectFilterSurface(tabId) { const response = await sendToRole(tabId, "avito", {type: "AF_INSPECT_FILTER_SURFACE"}); if (!response || !response.ok) throw new Error(`FILTER_SURFACE_UNAVAILABLE:${response && response.error ? response.error : "unknown"}`); return response.snapshot; }
++async function injectRoleContentScript(tabId, role) {
++  const tab = await getTab(tabId);
++  if (!tab || !roleUrlAllowed(role, tab.url)) throw new Error(`CONTENT_TARGET_URL_REJECTED:${role}`);
++  await scriptingExecuteScript({target: {tabId}, files: roleFiles(role), injectImmediately: true});
++  await log("CONTENT_SCRIPT_INJECTED", {role, tab: shortTab(tab), files: roleFiles(role)});
++}
++async function sendToRole(tabId, role, message) {
++  try { return await tabsSendMessage(tabId, message); }
++  catch (error) {
++    if (!isNoReceiverError(error)) throw error;
++    await log("CONTENT_RECEIVER_MISSING", {role, tab_id: tabId, message_type: message.type});
++    await injectRoleContentScript(tabId, role);
++    try { return await tabsSendMessage(tabId, message); }
++    catch (retryError) { throw new Error(`${isNoReceiverError(retryError) ? "NO_RECEIVER_AFTER_INJECTION" : "MESSAGE_RETRY_FAILED"}:${role}`); }
++  }
++}
++async function readChatGPTDom(tabId) {
++  const response = await sendToRole(tabId, "chatgpt", {type: "AF_INSPECT_CHATGPT_DOM"});
++  if (!response || !response.ok) throw new Error(`CHATGPT_DOM_UNAVAILABLE:${response && response.error ? response.error : "unknown"}`);
++  return response.snapshot;
++}
++async function readAvitoDom(tabId) {
++  const response = await sendToRole(tabId, "avito", {type: "AF_INSPECT_AVITO_DOM"});
++  if (!response || !response.ok) throw new Error(`AVITO_DOM_UNAVAILABLE:${response && response.error ? response.error : "unknown"}`);
++  return response.snapshot;
++}
++async function getCommandAnchor(tabId) {
++  const response = await sendToRole(tabId, "chatgpt", {type: "AF_GET_COMMAND_ANCHOR"});
++  if (!response || !response.ok || !response.anchor_turn_id) throw new Error(response && response.error ? response.error : "COMMAND_ANCHOR_UNAVAILABLE");
++  return response.anchor_turn_id;
++}
++async function waitForCommand(tabId, anchorTurnId, searchId) {
++  const response = await sendToRole(tabId, "chatgpt", {type: "AF_WAIT_FOR_COMMAND", anchor_turn_id: anchorTurnId, search_id: searchId, timeout_ms: 90000});
++  if (!response || !response.ok) {
++    const error = new Error(response && response.error ? response.error : "COMMAND_CAPTURE_FAILED");
++    error.audit = response && response.audit || null;
++    throw error;
++  }
++  return response.command;
++}
++async function inspectFilterSurface(tabId) {
++  const response = await sendToRole(tabId, "avito", {type: "AF_INSPECT_FILTER_SURFACE"});
++  if (!response || !response.ok) throw new Error(`FILTER_SURFACE_UNAVAILABLE:${response && response.error ? response.error : "unknown"}`);
++  return response.snapshot;
++}
+ 
+ async function runReadOnlyInspection() {
+   const window = await currentWindow(); const windowId = window.id; const now = new Date().toISOString(); const searchId = Core.makeSearchId(Date.now());
+   let state = await setState({search_id: searchId, status: "WAITING_FOR_COMMAND", phase: "READONLY_INSPECTION", started_at: now, current_window_id: windowId, user_started: true, inspection_only: true, report: null});
+   await log("READONLY_INSPECTION_STARTED", {search_id: searchId, window_id: windowId});
+   try {
+-    const chatTab = await findTabInWindow("chatgpt", windowId); if (!chatTab) throw new Error("CHATGPT_TAB_NOT_FOUND_CURRENT_WINDOW"); const activeChat = await activateTab(chatTab, "chatgpt"); state = await setState(Object.assign({}, state, {status: "CHATGPT_TAB_ACTIVE", chatgpt_tab_id: activeChat.id})); const chatSnapshot = await readChatGPTDom(activeChat.id); await log("CHATGPT_DOM_CAPTURED", {search_id: searchId, tab_id: activeChat.id});
+-    const avito = await ensureAvitoTab(windowId, true); const activeAvito = await activateTab(avito.tab, "avito"); state = await setState(Object.assign({}, state, {status: "AVITO_TAB_ACTIVE", avito_tab_id: activeAvito.id})); const avitoSnapshot = await readAvitoDom(activeAvito.id); await log("AVITO_DOM_CAPTURED", {search_id: searchId, tab_id: activeAvito.id, created: avito.created});
+-    const returnedChat = await activateTab(activeChat, "chatgpt_return"); state = await setState(Object.assign({}, state, {status: "CHATGPT_RETURNED", chatgpt_tab_id: returnedChat.id}));
+-    const inspection = {version: 3, search_id: searchId, captured_at: new Date().toISOString(), mode: "READ_ONLY", chatgpt: chatSnapshot, avito: avitoSnapshot, report: Core.formatInspectionReport({search_id: searchId, chatgpt: chatSnapshot, avito: avitoSnapshot})};
+-    state = await setState(Object.assign({}, state, {status: "INSPECTION_COMPLETE", phase: "READONLY_INSPECTION_COMPLETE", report: inspection.report, blocked_reason: avitoSnapshot.blocked_reason || null})); await storageSet({[INSPECTION_KEY]: inspection}); await log("READONLY_INSPECTION_COMPLETE", {search_id: searchId, status: state.status}); return {ok: true, state, inspection};
+-  } catch (error) { const reason = error && error.message ? error.message : "UNKNOWN_ERROR"; const blocked = reason.startsWith("BLOCKED_TAB_ACTIVATION") ? "BLOCKED_TAB_ACTIVATION" : reason; state = await setState(Object.assign({}, state, {status: blocked, phase: "READONLY_INSPECTION_BLOCKED", blocked_reason: blocked})); await log("READONLY_INSPECTION_BLOCKED", {search_id: searchId, reason: blocked}); return {ok: false, state, error: blocked}; }
++    const chatTab = await findTabInWindow("chatgpt", windowId);
++    if (!chatTab) throw new Error("CHATGPT_TAB_NOT_FOUND_CURRENT_WINDOW");
++    const activeChat = await activateTab(chatTab, "chatgpt");
++    state = await setState(Object.assign({}, state, {status: "CHATGPT_TAB_ACTIVE", chatgpt_tab_id: activeChat.id}));
++    const chatSnapshot = await readChatGPTDom(activeChat.id);
++    await log("CHATGPT_DOM_CAPTURED", {search_id: searchId, tab_id: activeChat.id});
++    const avito = await ensureAvitoTab(windowId, true);
++    const activeAvito = await activateTab(avito.tab, "avito");
++    state = await setState(Object.assign({}, state, {status: "AVITO_TAB_ACTIVE", avito_tab_id: activeAvito.id}));
++    const avitoSnapshot = await readAvitoDom(activeAvito.id);
++    await log("AVITO_DOM_CAPTURED", {search_id: searchId, tab_id: activeAvito.id, created: avito.created});
++    const returnedChat = await activateTab(activeChat, "chatgpt_return");
++    const inspection = {version: 4, search_id: searchId, captured_at: new Date().toISOString(), mode: "READ_ONLY", chatgpt: chatSnapshot, avito: avitoSnapshot, report: Core.formatInspectionReport({search_id: searchId, chatgpt: chatSnapshot, avito: avitoSnapshot})};
++    state = await setState(Object.assign({}, state, {status: "INSPECTION_COMPLETE", phase: "READONLY_INSPECTION_COMPLETE", report: inspection.report, chatgpt_tab_id: returnedChat.id, blocked_reason: avitoSnapshot.blocked_reason || null}));
++    await storageSet({[INSPECTION_KEY]: inspection}); await log("READONLY_INSPECTION_COMPLETE", {search_id: searchId, status: state.status});
++    return {ok: true, state, inspection};
++  } catch (error) {
++    const reason = error && error.message ? error.message : "UNKNOWN_ERROR";
++    state = await setState(Object.assign({}, state, {status: reason, phase: "READONLY_INSPECTION_BLOCKED", blocked_reason: reason}));
++    await log("READONLY_INSPECTION_BLOCKED", {search_id: searchId, reason}); return {ok: false, state, error: reason};
++  }
+ }
+ 
+ async function runCommandFilterInspection() {
+-  const window = await currentWindow(); const windowId = window.id; const now = new Date().toISOString(); const searchId = Core.makeSearchId(Date.now()); const prior = await getState();
+-  const contractChanged = prior.command_capture_contract !== COMMAND_CAPTURE_CONTRACT;
+-  const baselineTurnId = contractChanged ? null : prior.processed_command_turn_id || null;
+-  let state = await setState({search_id: searchId, status: "WAITING_FOR_COMMAND", phase: "COMMAND_WAIT", started_at: now, current_window_id: windowId, user_started: true, inspection_only: true, command_capture_contract: COMMAND_CAPTURE_CONTRACT, processed_command_turn_id: baselineTurnId, command_waiting: true, candidate_audit: null, blocked_reason: null, report: "Avito Finder: ожидаю новую assistant writing-block форму после последнего user-сообщения. Avito не активируется до захвата команды."});
++  const window = await currentWindow(); const windowId = window.id; const now = new Date().toISOString(); const searchId = Core.makeSearchId(Date.now());
++  let state = await setState({
++    search_id: searchId, status: "PREPARING_COMMAND_ANCHOR", phase: "COMMAND_ANCHOR", started_at: now,
++    current_window_id: windowId, user_started: true, inspection_only: true,
++    command_capture_contract: COMMAND_CAPTURE_CONTRACT, processed_command_turn_id: null,
++    command_anchor_turn_id: null, command_waiting: true, candidate_audit: null,
++    blocked_reason: null, report: "Avito Finder: подготавливаю точный user-turn anchor для новой assistant writing-block формы. Avito не активируется до захвата команды."
++  });
+   await storageSet({[INSPECTION_KEY]: null});
+-  await log("COMMAND_FILTER_INSPECTION_STARTED", {search_id: searchId, window_id: windowId, capture_contract: COMMAND_CAPTURE_CONTRACT, previous_contract_reset: contractChanged});
++  await log("COMMAND_FILTER_INSPECTION_STARTED", {search_id: searchId, window_id: windowId, capture_contract: COMMAND_CAPTURE_CONTRACT});
+   try {
+-    const chatTab = await findTabInWindow("chatgpt", windowId); if (!chatTab) throw new Error("CHATGPT_TAB_NOT_FOUND_CURRENT_WINDOW"); const activeChat = await activateTab(chatTab, "chatgpt_command"); state = await setState(Object.assign({}, state, {status: "WAITING_FOR_COMMAND", chatgpt_tab_id: activeChat.id}));
++    const chatTab = await findTabInWindow("chatgpt", windowId);
++    if (!chatTab) throw new Error("CHATGPT_TAB_NOT_FOUND_CURRENT_WINDOW");
++    const activeChat = await activateTab(chatTab, "chatgpt_command");
++    const anchorTurnId = await getCommandAnchor(activeChat.id);
++    state = await setState(Object.assign({}, state, {status: "WAITING_FOR_COMMAND", phase: "COMMAND_WAIT", chatgpt_tab_id: activeChat.id, command_anchor_turn_id: anchorTurnId, report: "Avito Finder: жду writing-block форму после заякоренного user-turn. Живой журнал показан выше отчёта."}));
++    await log("COMMAND_WATCH_STARTED", {search_id: searchId, tab_id: activeChat.id, anchor_turn_id: anchorTurnId});
++
+     let command;
+-    try { command = await waitForCommand(activeChat.id, baselineTurnId); }
++    try { command = await waitForCommand(activeChat.id, anchorTurnId, searchId); }
+     catch (error) {
+-      const reason = String(error.message || error);
+-      const audit = error.audit || null;
++      const reason = String(error.message || error); const audit = error.audit || null;
+       const report = Core.formatCommandWaitReport({reason, audit});
+-      state = await setState(Object.assign({}, state, {status: reason === "COMMAND_WAIT_CANCELLED" ? "CANCELLED_BY_USER" : "WAITING_FOR_COMMAND", phase: "COMMAND_MISSING_OR_TIMEOUT", blocked_reason: reason, command_waiting: false, candidate_audit: audit, report}));
+-      const inspection = {version: 3, search_id: searchId, captured_at: new Date().toISOString(), mode: "COMMAND_WAIT_DIAGNOSTIC", reason, audit, report};
++      state = await setState(Object.assign({}, state, {status: reason === "COMMAND_WAIT_CANCELLED" ? "CANCELLED_BY_USER" : "COMMAND_CAPTURE_BLOCKED", phase: "COMMAND_MISSING_OR_TIMEOUT", blocked_reason: reason, command_waiting: false, candidate_audit: audit, report}));
++      const inspection = {version: 4, search_id: searchId, captured_at: new Date().toISOString(), mode: "COMMAND_WAIT_DIAGNOSTIC", reason, audit, report};
+       await storageSet({[INSPECTION_KEY]: inspection});
+-      await log("COMMAND_WAIT_FINISHED_WITHOUT_CAPTURE", {search_id: searchId, baseline_turn_id: baselineTurnId, reason, exact_turn_section_count: audit && audit.exact_turn_section_count || null, writing_block_present: audit && audit.writing_block_present === true, form_valid: audit && audit.form_valid === true});
++      await log("COMMAND_WAIT_FINISHED_WITHOUT_CAPTURE", {search_id: searchId, anchor_turn_id: anchorTurnId, reason, exact_turn_section_count: audit && audit.exact_turn_section_count || null, writing_block_present: audit && audit.writing_block_present === true, form_valid: audit && audit.form_valid === true});
+       return {ok: false, state, inspection, error: reason};
+     }
+-    state = await setState(Object.assign({}, state, {status: "COMMAND_CAPTURED", phase: "COMMAND_CAPTURED", processed_command_turn_id: command.turnId, command_waiting: false, blocked_reason: null, report: null})); await storageSet({[COMMAND_KEY]: command}); await log("WRITING_BLOCK_COMMAND_CAPTURED", {search_id: searchId, turn_id: command.turnId, mode: command.parsed.mode, copy_confirmed: command.copy_confirmed === true, copy_source: command.copy_source || null});
+-    const avito = await ensureAvitoTab(windowId, true); const activeAvito = await activateTab(avito.tab, "avito_filter_scan"); state = await setState(Object.assign({}, state, {status: "AVITO_TAB_ACTIVE", avito_tab_id: activeAvito.id, phase: "INSPECTING_FILTERS"})); const filterSurface = await inspectFilterSurface(activeAvito.id); await log("AVITO_FILTER_SURFACE_CAPTURED", {search_id: searchId, tab_id: activeAvito.id, filter_control_count: filterSurface.filter_control_count, created: avito.created});
+-    const returnedChat = await activateTab(activeChat, "chatgpt_return"); const report = Core.formatCommandFilterReport({search_id: searchId, command, filterSurface}); const inspection = {version: 3, search_id: searchId, captured_at: new Date().toISOString(), mode: "COMMAND_AND_FILTER_SURFACE_READ_ONLY", command, filterSurface, report}; state = await setState(Object.assign({}, state, {status: "COMMAND_AND_FILTER_SURFACE_COMPLETE", phase: "READONLY_COMPLETE", chatgpt_tab_id: returnedChat.id, report, blocked_reason: filterSurface.blocked_reason || null})); await storageSet({[INSPECTION_KEY]: inspection}); await log("COMMAND_FILTER_INSPECTION_COMPLETE", {search_id: searchId, status: state.status}); return {ok: true, state, inspection};
+-  } catch (error) { const reason = error && error.message ? error.message : "UNKNOWN_ERROR"; const blocked = reason.startsWith("BLOCKED_TAB_ACTIVATION") ? "BLOCKED_TAB_ACTIVATION" : reason; state = await setState(Object.assign({}, state, {status: blocked, phase: "COMMAND_FILTER_INSPECTION_BLOCKED", blocked_reason: blocked, command_waiting: false})); await log("COMMAND_FILTER_INSPECTION_BLOCKED", {search_id: searchId, reason: blocked}); return {ok: false, state, error: blocked}; }
+-}
+-
+-function startExclusive(operation) { if (operationInFlight) return operationInFlight; operationInFlight = operation().finally(() => { operationInFlight = null; }); return operationInFlight; }
+-async function stopTask() { const old = await getState(); if (old.chatgpt_tab_id) { try { await sendToRole(old.chatgpt_tab_id, "chatgpt", {type: "AF_CANCEL_COMMAND_WAIT"}); } catch (_) {} } const state = await setState(Object.assign({}, old, {status: "CANCELLED_BY_USER", phase: "CANCELLED", blocked_reason: null, user_started: false, command_waiting: false})); await log("STOPPED_BY_USER", {search_id: state.search_id}); return state; }
+-chrome.runtime.onInstalled.addListener(async () => { const existing = await getState(); await setState(existing); await log("EXTENSION_INSTALLED_OR_UPDATED", {version: chrome.runtime.getManifest().version}); });
+-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => { (async () => { try { switch (message && message.type) { case "AF_GET_VIEW": { const data = await storageGet([STATE_KEY, LOG_KEY, INSPECTION_KEY, COMMAND_KEY]); sendResponse({ok: true, state: Core.makeState(data[STATE_KEY] || {}), logs: data[LOG_KEY] || [], inspection: data[INSPECTION_KEY] || null, command: data[COMMAND_KEY] || null}); return; } case "AF_START_READONLY_INSPECTION": sendResponse(await startExclusive(runReadOnlyInspection)); return; case "AF_START_COMMAND_FILTER_INSPECTION": sendResponse(await startExclusive(runCommandFilterInspection)); return; case "AF_STOP": sendResponse({ok: true, state: await stopTask()}); return; default: sendResponse({ok: false, error: "UNKNOWN_MESSAGE"}); } } catch (error) { sendResponse({ok: false, error: error && error.message ? error.message : "UNKNOWN_ERROR"}); } })(); return true; });
++
++    state = await setState(Object.assign({}, state, {status: "COMMAND_CAPTURED", phase: "COMMAND_CAPTURED", processed_command_turn_id: command.turnId, command_waiting: false, blocked_reason: null, report: null}));
++    await storageSet({[COMMAND_KEY]: command});
++    await log("WRITING_BLOCK_COMMAND_CAPTURED", {search_id: searchId, anchor_turn_id: anchorTurnId, turn_id: command.turnId, mode: command.parsed.mode, copy_confirmed: command.copy_confirmed === true, copy_source: command.copy_source || null});
++    const avito = await ensureAvitoTab(windowId, true);
++    const activeAvito = await activateTab(avito.tab, "avito_filter_scan");
++    state = await setState(Object.assign({}, state, {status: "AVITO_TAB_ACTIVE", avito_tab_id: activeAvito.id, phase: "INSPECTING_FILTERS"}));
++    const filterSurface = await inspectFilterSurface(activeAvito.id);
++    await log("AVITO_FILTER_SURFACE_CAPTURED", {search_id: searchId, tab_id: activeAvito.id, filter_control_count: filterSurface.filter_control_count, created: avito.created});
++    const returnedChat = await activateTab(activeChat, "chatgpt_return");
++    const report = Core.formatCommandFilterReport({search_id: searchId, command, filterSurface});
++    const inspection = {version: 4, search_id: searchId, captured_at: new Date().toISOString(), mode: "COMMAND_AND_FILTER_SURFACE_READ_ONLY", command, filterSurface, report};
++    state = await setState(Object.assign({}, state, {status: "COMMAND_AND_FILTER_SURFACE_COMPLETE", phase: "READONLY_COMPLETE", chatgpt_tab_id: returnedChat.id, report, blocked_reason: filterSurface.blocked_reason || null}));
++    await storageSet({[INSPECTION_KEY]: inspection}); await log("COMMAND_FILTER_INSPECTION_COMPLETE", {search_id: searchId, status: state.status});
++    return {ok: true, state, inspection};
++  } catch (error) {
++    const reason = error && error.message ? error.message : "UNKNOWN_ERROR";
++    state = await setState(Object.assign({}, state, {status: reason, phase: "COMMAND_FILTER_INSPECTION_BLOCKED", blocked_reason: reason, command_waiting: false}));
++    await log("COMMAND_FILTER_INSPECTION_BLOCKED", {search_id: searchId, reason}); return {ok: false, state, error: reason};
++  }
++}
++
++async function handleCommandWatchAudit(message, sender) {
++  const state = await getState();
++  const senderTabId = sender && sender.tab && sender.tab.id;
++  if (!state.command_waiting || !message || message.search_id !== state.search_id || senderTabId !== state.chatgpt_tab_id || message.anchor_turn_id !== state.command_anchor_turn_id) {
++    return {ok: false, error: "COMMAND_WATCH_AUDIT_REJECTED"};
++  }
++  const audit = message.audit || null;
++  const reason = message.reason || null;
++  await setState(Object.assign({}, state, {candidate_audit: audit, blocked_reason: reason || null}));
++  await log("COMMAND_WATCH_AUDIT", {
++    search_id: state.search_id,
++    anchor_turn_id: state.command_anchor_turn_id,
++    reason,
++    candidate_assistant_turn_id: audit && audit.candidate_assistant_turn_id || null,
++    writing_block_present: audit && audit.writing_block_present === true,
++    writing_block_source: audit && audit.writing_block_source || null,
++    local_copy_present: audit && audit.local_copy_present === true,
++    form_valid: audit && audit.form_valid === true,
++    form_errors: audit && audit.form_errors || []
++  });
++  return {ok: true};
++}
++
++function startExclusive(operation) {
++  if (operationInFlight) return operationInFlight;
++  operationInFlight = operation().finally(() => { operationInFlight = null; });
++  return operationInFlight;
++}
++async function stopTask() {
++  const old = await getState();
++  if (old.chatgpt_tab_id) { try { await sendToRole(old.chatgpt_tab_id, "chatgpt", {type: "AF_CANCEL_COMMAND_WAIT"}); } catch (_) {} }
++  const state = await setState(Object.assign({}, old, {status: "CANCELLED_BY_USER", phase: "CANCELLED", blocked_reason: null, user_started: false, command_waiting: false}));
++  await log("STOPPED_BY_USER", {search_id: state.search_id}); return state;
++}
++
++chrome.runtime.onInstalled.addListener(async () => {
++  const existing = await getState(); await setState(existing); await log("EXTENSION_INSTALLED_OR_UPDATED", {version: chrome.runtime.getManifest().version});
++});
++
++chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
++  (async () => {
++    try {
++      switch (message && message.type) {
++        case "AF_GET_VIEW": {
++          const data = await storageGet([STATE_KEY, LOG_KEY, INSPECTION_KEY, COMMAND_KEY]);
++          sendResponse({ok: true, state: Core.makeState(data[STATE_KEY] || {}), logs: data[LOG_KEY] || [], inspection: data[INSPECTION_KEY] || null, command: data[COMMAND_KEY] || null}); return;
++        }
++        case "AF_COMMAND_WATCH_AUDIT": sendResponse(await handleCommandWatchAudit(message, sender)); return;
++        case "AF_START_READONLY_INSPECTION": sendResponse(await startExclusive(runReadOnlyInspection)); return;
++        case "AF_START_COMMAND_FILTER_INSPECTION": sendResponse(await startExclusive(runCommandFilterInspection)); return;
++        case "AF_STOP": sendResponse({ok: true, state: await stopTask()}); return;
++        default: sendResponse({ok: false, error: "UNKNOWN_MESSAGE"}); return;
++      }
++    } catch (error) { sendResponse({ok: false, error: error && error.message ? error.message : "UNKNOWN_ERROR"}); }
++  })();
++  return true;
++});
+

@@ -1,0 +1,83 @@
+--- v0.9.4/manifest.json
++++ v0.9.5/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.9.4",
+-  "version_name": "0.9.4-minimal-login-classifier-fix-test-candidate",
+-  "description": "Отдельный Avito Finder: рабочая база visible-UI с исправленной классификацией обычного login-диалога. Запуск «Ищи» выполняет первый допустимый AVITO_UI-план после внутренней проверки текущего видимого состояния. Между запусками не хранит Avito tabId и не создаёт root-вкладку; при ручной смене/закрытии страницы возвращает текущий контекст для следующего маршрута. Без сообщений, телефона, покупки, Runtime, Network, cookies или скрытых API.",
++  "version": "0.9.5",
++  "version_name": "0.9.5-restore-public-root-bootstrap-route-ledger-test-candidate",
++  "description": "Отдельный Avito Finder: visible-UI с обычным login-диалогом без ложной CAPTCHA-блокировки. На явный «Ищи» переиспользует видимую Avito-вкладку в том же окне либо, когда такой вкладки нет, открывает ровно одну активную публичную https://www.avito.ru/ только для нового run. Внутри run переиспользует тот же tabId и не восстанавливает старую страницу. Без сообщений, телефона, покупки, Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.9.4/service_worker.js
++++ v0.9.5/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.1 — working baseline with current-context routing. */
++/* Avito Finder v0.9.5 — restore fresh-run public-root bootstrap and retain ordinary-login classifier correction. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -30,6 +30,7 @@
+ const tabsQuery = (query) => cb((done) => chrome.tabs.query(query, done));
+ const tabsGet = (tabId) => cb((done) => chrome.tabs.get(tabId, done));
+ const tabsUpdate = (tabId, props) => cb((done) => chrome.tabs.update(tabId, props, done));
++const tabsCreate = (props) => cb((done) => chrome.tabs.create(props, done));
+ const tabsSend = (tabId, message) => cb((done) => chrome.tabs.sendMessage(tabId, message, done));
+ const execute = (details) => cb((done) => chrome.scripting.executeScript(details, done));
+ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+@@ -294,17 +295,44 @@
+   if (!tab || tab.windowId !== state.current_window_id || !Core.isAvitoUrl(tab.url || "")) return null;
+   return tab;
+ }
++async function createInitialPublicAvitoTab(state, purpose) {
++  // Allowed only at the first Avito action of one explicit user-started run.
++  // It creates a single normal public root and never restores a stale URL or tab binding.
++  if (!state?.user_started || state?.avito_target_bound_once) {
++    throw new Error("AVITO_VISIBLE_TAB_REQUIRED_OPEN_ONE_PUBLIC_AVITO_TAB");
++  }
++  const tab = await tabsCreate({ url: "https://www.avito.ru/", active: true, windowId: state.current_window_id });
++  if (!tab?.id || tab.windowId !== state.current_window_id) {
++    throw new Error("AVITO_PUBLIC_ROOT_CREATE_FAILED");
++  }
++  await log("AVITO_INITIAL_PUBLIC_ROOT_CREATED", {
++    search_id: state.search_id,
++    purpose,
++    tab: shortTab(tab),
++    persistent_binding: false,
++    bootstrap_only: true
++  });
++  return { tab, created: true, navigated: false, reused: false, source: "initial_active_public_root" };
++}
+ async function ensureAvitoTarget(state, _requestedUrl, purpose, _policy = {}) {
+-  // Binding is limited to one active run. A missing/changed target is resolved
+-  // again from the visible Avito tabs; no old tabId, URL or root page is restored.
++  // Binding lasts only for the active run. A fresh explicit «Ищи» selects one
++  // visible Avito tab in this window, or creates exactly one active public root
++  // when none exists. It never restores a prior tabId, URL or chat-page state.
+   const bound = await persistedRunOwnedAvitoTab(state);
+   if (bound) {
+     await log("AVITO_TAB_REUSED_WITHIN_RUN", { search_id: state.search_id, purpose, tab: shortTab(bound), persistent_binding: false });
+     return { tab: bound, created: false, navigated: false, reused: true, source: "current_run" };
+   }
+-  const selected = await selectVisibleAvitoTab(state.current_window_id);
+-  await log("AVITO_VISIBLE_TARGET_SELECTED", { search_id: state.search_id, purpose, tab: shortTab(selected.tab), source: selected.source, persistent_binding: false });
+-  return { tab: selected.tab, created: false, navigated: false, reused: false, source: selected.source };
++  try {
++    const selected = await selectVisibleAvitoTab(state.current_window_id);
++    await log("AVITO_VISIBLE_TARGET_SELECTED", { search_id: state.search_id, purpose, tab: shortTab(selected.tab), source: selected.source, persistent_binding: false });
++    return { tab: selected.tab, created: false, navigated: false, reused: false, source: selected.source };
++  } catch (error) {
++    if (String(error?.message || error) === "AVITO_VISIBLE_TAB_REQUIRED_OPEN_ONE_PUBLIC_AVITO_TAB" && state?.user_started === true && state?.avito_target_bound_once !== true) {
++      return createInitialPublicAvitoTab(state, purpose);
++    }
++    throw error;
++  }
+ }
+ async function visibleAvitoDelay(state, stage, ms) {
+   const durationMs = Math.max(0, Number(ms) || 0);
+

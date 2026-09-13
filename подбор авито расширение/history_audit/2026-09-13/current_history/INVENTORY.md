@@ -1,0 +1,217 @@
+# Full history machine inventory v2
+
+HEAD `fd7de3d98b876354e337597c2aa70f36918ff08c`; commits 352; versions 8; patch/test commits 193
+
+| Version | Source | Commit | Root | runtime | tests | rot0 | sticky | blank | proxy | queue | captcha |
+|---|---|---|---|---:|---:|---|---|---|---|---|---|
+| 1.0.6 | unavailable | | | | | | | | | | |
+| 1.0.23 | exact | `fd7de3d98b` | `подбор авито расширение/extension_v1.0.23` | 9 | 0 | True | False | True | True | True | True |
+| 1.0.24 | exact | `fd7de3d98b` | `подбор авито расширение/extension_v1.0.24` | 9 | 0 | True | False | True | True | True | True |
+| 1.0.34 | exact | `fd7de3d98b` | `подбор авито расширение/v134_work` | 10 | 68 | True | False | True | True | True | True |
+| 1.0.35 | exact | `fd7de3d98b` | `подбор авито расширение/v135_work` | 10 | 71 | True | False | True | True | True | True |
+| 1.0.36 | exact | `fd7de3d98b` | `подбор авито расширение/releases/v1.0.36-r2/v136_work` | 10 | 73 | True | False | True | True | True | True |
+| 1.0.37 | exact | `fd7de3d98b` | `подбор авито расширение/releases/v1.0.37/v137_work` | 10 | 75 | True | False | True | True | True | True |
+| 1.0.38 | exact | `fd7de3d98b` | `подбор авито расширение/releases/v1.0.38/v138_work` | 10 | 76 | False | True | True | True | True | True |
+
+## Adjacent diffs
+- v1.0.23 → v1.0.24: `diffs/v1.0.23_to_v1.0.24.patch`, files 4, sha `03ecb391e3c4b1859e3d3401f91d9f650774ac5b3cb5d690d10fd0a448727996`
+- v1.0.24 → v1.0.34: `diffs/v1.0.24_to_v1.0.34.patch`, files 9, sha `564166eea2f36a1fc974112174d2c43534fb7fbd4c8146441a60c321eb639530`
+- v1.0.34 → v1.0.35: `diffs/v1.0.34_to_v1.0.35.patch`, files 3, sha `88441503fe93a85a6f9d780c9fe5aef4b595c0562bafdc38b80c8ca63ba4aaf4`
+- v1.0.35 → v1.0.36: `diffs/v1.0.35_to_v1.0.36.patch`, files 2, sha `a1d92b9123ab6c6a8181370df057a56d5b54be4faa9f9a53b0b62892725f7e15`
+- v1.0.36 → v1.0.37: `diffs/v1.0.36_to_v1.0.37.patch`, files 4, sha `0d9f83234b4fd1f80c401b88fc339e831bfb730c6c55b0fb6422930697823771`
+- v1.0.37 → v1.0.38: `diffs/v1.0.37_to_v1.0.38.patch`, files 3, sha `fe2ee1069fc4e2cec3991de5fb2591eac5d1842361b0f6aaa320dd2dc5d240cd`
+
+## Runtime/test/history commit ledger
+- `7531ba34f0f5` 2026-09-08T15:06:38+05:00 — build: add Avito Finder v1.0.23 manifest — {'runtime': 1}
+- `ceef43bb905a` 2026-09-08T10:32:00Z — build: materialize Avito Finder v1.0.23 WORK runtime — {'other': 1, 'runtime': 8}
+- `554dca643a06` 2026-09-08T16:02:22+05:00 — docs: add Avito Finder v1.0.24 live IP-block recovery note — {'docs_data': 1}
+- `d932a4df6cbd` 2026-09-08T16:02:29+05:00 — test: record Avito Finder v1.0.24 regression QA — {'test_qa': 1}
+- `e69cba5b547a` 2026-09-08T16:03:11+05:00 — docs: record v1.0.24 recovery checkpoint — {'docs_data': 1}
+- `68aa57f12802` 2026-09-08T11:28:04Z — build: materialize Avito Finder v1.0.24 WORK runtime — {'other': 1, 'runtime': 9}
+- `1d07a9a6097b` 2026-09-12T13:42:08+05:00 — docs: add mandatory patch engineering rules — {'docs_data': 1}
+- `2a1b133b0b3d` 2026-09-12T13:45:24+05:00 — test: add prompt capture contract regression checker — {'tooling': 1}
+- `8270de32f0ee` 2026-09-12T13:45:37+05:00 — docs: record prompt capture patch compliance and violations — {'docs_data': 1}
+- `8b579da9e0fc` 2026-09-12T08:46:07Z — fix: accept completed ordinary assistant command responses — {'runtime': 1}
+- `e9ccf9e83085` 2026-09-12T13:53:00+05:00 — docs: require exact release persistence in GitHub — {'docs_data': 1}
+- `8f2be0699972` 2026-09-12T14:33:10+05:00 — docs: persist Avito Finder v1.0.35 patch report — {'docs_data': 1}
+- `51ca424f6440` 2026-09-12T14:51:21+05:00 — checkpoint: record exact archive recovery and new v135 cross-component failure — {'docs_data': 1}
+- `b55a5b523bfd` 2026-09-12T14:52:20+05:00 — docs: require patch rules and persisted checkpoints at repository entry — {'docs_data': 1}
+- `df8ce7c03fc6` 2026-09-12T14:59:13+05:00 — test: persist complete v135 recheck results including 15 failed groups — {'docs_data': 1}
+- `64ccde65cf03` 2026-09-12T15:45:58+05:00 — docs: point agent startup at publication recovery checkpoint — {'docs_data': 1}
+- `ed4297527b57` 2026-09-12T12:11:36Z — recovery: persist exact part repair evidence without runtime changes — {'docs_data': 1}
+- `8411c30622e7` 2026-09-12T12:27:31Z — publication: checkpoint verified parts; exact artifacts complete=true — {'other': 10, 'docs_data': 32, 'runtime': 20, 'test_qa': 209}
+- `a949daabf05c` 2026-09-12T17:30:49+05:00 — checkpoint: advance from archive recovery to exact-source adapter correction — {'docs_data': 1}
+- `fe8c96cb2866` 2026-09-12T12:50:16Z — build: persist v1.0.36 source and exact ZIP before full QA — {'other': 6, 'docs_data': 20, 'runtime': 10, 'test_qa': 107}
+- `19ea7ac13cbb` 2026-09-12T12:50:19Z — qa checkpoint v136: adapter_identity PASS — {'docs_data': 2, 'other': 1}
+- `63bf9bf041c6` 2026-09-12T12:50:22Z — qa checkpoint v136: node PASS — {'other': 1, 'docs_data': 1}
+- `4fd1768402dd` 2026-09-12T12:50:27Z — qa checkpoint v136: avito PASS — {'docs_data': 2, 'other': 1}
+- `ba9d3b5206b0` 2026-09-12T12:50:56Z — qa checkpoint v136: chat PASS — {'docs_data': 2, 'other': 1}
+- `db054dd1ec7a` 2026-09-12T12:51:09Z — qa checkpoint v136: start_receipt PASS — {'docs_data': 2, 'other': 1}
+- `d7c6db5d5b21` 2026-09-12T12:51:21Z — qa checkpoint v136: composer_01_05 PASS — {'docs_data': 2, 'other': 1}
+- `36a64d3ef82c` 2026-09-12T12:51:40Z — qa checkpoint v136: composer_06_10 PASS — {'docs_data': 2, 'other': 1}
+- `125808be50a4` 2026-09-12T12:51:59Z — qa checkpoint v136: composer_11_15 PASS — {'docs_data': 2, 'other': 1}
+- `09566c52bdb2` 2026-09-12T12:52:09Z — qa checkpoint v136: composer_16_20 PASS — {'docs_data': 2, 'other': 1}
+- `716879d32358` 2026-09-12T12:52:16Z — qa checkpoint v136: composer_21_25 PASS — {'docs_data': 2, 'other': 1}
+- `b4ae22dcc74d` 2026-09-12T12:52:25Z — qa checkpoint v136: composer_26_29 PASS — {'docs_data': 2, 'other': 1}
+- `e1652cd87bf0` 2026-09-12T12:52:58Z — qa checkpoint v136: receipts PASS — {'docs_data': 2, 'other': 1}
+- `e4cf49e1cf72` 2026-09-12T12:53:22Z — qa checkpoint v136: cycle_full_three_page_folded_cycle PASS — {'docs_data': 2, 'other': 1}
+- `55cef64ab6ed` 2026-09-12T12:53:46Z — qa checkpoint v136: cycle_assistant_first_start_then_three_pages PASS — {'docs_data': 2, 'other': 1}
+- `d8b0b6d107fb` 2026-09-12T12:54:11Z — qa checkpoint v136: cycle_ip_block_recovery_then_three_pages PASS — {'docs_data': 2, 'other': 1}
+- `20f49918da5a` 2026-09-12T12:54:35Z — qa checkpoint v136: cycle_rate_limit_recovery_then_three_pages PASS — {'docs_data': 2, 'other': 1}
+- `5e3bf600d76d` 2026-09-12T12:55:11Z — qa checkpoint v136: cycle_late_body_then_worker_restart_reconcile PASS — {'docs_data': 2, 'other': 1}
+- `06034ee82d09` 2026-09-12T12:55:22Z — qa checkpoint v136: cycle_captcha_manual_boundary PASS — {'docs_data': 2, 'other': 1}
+- `0e04fab28e53` 2026-09-12T12:55:27Z — qa checkpoint v136: dom_contracts PASS — {'docs_data': 2, 'other': 1}
+- `5b8b9cb710e4` 2026-09-12T12:55:38Z — qa checkpoint v136: popup_lifecycle PASS — {'docs_data': 2, 'other': 1}
+- `3082a47a1fdf` 2026-09-12T12:55:45Z — qa checkpoint v136: actions_scopes PASS — {'docs_data': 2, 'other': 1}
+- `1efe2c40b0c8` 2026-09-12T12:56:06Z — qa checkpoint v136: proxy_transport_isolation PASS — {'docs_data': 2, 'other': 1}
+- `d02f28ec7cf1` 2026-09-12T12:56:24Z — qa checkpoint v136: queue_six_details_two_batches PASS — {'docs_data': 2, 'other': 1}
+- `562af6541c07` 2026-09-12T12:56:37Z — qa checkpoint v136: queue_rate_limit_mid_queue_restart_direct_route PASS — {'docs_data': 2, 'other': 1}
+- `8a09e2d54167` 2026-09-12T12:56:51Z — qa checkpoint v136: queue_manual_captcha_same_child_resume PASS — {'docs_data': 2, 'other': 1}
+- `9e2e8e5c391e` 2026-09-12T12:57:06Z — qa checkpoint v136: queue_restart_during_persisted_gap PASS — {'docs_data': 2, 'other': 1}
+- `a5b0f1a551b7` 2026-09-12T12:57:16Z — qa checkpoint v136: queue_stop_during_late_detail_response PASS — {'docs_data': 2, 'other': 1}
+- `bb1f1cdd9e0d` 2026-09-12T12:57:27Z — qa checkpoint v136: queue_removed_listing_is_negative_observation PASS — {'docs_data': 2, 'other': 1}
+- `0647f780a67e` 2026-09-12T12:57:42Z — qa checkpoint v136: queue_thirty_detail_large_report PASS — {'docs_data': 2, 'other': 1}
+- `ebcee1018cc3` 2026-09-12T12:57:55Z — qa checkpoint v136: writing_body_stability PASS — {'docs_data': 2, 'other': 1}
+- `c7394ae7b159` 2026-09-12T17:57:55+05:00 — checkpoint: retain R1 failure and prove test-worker teardown fix before R2 full QA — {'docs_data': 1}
+- `513fab25c317` 2026-09-12T12:57:56Z — qa checkpoint v136: parser_block02 PASS — {'docs_data': 2, 'other': 1}
+- `3eadee87082f` 2026-09-12T12:58:27Z — qa checkpoint v136: payload_ownership_block03 FAIL — {'docs_data': 2, 'other': 1}
+- `cca7f2023f83` 2026-09-12T12:58:29Z — qa checkpoint v136: ordinary_form_terminal_gate PASS — {'other': 1, 'docs_data': 1}
+- `3bfc2412461a` 2026-09-12T12:58:31Z — qa checkpoint v136: form_gate_source_contract PASS — {'other': 1, 'docs_data': 1}
+- `539b1c7b7ae8` 2026-09-12T12:58:55Z — qa checkpoint v136: cycle_repeat_three_pages PASS — {'docs_data': 2, 'other': 1}
+- `9d0a8e2e831d` 2026-09-12T12:59:03Z — qa checkpoint v136: installed_environment_probe PROBE_EXECUTED_NOT_ACCEPTANCE — {'other': 1, 'docs_data': 2}
+- `2617cb936f38` 2026-09-12T12:59:04Z — checkpoint: persist complete v1.0.36 final ZIP QA status — {'docs_data': 2}
+- `63c7a3f28061` 2026-09-12T13:03:08Z — build: persist immutable v1.0.36 R2 ZIP and source before QA — {'other': 6, 'docs_data': 20, 'test_qa': 109, 'runtime': 10}
+- `50f136369aa4` 2026-09-12T13:03:10Z — qa checkpoint v136: adapter_identity PASS — {'test_qa': 3}
+- `ddd517a5ff9a` 2026-09-12T13:03:13Z — qa checkpoint v136: node PASS — {'test_qa': 2}
+- `d972b8c1b923` 2026-09-12T13:03:18Z — qa checkpoint v136: avito PASS — {'test_qa': 3}
+- `70076acc05c8` 2026-09-12T13:03:46Z — qa checkpoint v136: chat PASS — {'test_qa': 3}
+- `a1ee569609bf` 2026-09-12T13:03:59Z — qa checkpoint v136: start_receipt PASS — {'test_qa': 3}
+- `d9286e8882d0` 2026-09-12T13:04:12Z — qa checkpoint v136: composer_01_05 PASS — {'test_qa': 3}
+- `954909d8cca8` 2026-09-12T13:04:30Z — qa checkpoint v136: composer_06_10 PASS — {'test_qa': 3}
+- `68a1151e8e76` 2026-09-12T13:04:48Z — qa checkpoint v136: composer_11_15 PASS — {'test_qa': 3}
+- `54208cc18adb` 2026-09-12T13:04:58Z — qa checkpoint v136: composer_16_20 PASS — {'test_qa': 3}
+- `6c791e43be9b` 2026-09-12T13:05:06Z — qa checkpoint v136: composer_21_25 PASS — {'test_qa': 3}
+- `00191cc4b809` 2026-09-12T13:05:14Z — qa checkpoint v136: composer_26_29 PASS — {'test_qa': 3}
+- `aa1c7de9cf81` 2026-09-12T18:05:16+05:00 — qa: persist completed local R2 final-ZIP suite and real same-chat recovery chain — {'docs_data': 1}
+- `76ef112a607a` 2026-09-12T13:05:48Z — qa checkpoint v136: receipts PASS — {'test_qa': 3}
+- `11cf0402339f` 2026-09-12T13:06:11Z — qa checkpoint v136: cycle_full_three_page_folded_cycle PASS — {'test_qa': 3}
+- `e44c72309b6c` 2026-09-12T13:06:35Z — qa checkpoint v136: cycle_assistant_first_start_then_three_pages PASS — {'test_qa': 3}
+- `0f9a7a443b93` 2026-09-12T13:06:59Z — qa checkpoint v136: cycle_ip_block_recovery_then_three_pages PASS — {'test_qa': 3}
+- `6ae96cb1df08` 2026-09-12T13:07:23Z — qa checkpoint v136: cycle_rate_limit_recovery_then_three_pages PASS — {'test_qa': 3}
+- `2cfa1ad0131b` 2026-09-12T13:07:59Z — qa checkpoint v136: cycle_late_body_then_worker_restart_reconcile PASS — {'test_qa': 3}
+- `e6e52a915dac` 2026-09-12T13:08:10Z — qa checkpoint v136: cycle_captcha_manual_boundary PASS — {'test_qa': 3}
+- `d22004db4258` 2026-09-12T13:08:14Z — qa checkpoint v136: dom_contracts PASS — {'test_qa': 3}
+- `6bfc45a0a9e9` 2026-09-12T13:08:45Z — qa checkpoint v136: popup_lifecycle FAIL — {'test_qa': 2}
+- `a304febe0dce` 2026-09-12T13:08:52Z — qa checkpoint v136: actions_scopes PASS — {'test_qa': 3}
+- `019e8624fc78` 2026-09-12T13:09:12Z — qa checkpoint v136: proxy_transport_isolation PASS — {'test_qa': 3}
+- `23d3635f626c` 2026-09-12T13:09:29Z — qa checkpoint v136: queue_six_details_two_batches PASS — {'test_qa': 3}
+- `9a6cae6db18a` 2026-09-12T13:09:43Z — qa checkpoint v136: queue_rate_limit_mid_queue_restart_direct_route PASS — {'test_qa': 3}
+- `8eb6264829e5` 2026-09-12T13:09:56Z — qa checkpoint v136: queue_manual_captcha_same_child_resume PASS — {'test_qa': 3}
+- `b57a7598f343` 2026-09-12T13:10:11Z — qa checkpoint v136: queue_restart_during_persisted_gap PASS — {'test_qa': 3}
+- `cd31c6149d15` 2026-09-12T13:10:21Z — qa checkpoint v136: queue_stop_during_late_detail_response PASS — {'test_qa': 3}
+- `c251c597154b` 2026-09-12T13:10:31Z — qa checkpoint v136: queue_removed_listing_is_negative_observation PASS — {'test_qa': 3}
+- `6ef84d275df1` 2026-09-12T13:10:46Z — qa checkpoint v136: queue_thirty_detail_large_report PASS — {'test_qa': 3}
+- `c2bc722056aa` 2026-09-12T13:10:58Z — qa checkpoint v136: writing_body_stability PASS — {'test_qa': 3}
+- `e1a5aec3f77c` 2026-09-12T13:11:00Z — qa checkpoint v136: parser_block02 PASS — {'test_qa': 3}
+- `bf451575a6cb` 2026-09-12T13:11:01Z — qa checkpoint v136: payload_ownership_block03 PASS — {'test_qa': 3}
+- `edd49c7689fe` 2026-09-12T13:11:03Z — qa checkpoint v136: ordinary_form_terminal_gate PASS — {'test_qa': 2}
+- `27881c057fab` 2026-09-12T13:11:04Z — qa checkpoint v136: form_gate_source_contract PASS — {'test_qa': 2}
+- `61e14cb0b696` 2026-09-12T13:11:28Z — qa checkpoint v136: cycle_repeat_three_pages PASS — {'test_qa': 3}
+- `3a23a1652d0d` 2026-09-12T13:11:36Z — qa checkpoint v136: installed_environment_probe PROBE_EXECUTED_NOT_ACCEPTANCE — {'test_qa': 3}
+- `a5bd2e0b2417` 2026-09-12T13:11:37Z — checkpoint: record complete R2 ZIP QA and format-recovery handoff — {'docs_data': 1, 'test_qa': 1}
+- `53fa920c5908` 2026-09-12T13:34:26Z — checkpoint: exact R2 ZIP verified before confirmatory tests — {'test_qa': 1}
+- `895b96ca2ffa` 2026-09-12T13:34:53Z — qa checkpoint v136: adapter_identity PASS — {'test_qa': 3}
+- `a83e8c59fc7d` 2026-09-12T13:34:56Z — qa checkpoint v136: node PASS — {'test_qa': 2}
+- `67038deee192` 2026-09-12T13:35:01Z — qa checkpoint v136: avito PASS — {'test_qa': 3}
+- `3e70dd0b58e0` 2026-09-12T13:35:30Z — qa checkpoint v136: chat PASS — {'test_qa': 3}
+- `6a15b5aaa6c6` 2026-09-12T13:35:44Z — qa checkpoint v136: start_receipt PASS — {'test_qa': 3}
+- `cad826770ff5` 2026-09-12T13:35:56Z — qa checkpoint v136: composer_01_05 PASS — {'test_qa': 3}
+- `daa96971a0e9` 2026-09-12T13:36:15Z — qa checkpoint v136: composer_06_10 PASS — {'test_qa': 3}
+- `a3a43fd7405c` 2026-09-12T13:36:34Z — qa checkpoint v136: composer_11_15 PASS — {'test_qa': 3}
+- `61353f8e8c0d` 2026-09-12T13:36:44Z — qa checkpoint v136: composer_16_20 PASS — {'test_qa': 3}
+- `ca2f041c078b` 2026-09-12T13:36:52Z — qa checkpoint v136: composer_21_25 PASS — {'test_qa': 3}
+- `1c937e0f1f5c` 2026-09-12T13:37:01Z — qa checkpoint v136: composer_26_29 PASS — {'test_qa': 3}
+- `18a0a2442c4f` 2026-09-12T13:37:35Z — qa checkpoint v136: receipts PASS — {'test_qa': 3}
+- `c5470a3dbae6` 2026-09-12T13:37:59Z — qa checkpoint v136: cycle_full_three_page_folded_cycle PASS — {'test_qa': 3}
+- `fc538c9c88e7` 2026-09-12T13:38:23Z — qa checkpoint v136: cycle_assistant_first_start_then_three_pages PASS — {'test_qa': 3}
+- `d045af22de7f` 2026-09-12T13:38:47Z — qa checkpoint v136: cycle_ip_block_recovery_then_three_pages PASS — {'test_qa': 3}
+- `7eba4a824114` 2026-09-12T13:39:12Z — qa checkpoint v136: cycle_rate_limit_recovery_then_three_pages PASS — {'test_qa': 3}
+- `074e3f44c7cb` 2026-09-12T13:39:48Z — qa checkpoint v136: cycle_late_body_then_worker_restart_reconcile PASS — {'test_qa': 3}
+- `c06e224e6b8c` 2026-09-12T13:39:59Z — qa checkpoint v136: cycle_captcha_manual_boundary PASS — {'test_qa': 3}
+- `4dad24a2df2b` 2026-09-12T13:40:04Z — qa checkpoint v136: dom_contracts PASS — {'test_qa': 3}
+- `0884b1bacbd4` 2026-09-12T13:40:30Z — qa checkpoint v136: popup_lifecycle PASS — {'test_qa': 3}
+- `90c8626681da` 2026-09-12T13:40:38Z — qa checkpoint v136: actions_scopes PASS — {'test_qa': 3}
+- `27bc586909d3` 2026-09-12T13:40:58Z — qa checkpoint v136: proxy_transport_isolation PASS — {'test_qa': 3}
+- `34981da3a1be` 2026-09-12T13:41:17Z — qa checkpoint v136: queue_six_details_two_batches PASS — {'test_qa': 3}
+- `61d5f613ddbe` 2026-09-12T13:41:30Z — qa checkpoint v136: queue_rate_limit_mid_queue_restart_direct_route PASS — {'test_qa': 3}
+- `0d67e52eb654` 2026-09-12T13:41:44Z — qa checkpoint v136: queue_manual_captcha_same_child_resume PASS — {'test_qa': 3}
+- `a70733c8db43` 2026-09-12T13:41:59Z — qa checkpoint v136: queue_restart_during_persisted_gap PASS — {'test_qa': 3}
+- `f7ed5cd2d9bb` 2026-09-12T13:42:09Z — qa checkpoint v136: queue_stop_during_late_detail_response PASS — {'test_qa': 3}
+- `1c51e0caf9bf` 2026-09-12T13:42:21Z — qa checkpoint v136: queue_removed_listing_is_negative_observation PASS — {'test_qa': 3}
+- `b199a8ebdd58` 2026-09-12T13:42:37Z — qa checkpoint v136: queue_thirty_detail_large_report PASS — {'test_qa': 3}
+- `b7868750d72c` 2026-09-12T13:42:49Z — qa checkpoint v136: writing_body_stability PASS — {'test_qa': 3}
+- `ffaf3b62aff5` 2026-09-12T13:42:50Z — qa checkpoint v136: parser_block02 PASS — {'test_qa': 3}
+- `d16ca2a10f41` 2026-09-12T13:42:52Z — qa checkpoint v136: payload_ownership_block03 PASS — {'test_qa': 3}
+- `5bb80b799ffd` 2026-09-12T13:42:55Z — qa checkpoint v136: ordinary_form_terminal_gate PASS — {'test_qa': 2}
+- `44370ad8d2c6` 2026-09-12T13:42:56Z — qa checkpoint v136: form_gate_source_contract PASS — {'test_qa': 2}
+- `72e2b9f2c52f` 2026-09-12T13:43:20Z — qa checkpoint v136: cycle_repeat_three_pages PASS — {'test_qa': 3}
+- `a22834d8af19` 2026-09-12T13:43:28Z — qa checkpoint v136: installed_environment_probe PROBE_EXECUTED_NOT_ACCEPTANCE — {'test_qa': 3}
+- `4d5b6ff5cc72` 2026-09-12T13:43:39Z — qa checkpoint R2: popup confirmation 1 PASS — {'test_qa': 4}
+- `fe8ab075f26a` 2026-09-12T13:43:50Z — qa checkpoint R2: popup confirmation 2 PASS — {'test_qa': 3}
+- `c5a44d6c61bd` 2026-09-12T13:44:00Z — qa checkpoint R2: popup confirmation 3 PASS — {'test_qa': 3}
+- `e132cb0159e1` 2026-09-12T13:44:22Z — checkpoint: complete R2 confirmatory QA including original timeout history — {'test_qa': 2}
+- `84962ecb3760` 2026-09-12T13:45:10Z — qa: independent R2 final ZIP readback after complete confirmatory suite — {'test_qa': 1}
+- `898902e08bb3` 2026-09-12T18:52:29+05:00 — release checkpoint: deliver verified Avito v1.0.36 R2, all patch rules and open owner Chrome acceptance — {'docs_data': 8}
+- `a863d7a91058` 2026-09-12T19:06:52+05:00 — checkpoint: persist live navigation CAPTCHA stop and preserve unread WORK queue — {'docs_data': 1}
+- `8f609a7bf23a` 2026-09-12T19:08:32+05:00 — checkpoint: set manual CAPTCHA handoff as current search state without resetting baseline — {'docs_data': 1}
+- `44af9da8bbc5` 2026-09-12T19:15:38+05:00 — diagnosis: preserve live 403/429 evidence and distinguish proxy health from CAPTCHA wait — {'docs_data': 1}
+- `cef834af2998` 2026-09-12T19:15:59+05:00 — test: persist offline characterization of refresh events during manual CAPTCHA wait — {'other': 1}
+- `268ca52c8852` 2026-09-12T19:16:21+05:00 — evidence: record actual manual-wait characterization without claiming live proxy verification — {'docs_data': 1}
+- `68fc728e0bc9` 2026-09-12T19:17:02+05:00 — checkpoint: point current work to evidence-backed proxy/manual-wait diagnosis — {'docs_data': 1}
+- `471a26810486` 2026-09-12T19:20:06+05:00 — live: record writing-block gate result and unchanged proxy diagnostic state — {'docs_data': 1}
+- `9731afeac2cd` 2026-09-12T19:29:49+05:00 — live: persist IP-block retry ending in reported CAPTCHA before classification patch — {'docs_data': 1}
+- `195103322d12` 2026-09-12T19:36:02+05:00 — live: persist post-recovery IP-block plus CAPTCHA DOM evidence — {'docs_data': 1}
+- `568215c41ee8` 2026-09-12T19:37:54+05:00 — checkpoint: package v1.0.37 and start final-ZIP QA — {'docs_data': 1}
+- `97e46f2fb60b` 2026-09-12T19:40:45+05:00 — checkpoint: reject v1.0.37 R1 test metadata and start R2 final-ZIP QA — {'docs_data': 1}
+- `0c5e570399d2` 2026-09-12T19:42:51+05:00 — checkpoint: persist v1.0.37 R2 QA progress 11 of 35 — {'docs_data': 1}
+- `677a0c09de83` 2026-09-12T19:45:58+05:00 — checkpoint: persist v1.0.37 R2 QA progress 21 of 35 — {'docs_data': 1}
+- `07fcee5787e4` 2026-09-12T19:51:34+05:00 — checkpoint: package v1.0.37 R3 with verified SHA256SUMS and start full QA — {'docs_data': 1}
+- `21232ce81d0e` 2026-09-13T06:42:16+05:00 — diagnostics: preserve latest proxy result and CAPTCHA evidence before chain audit — {'docs_data': 1}
+- `47a7ea35d8a3` 2026-09-13T06:46:32+05:00 — diagnostics: persist reproducible exact-worker proxy chain characterizations — {'other': 1}
+- `5fdf833d6556` 2026-09-13T06:46:49+05:00 — diagnostics: persist actual-popup and mixed CAPTCHA DOM reproductions — {'tooling': 1}
+- `1a2baac1d32e` 2026-09-13T06:52:01+05:00 — diagnostics: explain reproduced proxy telemetry defects without claiming a live transport fix — {'docs_data': 1}
+- `d3d98b49155f` 2026-09-13T06:53:10+05:00 — checkpoint: update current state to reproduced proxy diagnostic defects and confirmed user stop — {'docs_data': 1}
+- `eeacdb4bbe6b` 2026-09-13T07:19:48+05:00 — checkpoint: freeze patch history and regression boundaries before v1.0.37 — {'docs_data': 1}
+- `6d3acd8c9ad0` 2026-09-13T07:20:43+05:00 — test: add RED proxy recovery integrity regressions for v1.0.36 R2 — {'test_qa': 1}
+- `e35e3b93b0da` 2026-09-13T07:20:52+05:00 — checkpoint: persist 10-of-10 RED baseline before proxy runtime patch — {'docs_data': 1}
+- `e07a24cd9d4d` 2026-09-13T07:25:43+05:00 — test: correct current-attempt CAPTCHA persistence assertion — {'test_qa': 1}
+- `9f64723c1e62` 2026-09-13T07:25:59+05:00 — test: add dynamic RED-GREEN proxy recovery integrity scenarios — {'test_qa': 1}
+- `6b925b37f413` 2026-09-13T07:26:32+05:00 — test: fix dynamic regression helper path — {'test_qa': 1}
+- `1e5c6309a199` 2026-09-13T07:36:08+05:00 — build: persist deterministic v1.0.36 R2 to v1.0.37 patch stream — {'other': 1}
+- `a01ecf75b49f` 2026-09-13T07:36:16+05:00 — build: record deterministic proxy patch transport hashes — {'docs_data': 1}
+- `892a8e0e1611` 2026-09-13T07:37:23+05:00 — checkpoint: preserve first full v1.0.37 runner failure before test-only correction — {'docs_data': 1}
+- `3a1ede4ece93` 2026-09-13T07:40:04+05:00 — build: persist corrected deterministic v1.0.37 patch stream v2 — {'other': 1}
+- `d42a9af9ce03` 2026-09-13T07:40:15+05:00 — build: record corrected v1.0.37 patch stream v2 hashes — {'docs_data': 1}
+- `ff9a66cf4a72` 2026-09-13T07:54:04+05:00 — checkpoint: final v1.0.37 ZIP passes targeted and full fresh-extract QA — {'docs_data': 1}
+- `ba0f3a36b2a9` 2026-09-13T03:51:25Z — build: persist Avito Finder v1.0.37 exact source ZIP and complete QA — {'other': 6, 'docs_data': 22, 'test_qa': 253, 'runtime': 10}
+- `b9a3cb820f90` 2026-09-13T03:51:36Z — qa: independent v1.0.37 ZIP and source remote readback — {'docs_data': 1}
+- `ae95edb07bed` 2026-09-13T08:59:27+05:00 — docs: finalize v1.0.37 patch report after remote readback — {'docs_data': 1}
+- `bf2302f68d22` 2026-09-13T08:59:45+05:00 — docs: point recovery authority at verified v1.0.37 release — {'docs_data': 1}
+- `f9e48275ded7` 2026-09-13T09:00:10+05:00 — docs: move current progress to verified v1.0.37 release gate — {'docs_data': 1}
+- `def35dc81f99` 2026-09-13T09:01:18+05:00 — release: mark v1.0.37 as main authority after verified merge — {'docs_data': 1}
+- `f729f3ce4e5b` 2026-09-13T09:08:12+05:00 — live: persist v1.0.37 IP-block recovery exhaustion with preserved queue cursor — {'docs_data': 1}
+- `7311f05bdafa` 2026-09-13T09:08:33+05:00 — live: set current progress to v1.0.37 recovery-exhausted acceptance fail — {'docs_data': 1}
+- `07fc906dd86a` 2026-09-13T09:17:07+05:00 — test: reproduce Avito recovery creating every-request endpoint — {'test_qa': 1}
+- `48e0baf6980e` 2026-09-13T09:23:52+05:00 — test: make sticky-recovery RED load exact source by absolute path — {'test_qa': 1}
+- `405ece1cf30e` 2026-09-13T09:26:35+05:00 — test: assert actual Proxy.Market create request rotation for Avito recovery — {'test_qa': 1}
+- `b7db44cf50ec` 2026-09-13T09:38:41+05:00 — test: allow sticky regression inside aggregate Node runner — {'test_qa': 1}
+- `17d8018872f6` 2026-09-13T04:55:27Z — build: persist Avito Finder v1.0.38 sticky recovery candidate — {'other': 6, 'docs_data': 23, 'test_qa': 254, 'runtime': 10}
+- `b87d493445c1` 2026-09-13T04:55:37Z — qa: persist independent v1.0.38 remote readback — {'docs_data': 1}
+- `f30fa9599eaf` 2026-09-13T09:57:27+05:00 — docs: record v1.0.38 sticky recovery patch evidence and 19-rule compliance — {'docs_data': 1}
+- `19a1a6f6e93d` 2026-09-13T09:57:56+05:00 — docs: advance current progress to v1.0.38 sticky recovery candidate — {'docs_data': 1}
+- `27ad8cc8f9f5` 2026-09-13T09:58:21+05:00 — docs: point startup authority at v1.0.38 sticky recovery candidate — {'docs_data': 1}
+- `f09edcced425` 2026-09-13T10:00:23+05:00 — release: mark v1.0.38 exact ZIP/source/QA as main authority — {'docs_data': 1}
+- `073130cf4211` 2026-09-13T10:30:28+05:00 — rules: require exhaustive pre-patch audit of every prior patch and code diff — {'docs_data': 1}
+- `e404145f28d8` 2026-09-13T10:30:50+05:00 — agents: block runtime patches until exhaustive historical code audit passes — {'docs_data': 1}
+- `ece5647fc57a` 2026-09-13T10:33:25+05:00 — audit: start exhaustive all-version pre-patch history gate and block runtime changes — {'docs_data': 1}
+- `a5771c1fbd5f` 2026-09-13T10:33:55+05:00 — checkpoint: block future runtime patches until exhaustive Rule-20 history audit passes — {'docs_data': 1}

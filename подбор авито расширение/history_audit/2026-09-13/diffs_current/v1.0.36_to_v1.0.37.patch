@@ -1,0 +1,327 @@
+--- v1.0.36/avito_content.js
++++ v1.0.37/avito_content.js
+@@ -2,7 +2,7 @@
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+-  const ADAPTER_VERSION = "1.0.36";
++  const ADAPTER_VERSION = "1.0.37";
+   const previous = globalThis.__avitoFinderAvitoRuntime;
+   if (previous?.version === ADAPTER_VERSION && !previous.disposed) return;
+   previous?.dispose?.();
+
+--- v1.0.36/manifest.json
++++ v1.0.37/manifest.json
+@@ -2,8 +2,8 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "1.0.36",
+-  "version_name": "1.0.36-packaged-adapter-consistency",
++  "version": "1.0.37",
++  "version_name": "1.0.37-proxy-recovery-integrity",
+   "description": "Avito Finder: bounded, cancellable visible-UI execution, same-chat reports, verified proxy configuration and fresh-document recovery; manual CAPTCHA.",
+   "minimum_chrome_version": "120",
+   "permissions": [
+
+--- v1.0.36/popup.js
++++ v1.0.37/popup.js
+@@ -142,7 +142,8 @@
+   renderPrimaryAction();
+ 
+   const kc = p.key_check || null;
+-  if (kc?.valid === true) proxyKeyStatus.textContent = `Ключ OK · баланс ${formatMoney(kc.balance)} · package ${kc.suggested_package_id ? `#${kc.suggested_package_id}` : "не выбран"}`;
++  if (kc?.valid === true && p.key_present) proxyKeyStatus.textContent = `Ключ OK · баланс ${formatMoney(kc.balance)} · package ${kc.suggested_package_id ? `#${kc.suggested_package_id}` : "не выбран"}`;
++  else if (kc?.valid === true && !p.key_present) proxyKeyStatus.textContent = `Ключ проверялся ранее, но сейчас не загружен · package ${kc.suggested_package_id ? `#${kc.suggested_package_id}` : "не выбран"}`;
+   else if (kc?.valid === false) proxyKeyStatus.textContent = `Ошибка ключа · ${proxyFriendlyError(kc.error)}`;
+   else proxyKeyStatus.textContent = p.key_present ? "Ключ загружен, но не проверен" : "Ключ не загружен";
+ 
+@@ -153,12 +154,20 @@
+   else if (p.last_operation === "PROXY_MARKET_SYNCED_ALL_HIDDEN") proxyOperationStatus.textContent = "Все профили скрыты в расширении.";
+   else if (["PROXY_PROFILE_EGRESS_DIAGNOSTIC_APPLIED", "PROXY_PROFILE_EGRESS_BEFORE_FORCE_APPLIED", "PROXY_PROFILE_EGRESS_AFTER_FORCE_APPLIED", "PROXY_PROFILE_EGRESS_VERIFIED", "PROXY_RECOVERY_ENDPOINT_CREATED"].includes(p.last_operation) || p.last_ip_block_recovery) {
+     const recovery = p.last_ip_block_recovery || null;
+-    if (recovery?.ok === true && recovery.egress_before && recovery.egress_after) {
+-      proxyOperationStatus.textContent = `Диагностика IP ${recovery.egress_before} → ${recovery.egress_after}${recovery.attempt ? ` · попытка ${recovery.attempt}` : ""}`;
+-    } else if (recovery?.ok === false) {
+-      proxyOperationStatus.textContent = `Диагностика IP не завершена${recovery.attempt ? ` · попытка ${recovery.attempt}` : ""}${recovery.error ? ` · ${proxyFriendlyError(recovery.error)}` : ""}`;
++    const before = recovery?.probe_before || "?";
++    const after = recovery?.probe_after || "?";
++    const probeErrors = [recovery?.probe_before_error, recovery?.probe_after_error].filter(Boolean).map(proxyFriendlyError);
++    const transport = recovery?.transport_status || (recovery?.probe_before || recovery?.probe_after ? "PROBES_PARTIAL" : "PROBES_UNAVAILABLE");
++    const attempt = recovery?.attempt ? ` · попытка ${recovery.attempt}` : "";
++    const endpoint = recovery?.endpoint_create?.state === "SKIPPED" ? ` · endpoint: ${recovery.endpoint_create.reason}` : "";
++    if (transport === "PROBES_COMPLETE") {
++      const changed = recovery?.probe_ip_changed === true ? " · IP probe изменился" : " · IP probe без подтверждённой смены";
++      const target = recovery?.target_status ? ` · Avito: ${recovery.target_status}` : "";
++      proxyOperationStatus.textContent = `IP probe ${before} → ${after}${changed}${target}${attempt}${endpoint}`;
+     } else {
+-      proxyOperationStatus.textContent = "IP-block: проверяется фактический proxy egress";
++      const err = probeErrors.length ? ` · ${probeErrors.join(" / ")}` : "";
++      const target = recovery?.target_status ? ` · Avito: ${recovery.target_status}` : "";
++      proxyOperationStatus.textContent = `IP probe ${transport}${err}${target}${attempt}${endpoint}`;
+     }
+   }
+ 
+@@ -217,10 +226,13 @@
+   if (!result) return "Нет данных";
+   const profile = result.active_profile;
+   const endpoint = profile ? `${profile.id} · ${profile.host}:${profile.http_port}` : "нет активного профиля";
+-  const auth = result.auth_seen_after_apply ? "auth OK" : "auth ещё не наблюдался";
+-  const page = result.avito_tab ? (result.avito_tab.ip_block ? "Avito: IP BLOCK" : result.avito_tab.normal_avito ? "Avito: OK" : "Avito: нечитаемо") : "Avito-вкладки нет";
++  const route = result.exact_pac_match ? "PAC exact" : "PAC mismatch";
++  const auth = result.auth_seen_for_active_profile ? "auth для активного профиля наблюдался" : "auth для активного профиля не наблюдался";
++  const page = result.avito_tab ? (result.avito_tab.ip_block && result.avito_tab.captcha ? "Avito: IP BLOCK + CAPTCHA" : result.avito_tab.ip_block ? "Avito: IP BLOCK" : result.avito_tab.captcha ? "Avito: CAPTCHA" : result.avito_tab.normal_avito ? "Avito: OK" : "Avito: нечитаемо") : "Avito-вкладки нет";
++  const recovery = result.recovery || null;
++  const probe = recovery ? ` · probe ${recovery.probe_before || "?"}→${recovery.probe_after || "?"} / ${recovery.transport_status || "unknown"} / attempt ${recovery.attempt || "?"}` : "";
+   const err = result.last_proxy_error ? ` · ${result.last_proxy_error}` : "";
+-  return `${result.status} · ${endpoint} · ${auth} · ${page}${err}`;
++  return `${result.status} · ${endpoint} · ${route} · ${auth} · ${page}${probe}${err}`;
+ }
+ function render(view) {
+   const state = view?.state || {};
+
+--- v1.0.36/service_worker.js
++++ v1.0.37/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.33 — unified connection recovery with persisted rate-limit cooldown, operation fencing and fresh public-document verification. */
++/* Avito Finder v1.0.37 — unified connection recovery with explicit proxy telemetry, operation fencing and fresh public-document verification. */
+ "use strict";
+ importScripts("core.js", "proxy_manager.js", "recovery.js");
+ const Recovery = globalThis.AvitoFinderRecovery;
+@@ -110,9 +110,10 @@
+     data_saver_active: false,
+     traffic: null,
+     proxy_applied_at: null,
++    proxy_profile_epoch_at: null,
+     ip_block_recovery_count: 0,
+     last_ip_block_recovery: null,
+-    proxy_diagnostics: { last_auth_at: null, last_auth_host: null, last_auth_port: null, last_auth_attempt: null, last_auth_failure_at: null, last_auth_failure: null, last_proxy_error_at: null, last_proxy_error: null, last_avito_main_frame_at: null, last_avito_status_code: null, last_avito_tab_id: null, last_avito_request_id: null, last_avito_error_at: null, last_avito_error: null, last_egress_check_at: null, last_egress_ip: null },
++    proxy_diagnostics: { last_auth_at: null, last_auth_profile_id: null, last_auth_host: null, last_auth_port: null, last_auth_attempt: null, last_auth_failure_at: null, last_auth_failure: null, last_proxy_error_at: null, last_proxy_error: null, last_avito_main_frame_at: null, last_avito_status_code: null, last_avito_tab_id: null, last_avito_request_id: null, last_avito_error_at: null, last_avito_error: null, last_egress_check_at: null, last_egress_ip: null, last_egress_error_at: null, last_egress_error: null },
+     error: null
+   };
+ }
+@@ -206,7 +207,7 @@
+ }
+ function proxyErrorText(error) { return Recovery.redactedError(error); }
+ function proxyDiagBase(runtime) {
+-  return { last_auth_at: null, last_auth_host: null, last_auth_port: null, last_auth_attempt: null, last_auth_failure_at: null, last_auth_failure: null, last_proxy_error_at: null, last_proxy_error: null, last_avito_main_frame_at: null, last_avito_status_code: null, last_avito_tab_id: null, last_avito_request_id: null, last_avito_error_at: null, last_avito_error: null, last_egress_check_at: null, last_egress_ip: null, ...(runtime?.proxy_diagnostics || {}) };
++  return { last_auth_at: null, last_auth_profile_id: null, last_auth_host: null, last_auth_port: null, last_auth_attempt: null, last_auth_failure_at: null, last_auth_failure: null, last_proxy_error_at: null, last_proxy_error: null, last_avito_main_frame_at: null, last_avito_status_code: null, last_avito_tab_id: null, last_avito_request_id: null, last_avito_error_at: null, last_avito_error: null, last_egress_check_at: null, last_egress_ip: null, last_egress_error_at: null, last_egress_error: null, ...(runtime?.proxy_diagnostics || {}) };
+ }
+ async function patchProxyDiagnostics(patch={}) { return proxyWriteLane(async()=>{
+   const runtime=await getProxyRuntime();
+@@ -225,6 +226,14 @@
+     return { ip_block: false, rate_limit: false, captcha: false, href: String(tab.url || ""), available: false, error: String(error?.message || error).slice(0, 220) };
+   }
+ }
++function normalizeFinderPac(data) {
++  return String(data || "").replace(/^\/\/ avito-finder-proxy-epoch:[^\n]*\n/u, "");
++}
++function effectiveProxyMatchesActiveProfile(effective, profile) {
++  if (!profile || effective?.levelOfControl !== "controlled_by_this_extension" || effective?.value?.mode !== "pac_script") return false;
++  const expected = ProxyCore.buildAvitoOnlyPacConfig(profile);
++  return normalizeFinderPac(effective?.value?.pacScript?.data) === normalizeFinderPac(expected?.pacScript?.data);
++}
+ async function proxyDiagnosticView() {
+   const runtime = await getProxyRuntime();
+   const secret = await getProxySecret();
+@@ -232,10 +241,17 @@
+   try { effective = await proxySettingsGet(); } catch (_) {}
+   const fullProfile = runtime.mode === "proxy" ? (secret.profiles || []).find((item) => String(item.id) === String(runtime.selected_profile_id || secret.active_profile_id || "")) || null : null;
+   const summary = fullProfile ? ProxyCore.profileSummary(fullProfile) : null;
++  const exactPacMatch = effectiveProxyMatchesActiveProfile(effective, fullProfile);
++  const profileEpochMs = Date.parse(runtime.proxy_profile_epoch_at || runtime.proxy_applied_at || "") || 0;
+   const appliedAtMs = Date.parse(runtime.proxy_applied_at || "") || 0;
+   const diag = proxyDiagBase(runtime);
+   const authAtMs = Date.parse(diag.last_auth_at || "") || 0;
+   const navAtMs = Date.parse(diag.last_avito_main_frame_at || "") || 0;
++  const authProfileMatches = Boolean(fullProfile && (
++    String(diag.last_auth_profile_id || "") === String(fullProfile.id) ||
++    (String(diag.last_auth_host || "").toLowerCase() === String(fullProfile.host || "").toLowerCase() && Number(diag.last_auth_port) === Number(fullProfile.http_port))
++  ));
++  const authSeenForActiveProfile = Boolean(profileEpochMs && authAtMs >= profileEpochMs && authProfileMatches);
+   let avitoTab = null;
+   try {
+     const tabs = await tabsQuery({ url: ["https://www.avito.ru/*", "https://avito.ru/*"] });
+@@ -246,24 +262,29 @@
+       avitoTab = { tab_id: tab.id, url: tab.url || null, title: tab.title || null, ...(probe || {}) };
+     }
+   } catch (_) {}
+-  const proxyConfigured = runtime.mode === "proxy" && effective?.value?.mode === "pac_script" && Boolean(summary);
+-  const authSeenAfterApply = Boolean(appliedAtMs && authAtMs >= appliedAtMs);
++  const proxyConfigured = runtime.mode === "proxy" && Boolean(summary) && exactPacMatch;
+   const avitoNavigationAfterApply = Boolean(appliedAtMs && navAtMs >= appliedAtMs);
+   let status = "DIRECT";
+   if (runtime.mode === "proxy" && !proxyConfigured) status = "PROXY_CONFIG_MISMATCH";
+-  else if (proxyConfigured && diag.last_proxy_error_at && (Date.parse(diag.last_proxy_error_at) || 0) >= appliedAtMs) status = "PROXY_ERROR";
+-  else if (proxyConfigured && avitoTab?.ip_block && authSeenAfterApply) status = "PROXY_AUTH_SEEN_AVITO_IP_BLOCK";
++  else if (proxyConfigured && diag.last_proxy_error_at && (Date.parse(diag.last_proxy_error_at) || 0) >= profileEpochMs) status = "PROXY_ERROR";
++  else if (proxyConfigured && avitoTab?.ip_block && avitoTab?.captcha) status = authSeenForActiveProfile ? "PROXY_AUTH_SEEN_AVITO_IP_BLOCK_CAPTCHA" : "PROXY_CONFIGURED_AVITO_IP_BLOCK_CAPTCHA_AUTH_NOT_OBSERVED";
++  else if (proxyConfigured && avitoTab?.ip_block && authSeenForActiveProfile) status = "PROXY_AUTH_SEEN_AVITO_IP_BLOCK";
+   else if (proxyConfigured && avitoTab?.ip_block) status = "PROXY_CONFIGURED_AVITO_IP_BLOCK_AUTH_NOT_OBSERVED";
+-  else if (proxyConfigured && avitoTab?.normal_avito && authSeenAfterApply && avitoNavigationAfterApply) status = "PROXY_AUTH_SEEN_AVITO_OK";
++  else if (proxyConfigured && avitoTab?.captcha) status = authSeenForActiveProfile ? "PROXY_AUTH_SEEN_AVITO_CAPTCHA" : "PROXY_CONFIGURED_AVITO_CAPTCHA_AUTH_NOT_OBSERVED";
++  else if (proxyConfigured && avitoTab?.normal_avito && authSeenForActiveProfile && avitoNavigationAfterApply) status = "PROXY_AUTH_SEEN_AVITO_OK";
+   else if (proxyConfigured && avitoTab?.normal_avito && avitoNavigationAfterApply) status = "PROXY_CONFIGURED_AVITO_OK_AUTH_NOT_OBSERVED";
+   else if (proxyConfigured && !avitoTab) status = "PROXY_CONFIGURED_NO_AVITO_TAB";
+   else if (proxyConfigured) status = "PROXY_CONFIGURED_WAIT_FRESH_AVITO_NAV";
+   return {
+     ok: true, status, active_profile: summary, rotation: ProxyCore.rotationMode(summary?.rotation),
+-    configured_mode: effective?.value?.mode || null, effective_level: effective?.levelOfControl || null,
+-    proxy_applied_at: runtime.proxy_applied_at || null, auth_seen_after_apply: authSeenAfterApply, last_auth_at: diag.last_auth_at, last_auth_attempt: diag.last_auth_attempt, last_auth_failure: diag.last_auth_failure, last_auth_failure_at: diag.last_auth_failure_at,
++    configured_mode: effective?.value?.mode || null, effective_level: effective?.levelOfControl || null, exact_pac_match: exactPacMatch,
++    proxy_applied_at: runtime.proxy_applied_at || null, proxy_profile_epoch_at: runtime.proxy_profile_epoch_at || null,
++    auth_seen_for_active_profile: authSeenForActiveProfile, auth_seen_after_apply: authSeenForActiveProfile,
++    last_auth_at: diag.last_auth_at, last_auth_profile_id: diag.last_auth_profile_id, last_auth_attempt: diag.last_auth_attempt, last_auth_failure: diag.last_auth_failure, last_auth_failure_at: diag.last_auth_failure_at,
+     avito_navigation_after_apply: avitoNavigationAfterApply, last_avito_status_code: diag.last_avito_status_code,
+-    last_proxy_error: diag.last_proxy_error, last_proxy_error_at: diag.last_proxy_error_at, avito_tab: avitoTab
++    last_proxy_error: diag.last_proxy_error, last_proxy_error_at: diag.last_proxy_error_at,
++    last_egress_check_at: diag.last_egress_check_at, last_egress_ip: diag.last_egress_ip, last_egress_error_at: diag.last_egress_error_at, last_egress_error: diag.last_egress_error,
++    recovery: runtime.last_ip_block_recovery || null, key_present: Boolean(ProxyCore.text(secret.api_key, 512)), avito_tab: avitoTab
+   };
+ }
+ async function setProxyOperation(patch = {}) {
+@@ -892,11 +913,14 @@
+   let dataSaverError = null;
+   try { await syncProxyDataSaverRules(dataSaverActive); } catch(error) { dataSaverError = proxyErrorText(error); }
+   const appliedAt = new Date().toISOString();
++  const sameProfileEpoch = runtime.mode === "proxy" && String(runtime.selected_profile_id || "") === String(profile.id) && runtime.proxy_profile_epoch_at;
++  const profileEpochAt = sameProfileEpoch ? runtime.proxy_profile_epoch_at : appliedAt;
+   const next = await saveProxyRuntime({
+     ...runtime,
+     mode: "proxy",
+     selected_profile_id: profile.id,
+     proxy_applied_at: appliedAt,
++    proxy_profile_epoch_at: profileEpochAt,
+     proxy_diagnostics: options.preserve_proxy_diagnostics === true ? proxyDiagBase(runtime) : proxyDiagBase(null),
+     data_saver_active: dataSaverError ? false : dataSaverActive,
+     error: dataSaverError,
+@@ -944,6 +968,7 @@
+   return effective;
+ }
+ async function sampleRecoveryEgress(profile, record, signal) {
++  const observedAt = new Date().toISOString();
+   try {
+     const response=await Recovery.fetchBounded(globalThis.fetch,ProxyCore.egressCheckUrl(`${record.attempt}-${Date.now()}`,'api.ipify.org'),{
+       method:'GET',headers:{Accept:'application/json'},cache:'no-store',credentials:'omit',redirect:'error'
+@@ -951,13 +976,15 @@
+     if(!response.ok) throw new Error(`PROXY_EGRESS_CHECK_HTTP_${response.status}`);
+     const ip=ProxyCore.parseEgressIpPayload(await response.json());
+     if(!ip || ip.includes(':')) throw new Error('PROXY_EGRESS_IPV4_REQUIRED');
++    await patchProxyDiagnostics({last_egress_check_at:observedAt,last_egress_ip:ip,last_egress_error_at:null,last_egress_error:null});
+     await log('PROXY_EGRESS_OBSERVED',{attempt:record.attempt,profile_id:profile.id,host:'api.ipify.org',ip,scope:'probe_only_not_avito'});
+-    return {ip,host:'api.ipify.org',family:4};
++    return {ip,host:'api.ipify.org',family:4,observed_at:observedAt,error:null};
+   } catch(error) {
+     if(signal.aborted) throw new Error('OPERATION_CANCELLED');
+     const code=Recovery.redactedError(error);
++    await patchProxyDiagnostics({last_egress_check_at:observedAt,last_egress_ip:null,last_egress_error_at:observedAt,last_egress_error:code});
+     await log('PROXY_EGRESS_DIAGNOSTIC_UNAVAILABLE',{attempt:record.attempt,error:code});
+-    return {ip:null,host:'api.ipify.org',family:4,error:code};
++    return {ip:null,host:'api.ipify.org',family:4,observed_at:observedAt,error:code};
+   }
+ }
+ async function reserveRecoveryEndpoint(state, record) {
+@@ -972,7 +999,15 @@
+   const secret=await getProxySecret();
+   const apiKey=ProxyCore.text(secret.api_key,512);
+   const packageId=ProxyCore.int(profile.package_id || secret.package_id,null);
+-  if(!apiKey || !packageId || record.attempt < 3) return profile;
++  if(record.attempt < 3) return profile;
++  if(!apiKey || !packageId) {
++    const reason=!apiKey?'API_KEY_UNAVAILABLE':'PACKAGE_ID_UNAVAILABLE';
++    state=await assertCurrentOperation(state);
++    const create={state:'SKIPPED',reason,attempt:record.attempt,at:Date.now()};
++    await saveState({...state,connection_recovery:{...state.connection_recovery,create}});
++    await log('PROXY_RECOVERY_ENDPOINT_SKIPPED',{attempt:record.attempt,reason,no_blind_fallback:true});
++    return profile;
++  }
+   const reserved=await reserveRecoveryEndpoint(state,record);
+   if(!reserved) return profile;
+   const beforeIds=new Set((secret.profiles||[]).map(p=>String(p.id)));
+@@ -1037,7 +1072,9 @@
+     // does NOT assert that every connection or Avito exit IP was replaced.
+     await applyProxyProfileInternal(profile,'PROXY_RECOVERY_RECONFIGURED',{}, {extra_hosts:['api.ipify.org'],pac_nonce:`after-${record.attempt}-${Date.now()}`,preserve_proxy_diagnostics:true});
+     const after=await sampleRecoveryEgress(profile,record,signal);
+-    result={ok:true,strategy:'verified_config_then_fresh_avito_document',profile_id:profile.id,probe_before:before.ip,probe_after:after.ip,probe_ip_changed:Boolean(before.ip&&after.ip&&before.ip!==after.ip),avito_exit_ip_verified:false};
++    const latestRecovery=(await getState()).connection_recovery || {};
++    const transportStatus=before.ip && after.ip ? 'PROBES_COMPLETE' : (before.ip || after.ip ? 'PROBES_PARTIAL' : 'PROBES_UNAVAILABLE');
++    result={ok:true,strategy:'verified_config_then_fresh_avito_document',profile_id:profile.id,proxy_config_verified:true,transport_status:transportStatus,probe_before:before.ip,probe_after:after.ip,probe_before_error:before.error||null,probe_after_error:after.error||null,probe_before_at:before.observed_at||null,probe_after_at:after.observed_at||null,probe_ip_changed:Boolean(before.ip&&after.ip&&before.ip!==after.ip),endpoint_create:latestRecovery.create||null,avito_exit_ip_verified:false};
+   } finally {
+     // No blackhole endpoint and no diagnostic hosts may remain installed.
+     // No DIRECT fallback is used for Avito, even after an exception/cancel.
+@@ -1188,7 +1225,7 @@
+     proxyAuthAttempts.clear();
+     await refreshProxyAuthHandlerBehavior();
+     const runtime = await getProxyRuntime();
+-    const next = await saveProxyRuntime({ ...runtime, mode: "direct", proxy_applied_at: null, proxy_diagnostics: proxyDiagBase(null), data_saver_active: false, error: null, last_operation: "PROXY_DIRECT_APPLIED_MANUAL" });
++    const next = await saveProxyRuntime({ ...runtime, mode: "direct", proxy_applied_at: null, proxy_profile_epoch_at: null, proxy_diagnostics: proxyDiagBase(null), data_saver_active: false, error: null, last_operation: "PROXY_DIRECT_APPLIED_MANUAL" });
+     const effective = await proxySettingsGet();
+     await storageRemove('af_proxy_apply_intent_v125');
+     await log("PROXY_DIRECT_APPLIED_MANUAL", { scope: "regular", level_of_control: effective?.levelOfControl || null, configured_mode: effective?.value?.mode || null });
+@@ -2535,7 +2572,8 @@
+   const latest = await getState();
+   if (!Recovery.sameOperation(state,latest) || latest.status === "CANCELLED_BY_USER") return latest;
+   const deliveryId = latest.report_delivery_id || `${Recovery.operationKey(latest)}:${reportKind}:${Core.fingerprint(report)}`;
+-  const staged = await saveState({ ...latest, status: "REPORT_DELIVERY_IN_PROGRESS", phase: "CHATGPT_REPORT_DELIVERY", report, report_kind: reportKind, report_delivery_id: deliveryId, report_ack_budget:latest.report_ack_budget || {deadline_at:Date.now()+REPORT_ACK_BUDGET_MS,attempt:0}, blocked_reason: null });
++  const manualGateKind = reportKind === "avito_failure" && /CAPTCHA_MANUAL_REQUIRED/i.test(String(latest.blocked_reason || "")) ? "CAPTCHA" : null;
++  const staged = await saveState({ ...latest, status: "REPORT_DELIVERY_IN_PROGRESS", phase: "CHATGPT_REPORT_DELIVERY", report, report_kind: reportKind, report_delivery_id: deliveryId, report_ack_budget:latest.report_ack_budget || {deadline_at:Date.now()+REPORT_ACK_BUDGET_MS,attempt:0}, manual_gate_kind: manualGateKind || latest.manual_gate_kind || null, blocked_reason: null });
+   armRuntimeWatchdog();
+   let pinned;
+   try { pinned = await assertPinnedChatContext(staged, `chatgpt_return_after_${reportKind}`, { activateTab: true }); }
+@@ -2573,7 +2611,6 @@
+   // anchor, matching the Bridge dialogue cycle: report → next assistant form.
+   // Full collected payloads are transient and are deleted once delivery is confirmed.
+   await storageRemove([INSPECTION_KEY]);
+-  const manualGateKind = reportKind === "avito_failure" && /CAPTCHA_MANUAL_REQUIRED/i.test(String(staged.blocked_reason || "")) ? "CAPTCHA" : null;
+   const waiting = await saveState({
+     ...staged,
+     status: "WAITING_FOR_NEXT_ASSISTANT_FORM",
+@@ -2850,11 +2887,15 @@
+     const freshTab=await getTab(tab.id);
+     if(!freshTab || freshTab.windowId!==current.current_window_id) throw new Error('AVITO_RECOVERY_TAB_UNAVAILABLE');
+     const probe=await probeVisibleAvitoInterruption(freshTab);
+-    if(probe.captcha) throw new Error('CAPTCHA_MANUAL_REQUIRED');
++    const targetObservation={target_ip_block:probe.ip_block===true,target_captcha:probe.captcha===true,target_rate_limit:probe.rate_limit===true,target_normal_avito:probe.normal_avito===true,target_url:probe.href||freshTab.url||null};
++    if(probe.captcha) {
++      await saveProxyRuntime({...await getProxyRuntime(),last_ip_block_recovery:{at:new Date().toISOString(),completed_at:new Date().toISOString(),attempt:record.attempt,interruption_kind:interruptionKind,...prepared,...targetObservation,ok:false,target_status:'CAPTCHA_MANUAL_REQUIRED',error:'CAPTCHA_MANUAL_REQUIRED'}});
++      throw new Error('CAPTCHA_MANUAL_REQUIRED');
++    }
+     const origin=Number(probe.time_origin || previousTimeOrigin || record.previous_time_origin || 0);
+     const at=Date.now();
+     current=await saveState({...current,status:continuation?'SEQUENTIAL_RECOVERY_WAIT':'WAITING_FOR_AVITO_PAGE_READY',phase:'AVITO_RECOVERY_VERIFYING_TARGET',connection_recovery:{...current.connection_recovery,phase:'AWAITING_FRESH_DOCUMENT',resume_after:null,prepared},avito_navigation_expected:false,avito_reload_expected:true,avito_reload_previous_time_origin:origin,avito_reload_requested_at:at,avito_ready_deadline_at:new Date(Math.min(at+AVITO_READY_TIMEOUT_MS,record.deadline_at)).toISOString()});
+-    await saveProxyRuntime({...await getProxyRuntime(),last_ip_block_recovery:{at:new Date().toISOString(),attempt:record.attempt,interruption_kind:interruptionKind,...prepared,ok:false,target_status:'PENDING'}});
++    await saveProxyRuntime({...await getProxyRuntime(),last_ip_block_recovery:{at:new Date().toISOString(),attempt:record.attempt,interruption_kind:interruptionKind,...prepared,...targetObservation,ok:null,target_status:'PENDING'}});
+     await assertCurrentOperation(current);
+     const target=directPublicAvitoUrl(continuation?.target_url || current.operation_page_url || freshTab.url);
+     if(!target) throw new Error('AVITO_RECOVERY_TARGET_URL_MISSING');
+@@ -2868,6 +2909,11 @@
+     const latest=await getState();
+     if(!Recovery.sameOperation(current,latest) || latest.status==='CANCELLED_BY_USER') return latest;
+     const reason=controller.signal.aborted?'AVITO_RECOVERY_DEADLINE_EXCEEDED':Recovery.redactedError(error);
++    const runtime=await getProxyRuntime();
++    if(runtime.last_ip_block_recovery?.attempt!==record.attempt || runtime.last_ip_block_recovery?.target_status!=='CAPTCHA_MANUAL_REQUIRED') {
++      const prepared=latest.connection_recovery?.prepared || current.connection_recovery?.prepared || {};
++      await saveProxyRuntime({...runtime,last_ip_block_recovery:{...(runtime.last_ip_block_recovery||{}),at:new Date().toISOString(),completed_at:new Date().toISOString(),attempt:record.attempt,interruption_kind:interruptionKind,...prepared,ok:false,target_status:'RECOVERY_FAILED',error:reason}});
++    }
+     return continuation ? saveState({...latest,status:'SEQUENTIAL_RECOVERY_BLOCKED',blocked_reason:reason}) : blockAvitoPageReady(latest,reason,{source,attempt:record.attempt,interruption_kind:interruptionKind});
+   } finally {clearTimeout(timer);recoveryControllers.delete(key);if(workerRecoveryOwner===key) workerRecoveryOwner=null;}
+ }
+@@ -3089,7 +3135,7 @@
+     if(!result.blocked_reason && ((result.listings||[]).length || result.listing_details || result.empty_results_confirmed)) {
+       const rt=await getProxyRuntime();
+       if(rt.last_ip_block_recovery && working.connection_recovery) {
+-        await saveProxyRuntime({...rt,last_ip_block_recovery:{...rt.last_ip_block_recovery,ok:true,target_status:'AVITO_PUBLIC_SURFACE_CONFIRMED'}});
++        await saveProxyRuntime({...rt,last_ip_block_recovery:{...rt.last_ip_block_recovery,ok:true,target_status:'AVITO_PUBLIC_SURFACE_CONFIRMED',target_ip_block:false,target_captcha:false,target_rate_limit:false,target_normal_avito:true,completed_at:new Date().toISOString(),error:null}});
+         await log('AVITO_RECOVERY_TARGET_CONFIRMED',{search_id:working.search_id,attempt:working.connection_recovery.attempt,source:'public_dom_collection'});
+       }
+     }
+@@ -3805,7 +3851,7 @@
+ 
+       const authAt = new Date().toISOString();
+       callback({ authCredentials: { username: profile.login || "", password: profile.password || "" } });
+-      await patchProxyDiagnostics({ last_auth_at: authAt, last_auth_host: ProxyCore.text(details.challenger?.host, 255), last_auth_port: ProxyCore.int(details.challenger?.port, null), last_auth_attempt: attempts, last_auth_failure_at: null, last_auth_failure: null });
++      await patchProxyDiagnostics({ last_auth_at: authAt, last_auth_profile_id: profile.id, last_auth_host: ProxyCore.text(details.challenger?.host, 255), last_auth_port: ProxyCore.int(details.challenger?.port, null), last_auth_attempt: attempts, last_auth_failure_at: null, last_auth_failure: null });
+       await log("PROXY_AUTH_CREDENTIALS_SUPPLIED", { host: ProxyCore.text(details.challenger?.host, 255), port: ProxyCore.int(details.challenger?.port, null), request_type: details.type || null, attempt: attempts });
+     }).catch(async (error) => {
+       const failureAt = new Date().toISOString();
+

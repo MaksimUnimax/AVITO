@@ -1,0 +1,209 @@
+--- v0.1.0/avito_content.js
++++ v0.1.1/avito_content.js
+@@ -1,6 +1,9 @@
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
++
++  if (globalThis.__avitoFinderAvitoContentV011) return;
++  globalThis.__avitoFinderAvitoContentV011 = true;
+ 
+   const Core = AvitoFinderCore;
+ 
+
+--- v0.1.0/chatgpt_content.js
++++ v0.1.1/chatgpt_content.js
+@@ -1,6 +1,9 @@
+ /* global chrome, AvitoFinderCore */
+ (function chatGPTContent() {
+   "use strict";
++
++  if (globalThis.__avitoFinderChatGPTContentV011) return;
++  globalThis.__avitoFinderChatGPTContentV011 = true;
+ 
+   const Core = AvitoFinderCore;
+ 
+
+--- v0.1.0/manifest.json
++++ v0.1.1/manifest.json
+@@ -2,11 +2,15 @@
+   "manifest_version": 3,
+   "name": "Avito Finder — DOM Inspector",
+   "short_name": "Avito Finder",
+-  "version": "0.1.0",
+-  "version_name": "0.1.0-stage1-readonly-dom-inspector",
+-  "description": "Отдельный read-only инспектор DOM ChatGPT и Avito для подготовки безопасного поиска через видимый интерфейс.",
++  "version": "0.1.1",
++  "version_name": "0.1.1-stage1-content-receiver-recovery",
++  "description": "Отдельный read-only инспектор DOM ChatGPT и Avito с безопасным восстановлением content script для уже открытых вкладок.",
+   "minimum_chrome_version": "109",
+-  "permissions": ["tabs", "storage"],
++  "permissions": [
++    "tabs",
++    "storage",
++    "scripting"
++  ],
+   "host_permissions": [
+     "https://chatgpt.com/*",
+     "https://chat.openai.com/*",
+@@ -22,13 +26,25 @@
+   },
+   "content_scripts": [
+     {
+-      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+-      "js": ["core.js", "chatgpt_content.js"],
++      "matches": [
++        "https://chatgpt.com/*",
++        "https://chat.openai.com/*"
++      ],
++      "js": [
++        "core.js",
++        "chatgpt_content.js"
++      ],
+       "run_at": "document_idle"
+     },
+     {
+-      "matches": ["https://www.avito.ru/*", "https://avito.ru/*"],
+-      "js": ["core.js", "avito_content.js"],
++      "matches": [
++        "https://www.avito.ru/*",
++        "https://avito.ru/*"
++      ],
++      "js": [
++        "core.js",
++        "avito_content.js"
++      ],
+       "run_at": "document_idle"
+     }
+   ]
+
+--- v0.1.0/service_worker.js
++++ v0.1.1/service_worker.js
+@@ -7,6 +7,7 @@
+ const STATE_KEY = Core.STORAGE.state;
+ const LOG_KEY = Core.STORAGE.logs;
+ const INSPECTION_KEY = Core.STORAGE.lastInspection;
++let inspectionInFlight = null;
+ 
+ function callbackToPromise(callbackInvoker) {
+   return new Promise((resolve, reject) => {
+@@ -42,8 +43,16 @@
+   return callbackToPromise((done) => chrome.tabs.sendMessage(tabId, message, done));
+ }
+ 
++function scriptingExecuteScript(details) {
++  return callbackToPromise((done) => chrome.scripting.executeScript(details, done));
++}
++
+ function currentWindow() {
+   return callbackToPromise((done) => chrome.windows.getCurrent({populate: false}, done));
++}
++
++function isNoReceiverError(error) {
++  return Boolean(error && /Receiving end does not exist|Could not establish connection/i.test(String(error.message || error)));
+ }
+ 
+ async function getState() {
+@@ -84,9 +93,14 @@
+   return tabs.find((tab) => predicate(tab.url)) || null;
+ }
+ 
++async function getTab(tabId) {
++  const tabs = await tabsQuery({});
++  return tabs.find((tab) => tab.id === tabId) || null;
++}
++
+ async function waitForTabLoad(tabId, timeoutMs) {
+   const timeout = Number.isFinite(timeoutMs) ? timeoutMs : 15000;
+-  const existing = (await tabsQuery({})).find((tab) => tab.id === tabId);
++  const existing = await getTab(tabId);
+   if (existing && existing.status === "complete") return existing;
+ 
+   return new Promise((resolve, reject) => {
+@@ -120,19 +134,56 @@
+   return {tab: created, created: true};
+ }
+ 
++function roleFiles(role) {
++  if (role === "chatgpt") return ["core.js", "chatgpt_content.js"];
++  if (role === "avito") return ["core.js", "avito_content.js"];
++  throw new Error("UNSUPPORTED_CONTENT_ROLE");
++}
++
++function roleUrlAllowed(role, url) {
++  return role === "chatgpt" ? Core.isChatGPTUrl(url) : role === "avito" ? Core.isAvitoUrl(url) : false;
++}
++
++async function injectRoleContentScript(tabId, role) {
++  const tab = await getTab(tabId);
++  if (!tab || !roleUrlAllowed(role, tab.url)) throw new Error(`CONTENT_TARGET_URL_REJECTED:${role}`);
++  await scriptingExecuteScript({
++    target: {tabId},
++    files: roleFiles(role),
++    injectImmediately: true
++  });
++  await log("CONTENT_SCRIPT_INJECTED", {role, tab: shortTab(tab), files: roleFiles(role)});
++}
++
++async function sendToRole(tabId, role, message) {
++  try {
++    return await tabsSendMessage(tabId, message);
++  } catch (error) {
++    if (!isNoReceiverError(error)) throw error;
++    await log("CONTENT_RECEIVER_MISSING", {role, tab_id: tabId, message_type: message.type});
++    await injectRoleContentScript(tabId, role);
++    try {
++      return await tabsSendMessage(tabId, message);
++    } catch (retryError) {
++      const suffix = isNoReceiverError(retryError) ? "NO_RECEIVER_AFTER_INJECTION" : "MESSAGE_RETRY_FAILED";
++      throw new Error(`${suffix}:${role}`);
++    }
++  }
++}
++
+ async function readChatGPTDom(tabId) {
+-  const response = await tabsSendMessage(tabId, {type: "AF_INSPECT_CHATGPT_DOM"});
++  const response = await sendToRole(tabId, "chatgpt", {type: "AF_INSPECT_CHATGPT_DOM"});
+   if (!response || !response.ok) throw new Error(`CHATGPT_DOM_UNAVAILABLE:${response && response.error ? response.error : "unknown"}`);
+   return response.snapshot;
+ }
+ 
+ async function readAvitoDom(tabId) {
+-  const response = await tabsSendMessage(tabId, {type: "AF_INSPECT_AVITO_DOM"});
++  const response = await sendToRole(tabId, "avito", {type: "AF_INSPECT_AVITO_DOM"});
+   if (!response || !response.ok) throw new Error(`AVITO_DOM_UNAVAILABLE:${response && response.error ? response.error : "unknown"}`);
+   return response.snapshot;
+ }
+ 
+-async function startReadOnlyInspection() {
++async function runReadOnlyInspection() {
+   const window = await currentWindow();
+   const windowId = window.id;
+   const now = new Date().toISOString();
+@@ -171,6 +222,12 @@
+     const avitoSnapshot = await readAvitoDom(activeAvito.id);
+     await log("AVITO_DOM_CAPTURED", {search_id: searchId, tab_id: activeAvito.id, created: avito.created});
+ 
++    const returnedChat = await activateTab(activeChat, "chatgpt_return");
++    state = await setState(Object.assign({}, state, {
++      status: "CHATGPT_RETURNED",
++      chatgpt_tab_id: returnedChat.id
++    }));
++
+     const inspection = {
+       version: 1,
+       search_id: searchId,
+@@ -201,6 +258,12 @@
+     await log("READONLY_INSPECTION_BLOCKED", {search_id: searchId, reason: blocked});
+     return {ok: false, state, error: blocked};
+   }
++}
++
++function startReadOnlyInspection() {
++  if (inspectionInFlight) return inspectionInFlight;
++  inspectionInFlight = runReadOnlyInspection().finally(() => { inspectionInFlight = null; });
++  return inspectionInFlight;
+ }
+ 
+ async function stopTask() {
+

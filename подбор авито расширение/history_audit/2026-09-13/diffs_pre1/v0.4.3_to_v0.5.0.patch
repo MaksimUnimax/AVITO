@@ -1,0 +1,939 @@
+--- v0.4.3/avito_content.js
++++ v0.5.0/avito_content.js
+@@ -1,94 +1,199 @@
++/* Avito Finder v0.5.0 — bounded public DOM diagnostics; no page mutation. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+-
+-  if (globalThis.__avitoFinderAvitoContentV011) return;
+-  globalThis.__avitoFinderAvitoContentV011 = true;
++  if (globalThis.__avitoFinderAvitoContentV050) return;
++  globalThis.__avitoFinderAvitoContentV050 = true;
+ 
+   const Core = AvitoFinderCore;
++  const MAX_TREE_NODES = 160;
++  const MAX_TREE_DEPTH = 6;
++  const MAX_CHILDREN = 14;
++  const MAX_TEXT = 180;
++  const MAX_HTML = 7600;
++  const MAX_CONTROLS = 48;
++  const SAFE_ATTRIBUTES = new Set(["id", "class", "role", "aria-label", "aria-expanded", "aria-controls", "placeholder", "name", "type", "title", "data-marker", "href", "disabled", "checked"]);
+ 
+   function visible(element) {
+-    if (!element) return false;
++    if (!(element instanceof Element)) return false;
+     const style = window.getComputedStyle(element);
+     const rect = element.getBoundingClientRect();
+     return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+   }
+-
+   function textOf(element, max) {
+-    return Core.normalizeText(element && (element.innerText || element.textContent || "")).slice(0, max || 180);
++    return Core.normalizeText(element && (element.innerText || element.textContent || "")).slice(0, max || MAX_TEXT);
+   }
+-
+-  function selectorSummary(selector) {
+-    const nodes = Array.from(document.querySelectorAll(selector));
+-    return {selector, count: nodes.length, sample: nodes.length ? textOf(nodes[0]) : ""};
++  function safeHref(element) {
++    const raw = element?.getAttribute?.("href") || "";
++    try {
++      const url = new URL(raw, location.href);
++      if (!Core.isAvitoUrl(url.href)) return "";
++      return `${url.pathname}${url.search}`.slice(0, 500);
++    } catch (_) { return ""; }
+   }
+-
+-  function visibleElements(selector, limit) {
+-    return Array.from(document.querySelectorAll(selector)).filter(visible).slice(0, limit || 10).map((element) => ({
+-      selector,
++  function compactNode(element) {
++    return {
+       tag: element.tagName.toLowerCase(),
+-      name: element.getAttribute("name"),
+-      type: element.getAttribute("type"),
+-      role: element.getAttribute("role"),
+-      aria_label: element.getAttribute("aria-label"),
+-      placeholder: element.getAttribute("placeholder"),
++      id: (element.id || "").slice(0, 120),
++      class_name: (element.className && typeof element.className === "string" ? element.className : "").slice(0, 240),
++      role: element.getAttribute("role") || "",
++      type: element.getAttribute("type") || "",
++      name: element.getAttribute("name") || "",
++      aria_label: element.getAttribute("aria-label") || "",
++      placeholder: element.getAttribute("placeholder") || "",
++      title: element.getAttribute("title") || "",
++      href: safeHref(element),
++      disabled: Boolean(element.disabled || element.getAttribute("aria-disabled") === "true"),
++      checked: Boolean(element.checked || element.getAttribute("aria-checked") === "true"),
+       text: textOf(element)
+-    }));
++    };
+   }
+-
+   function detectBlock() {
+     const text = Core.normalizeText(document.body ? document.body.innerText : "").toLowerCase();
+     if (/captcha|капч/.test(text)) return "BLOCKED_LOGIN_OR_CAPTCHA";
+     if (/войти|войдите|sign in|log in/.test(text) && /авито|avito/.test(text)) return "BLOCKED_LOGIN_OR_CAPTCHA";
+     return null;
+   }
+-
+-  function inspect() {
+-    const inputSelectors = [
+-      "input",
+-      "textarea",
+-      "[contenteditable='true']",
+-      "[role='combobox']"
+-    ];
+-    const buttonSelectors = ["button", "[role='button']"];
+-    const listingSelectors = [
+-      "a[href*='/item/']",
+-      "a[href*='/moskva/']",
+-      "a[href*='/sankt-peterburg/']",
+-      "a[data-marker*='item']"
+-    ];
+-    const filterSelectors = [
+-      "[data-marker*='filter']",
+-      "[aria-label*='Фильтр' i]",
+-      "button[aria-label*='фильтр' i]"
+-    ];
++  function firstVisible(selectors, root = document) {
++    for (const selector of selectors) {
++      const found = Array.from(root.querySelectorAll(selector)).find(visible);
++      if (found) return { element: found, selector };
++    }
++    return null;
++  }
++  function closestMeaningful(element) {
++    if (!(element instanceof Element)) return null;
++    return element.closest("section,article,form,[role='main'],main,[role='dialog'],[data-marker],div") || element;
++  }
++  function textMatchRoot(keyword) {
++    const candidates = Array.from(document.querySelectorAll("h1,h2,h3,h4,[role='heading'],button,a,div,span"));
++    const match = candidates.find((node) => visible(node) && textOf(node, 120).toLowerCase().includes(keyword));
++    return match ? closestMeaningful(match) : null;
++  }
++  function resolveScope(scope) {
++    if (scope === "PAGE_MAIN_VISIBLE") {
++      const hit = firstVisible(["main", "[role='main']", "[data-marker*='main']"]);
++      if (hit) return { root: hit.element, resolution: hit.selector };
++      return visible(document.body) ? { root: document.body, resolution: "body_visible_fallback" } : null;
++    }
++    if (scope === "SEARCH_SURFACE_VISIBLE") {
++      const input = firstVisible(["form input", "[role='search'] input", "input[placeholder]", "input[type='search']"]);
++      if (!input) return null;
++      return { root: closestMeaningful(input.element), resolution: `${input.selector}:closest_meaningful` };
++    }
++    if (scope === "DIALOG_VISIBLE") {
++      const dialog = firstVisible(["[role='dialog'][aria-modal='true']", "[role='dialog']", "[aria-modal='true']"]);
++      return dialog ? { root: dialog.element, resolution: dialog.selector } : null;
++    }
++    if (scope === "LISTING_CARD_VISIBLE") {
++      const card = firstVisible(["a[href*='/item/']", "[data-marker*='item'] a"]);
++      return card ? { root: closestMeaningful(card.element), resolution: `${card.selector}:closest_meaningful` } : null;
++    }
++    if (scope === "REVIEWS_VISIBLE") {
++      const root = textMatchRoot("отзывы") || textMatchRoot("отзыв");
++      return root ? { root, resolution: "visible_text:отзывы" } : null;
++    }
++    return null;
++  }
++  function nodeLabel(element) {
++    const node = compactNode(element);
++    const attrs = [
++      node.id ? `#${node.id}` : "",
++      node.role ? `[role=${node.role}]` : "",
++      node.type ? `[type=${node.type}]` : "",
++      node.name ? `[name=${node.name}]` : "",
++      node.aria_label ? `[aria=${node.aria_label}]` : ""
++    ].filter(Boolean).join("");
++    return `${node.tag}${attrs}${node.text ? ` — ${node.text}` : ""}`.slice(0, 340);
++  }
++  function buildTree(root) {
++    const lines = []; let count = 0; let truncated = false;
++    function walk(node, depth) {
++      if (!(node instanceof Element) || !visible(node)) return;
++      if (count >= MAX_TREE_NODES || depth > MAX_TREE_DEPTH) { truncated = true; return; }
++      count += 1; lines.push(`${"  ".repeat(depth)}- ${nodeLabel(node)}`);
++      const children = Array.from(node.children).filter(visible);
++      if (children.length > MAX_CHILDREN) truncated = true;
++      for (const child of children.slice(0, MAX_CHILDREN)) walk(child, depth + 1);
++    }
++    walk(root, 0);
++    return { text: lines.join("\n").slice(0, 7200), count, truncated };
++  }
++  function sanitizeClone(root) {
++    const clone = root.cloneNode(true);
++    clone.querySelectorAll("script,style,link,meta,noscript,template,iframe,canvas,svg,video,audio").forEach((node) => node.remove());
++    clone.querySelectorAll("input,textarea,select").forEach((node) => {
++      node.removeAttribute("value"); node.removeAttribute("checked"); node.removeAttribute("selected");
++      node.setAttribute("data-value-redacted", "1");
++    });
++    const all = [clone, ...clone.querySelectorAll("*")];
++    for (const element of all) {
++      for (const attribute of Array.from(element.attributes || [])) {
++        if (!SAFE_ATTRIBUTES.has(attribute.name.toLowerCase())) element.removeAttribute(attribute.name);
++        if (attribute.name.toLowerCase() === "href") {
++          const href = safeHref(element);
++          if (href) element.setAttribute("href", href); else element.removeAttribute("href");
++        }
++      }
++    }
++    const walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT);
++    const textNodes = []; let current;
++    while ((current = walker.nextNode())) textNodes.push(current);
++    for (const node of textNodes) node.textContent = Core.normalizeText(node.textContent).slice(0, 220);
++    let html = clone.outerHTML || "";
++    let truncated = false;
++    if (html.length > MAX_HTML) { html = `${html.slice(0, MAX_HTML)}\n<!-- truncated -->`; truncated = true; }
++    return { html, truncated };
++  }
++  function controlsWithin(root) {
++    return Array.from(root.querySelectorAll("input,textarea,select,button,a,[role='button'],[role='combobox'],[role='checkbox'],[role='radio']"))
++      .filter(visible).slice(0, MAX_CONTROLS).map(compactNode);
++  }
++  function diagnose(request) {
+     const blocked = detectBlock();
+-
+-    return {
++    const scope = String(request?.scope || "").toUpperCase();
++    const pageUrl = String(request?.page_url || "");
++    if (!Core.isAvitoUrl(location.href)) return { url: location.href, blocked_reason: "DIAGNOSTIC_TARGET_NOT_AVITO", scope };
++    if (!Core.isAvitoUrl(pageUrl)) return { url: location.href, blocked_reason: "DIAGNOSTIC_REQUEST_URL_NOT_ALLOWED", scope };
++    const resolved = resolveScope(scope);
++    if (!resolved || !resolved.root) {
++      return {
++        url: location.href, title: document.title, captured_at: new Date().toISOString(), scope,
++        blocked_reason: blocked || "BLOCKED_SCOPE_UNRESOLVED", root_description: "область не найдена", actions_performed: "none_read_only"
++      };
++    }
++    const tree = buildTree(resolved.root);
++    const html = sanitizeClone(resolved.root);
++    const snapshot = {
+       url: location.href,
+       title: document.title,
+       captured_at: new Date().toISOString(),
++      scope,
++      requested_page_url: pageUrl,
+       blocked_reason: blocked,
+-      input_count: inputSelectors.reduce((total, selector) => total + visibleElements(selector, 50).length, 0),
+-      button_count: buttonSelectors.reduce((total, selector) => total + visibleElements(selector, 50).length, 0),
+-      listing_link_count: listingSelectors.reduce((total, selector) => total + visibleElements(selector, 50).length, 0),
+-      selector_summaries: inputSelectors.concat(buttonSelectors, listingSelectors, filterSelectors).map(selectorSummary),
+-      input_candidates: inputSelectors.flatMap((selector) => visibleElements(selector, 15)),
+-      filter_candidates: filterSelectors.flatMap((selector) => visibleElements(selector, 15)),
+-      visible_buttons: visibleElements("button", 40),
++      root_description: `${resolved.root.tagName.toLowerCase()} via ${resolved.resolution}`,
++      root_resolution: resolved.resolution,
++      tree_text: tree.text,
++      tree_node_count: tree.count,
++      controls: controlsWithin(resolved.root),
++      bounded_html: html.html,
++      truncated: Boolean(tree.truncated || html.truncated),
+       actions_performed: "none_read_only"
+     };
++    snapshot.snapshot_fingerprint = Core.fingerprint(JSON.stringify({ scope: snapshot.scope, root: snapshot.root_description, tree: snapshot.tree_text, html: snapshot.bounded_html }));
++    return snapshot;
+   }
+-
++  function inspect() {
++    const inputs = Array.from(document.querySelectorAll("input,textarea,[contenteditable='true'],[role='combobox']")).filter(visible);
++    const buttons = Array.from(document.querySelectorAll("button,[role='button']")).filter(visible);
++    const links = Array.from(document.querySelectorAll("a[href*='/item/'],a[data-marker*='item']")).filter(visible);
++    return { url: location.href, title: document.title, captured_at: new Date().toISOString(), blocked_reason: detectBlock(), input_count: inputs.length, button_count: buttons.length, listing_link_count: links.length, actions_performed: "none_read_only" };
++  }
+   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+     try {
+-      if (message && message.type === "AF_INSPECT_AVITO_DOM") {
+-        sendResponse({ok: true, snapshot: inspect()});
+-        return;
+-      }
+-      sendResponse({ok: false, error: "UNKNOWN_MESSAGE"});
+-    } catch (error) {
+-      sendResponse({ok: false, error: error && error.message ? error.message : "INSPECTION_FAILED"});
+-    }
++      if (message?.type === "AF_INSPECT_AVITO_DOM") { sendResponse({ ok: true, snapshot: inspect() }); return; }
++      if (message?.type === "AF_DIAGNOSE_AVITO_DOM") { sendResponse({ ok: true, snapshot: diagnose(message.request || {}) }); return; }
++      sendResponse({ ok: false, error: "UNKNOWN_MESSAGE" });
++    } catch (error) { sendResponse({ ok: false, error: error?.message || "AVITO_DIAGNOSTIC_FAILED" }); }
+   });
+ })();
+
+--- v0.4.3/chatgpt_content.js
++++ v0.5.0/chatgpt_content.js
+@@ -7,7 +7,7 @@
+   // runtime context. A version guard that simply returns would then prevent a
+   // fresh adapter from being injected into the same tab. New injection must
+   // supersede, dispose and replace the previous adapter instead.
+-  const CONTENT_SCRIPT_VERSION = "0.4.3";
++  const CONTENT_SCRIPT_VERSION = "0.5.0";
+   const CONTENT_SCRIPT_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+   const CONTENT_RUNTIME_KEY = "__AVITO_FINDER_BRIDGE_EXACT_CAPTURE_RUNTIME__";
+   const CONTENT_RUNTIME_ID = `0.4.3:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+@@ -2665,6 +2665,31 @@
+       return true;
+     }
+ 
++    if (message?.type === "AF_CAPTURE_SEND_REPORT") {
++      (async () => {
++        const expectedIdentity = message.expected_identity;
++        const reportText = typeof message.report_text === "string" ? message.report_text : "";
++        try {
++          if (!reportText.trim()) throw bridgeError("Пустой диагностический отчёт не отправляется.", "REPORT_TEXT_EMPTY");
++          assertExpectedConversation(expectedIdentity, "BEFORE_REPORT_DELIVERY");
++          const sent = await sendMessageAndCaptureAnchor(reportText, null, null, {
++            original_text: "",
++            stage_identity: {
++              run_id: String(message.search_id || ""),
++              delivery_id: String(message.delivery_id || "diagnostic-report"),
++              report_fingerprint: localTextFingerprint(reportText)
++            },
++            anchor_mode: "plain_delivery"
++          });
++          assertExpectedConversation(expectedIdentity, "AFTER_REPORT_DELIVERY");
++          sendResponse({ ok: true, ...sent, identity: conversationIdentity() });
++        } catch (err) {
++          sendResponse({ ok: false, error: err.message, code: err.code || "AF_REPORT_DELIVERY_FAILED" });
++        }
++      })();
++      return true;
++    }
++
+     if (message?.type === "AF_CAPTURE_PING") {
+       sendResponse({ ok: true, content_script_version: CONTENT_SCRIPT_VERSION, content_script_protocol: CONTENT_SCRIPT_PROTOCOL, identity: conversationIdentity() });
+       return false;
+
+--- v0.4.3/core.js
++++ v0.5.0/core.js
+@@ -1,39 +1,163 @@
+ /* Avito Finder isolated shared pure logic. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+-  const STORAGE = Object.freeze({ state: "avito_finder.state", logs: "avito_finder.logs", lastInspection: "avito_finder.last_inspection" });
++  const STORAGE = Object.freeze({
++    state: "avito_finder.state",
++    logs: "avito_finder.logs",
++    lastInspection: "avito_finder.last_inspection"
++  });
+   const CHATGPT_HOSTS = new Set(["chatgpt.com", "chat.openai.com"]);
+   const AVITO_HOSTS = new Set(["www.avito.ru", "avito.ru"]);
+   const MAX_LOGS = 250;
+-  const VALID_MODES = new Set(["INSPECT_FILTERS", "SEARCH"]);
+-  const REQUIRED_COMMAND_LABELS = Object.freeze(["Цель", "Режим", "Категория", "Город", "Доставка", "Поисковый запрос", "Цена", "Обязательные условия", "Желательные условия", "Исключить", "Количество кандидатов", "Действие"]);
++  const VALID_MODES = new Set(["INSPECT_FILTERS", "SEARCH", "DIAGNOSE_DOM"]);
++  const DIAGNOSTIC_SCOPES = new Set([
++    "PAGE_MAIN_VISIBLE",
++    "SEARCH_SURFACE_VISIBLE",
++    "DIALOG_VISIBLE",
++    "LISTING_CARD_VISIBLE",
++    "REVIEWS_VISIBLE"
++  ]);
++  const REQUIRED_COMMAND_LABELS = Object.freeze([
++    "Цель", "Режим", "Категория", "Город", "Доставка", "Поисковый запрос",
++    "Цена", "Обязательные условия", "Желательные условия", "Исключить",
++    "Количество кандидатов", "Действие"
++  ]);
++  const CONVERSATION_ID_RE = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i;
++
+   function safeUrl(value) { try { return new URL(String(value || "")); } catch (_) { return null; } }
+-  const CONVERSATION_ID_RE = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i;
+-  function isChatGPTUrl(value) { const u=safeUrl(value); return Boolean(u && u.protocol==="https:" && CHATGPT_HOSTS.has(u.hostname)); }
+-  function isAvitoUrl(value) { const u=safeUrl(value); return Boolean(u && u.protocol==="https:" && AVITO_HOSTS.has(u.hostname)); }
++  function isChatGPTUrl(value) {
++    const u = safeUrl(value);
++    return Boolean(u && u.protocol === "https:" && CHATGPT_HOSTS.has(u.hostname));
++  }
++  function isAvitoUrl(value) {
++    const u = safeUrl(value);
++    return Boolean(u && u.protocol === "https:" && AVITO_HOSTS.has(u.hostname));
++  }
+   function conversationIdentityFromUrl(value) {
+-    const u=safeUrl(value);
+-    if (!u || u.protocol!=="https:" || !CHATGPT_HOSTS.has(u.hostname)) return null;
+-    const match=u.pathname.match(/^\/c\/([0-9a-f-]{36})\/?$/i);
+-    return {origin:u.origin,chat_path:u.pathname,conversation_id:match?match[1].toLowerCase():null};
++    const u = safeUrl(value);
++    if (!u || u.protocol !== "https:" || !CHATGPT_HOSTS.has(u.hostname)) return null;
++    const match = u.pathname.match(/^\/c\/([0-9a-f-]{36})\/?$/i);
++    return { origin: u.origin, chat_path: u.pathname, conversation_id: match ? match[1].toLowerCase() : null };
+   }
+   function isConversationIdentity(value) {
+-    return Boolean(value && typeof value.origin==="string" && typeof value.chat_path==="string" && typeof value.conversation_id==="string" && CONVERSATION_ID_RE.test(value.conversation_id));
++    return Boolean(value && typeof value.origin === "string" && typeof value.chat_path === "string" &&
++      typeof value.conversation_id === "string" && CONVERSATION_ID_RE.test(value.conversation_id));
+   }
+-  function sameConversationIdentity(expected,actual) {
+-    return Boolean(isConversationIdentity(expected) && isConversationIdentity(actual) && expected.origin===actual.origin && expected.chat_path===actual.chat_path && expected.conversation_id===actual.conversation_id);
++  function sameConversationIdentity(expected, actual) {
++    return Boolean(isConversationIdentity(expected) && isConversationIdentity(actual) &&
++      expected.origin === actual.origin && expected.chat_path === actual.chat_path &&
++      expected.conversation_id === actual.conversation_id);
+   }
+-  function samePinnedChatContext(expected,actual) {
+-    return Boolean(expected && actual && Number.isInteger(expected.tab_id) && Number.isInteger(expected.window_id) && expected.tab_id===actual.tab_id && expected.window_id===actual.window_id && sameConversationIdentity(expected,actual));
++  function samePinnedChatContext(expected, actual) {
++    return Boolean(expected && actual && Number.isInteger(expected.tab_id) && Number.isInteger(expected.window_id) &&
++      expected.tab_id === actual.tab_id && expected.window_id === actual.window_id &&
++      sameConversationIdentity(expected, actual));
+   }
+-  function normalizeText(value) { return String(value || "").replace(/\u00a0/g," ").replace(/\r/g,"").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim(); }
+-  function fingerprint(value) { const text=normalizeText(value); let h=2166136261; for(let i=0;i<text.length;i+=1){h^=text.charCodeAt(i);h=Math.imul(h,16777619);} return `${text.length}:${(h>>>0).toString(16)}`; }
+-  function makeSearchId(now, random) { const stamp=new Date(now||Date.now()).toISOString().replace(/[-:.TZ]/g,"").slice(0,14); const entropy=Math.floor((random===undefined?Math.random():random)*0xffffff).toString(36).padStart(4,"0").slice(-4); return `af-${stamp}-${entropy}`; }
+-  function parseLabeledSections(text) { const out={}; let current=null; for(const raw of normalizeText(text).split("\n")){ const line=raw.trim(); const m=line.match(/^([^:]{2,80}):\s*(.*)$/u); if(m && REQUIRED_COMMAND_LABELS.includes(m[1].trim())){current=m[1].trim();out[current]=m[2].trim();continue;} if(current && line) out[current]=`${out[current]}\n${line}`.trim(); } return out; }
+-  function parseCommandForm(text) { const fields=parseLabeledSections(text); const missing=REQUIRED_COMMAND_LABELS.filter(k=>!(k in fields)); const mode=String(fields["Режим"]||"").trim().toUpperCase(); const count=Number.parseInt(String(fields["Количество кандидатов"]||""),10); const errors=[]; if(missing.length) errors.push(`MISSING_LABELS:${missing.join(",")}`); if(!VALID_MODES.has(mode)) errors.push("INVALID_MODE"); if(!Number.isInteger(count)||count<1||count>30) errors.push("INVALID_CANDIDATE_COUNT"); if(mode==="SEARCH"&&!String(fields["Город"]||"").trim()) errors.push("CITY_REQUIRED_FOR_SEARCH"); return {valid:errors.length===0,errors,mode,candidate_count:Number.isInteger(count)?count:null,fields,raw:normalizeText(text)}; }
+-  function makeState(overrides) { return Object.assign({version:6,search_id:null,status:"IDLE",phase:"IDLE",started_at:null,updated_at:new Date().toISOString(),current_window_id:null,chatgpt_tab_id:null,chatgpt_window_id:null,chat_origin:null,chat_path:null,avito_tab_id:null,conversation_id:null,anchor_turn_id:null,assistant_turn_id:null,blocked_reason:null,user_started:false,inspection_only:true,report:null},overrides||{}); }
+-  function appendLog(existing,type,fields){return [...(Array.isArray(existing)?existing:[]),Object.assign({at:new Date().toISOString(),type},fields||{})].slice(-MAX_LOGS);}
+-  function formatInspectionReport(i){const a=i?.avito||{};return ["Avito Finder: read-only обследование завершено","",`Задача: ${i?.search_id||"?"}`,`Статус Avito: ${a.blocked_reason||"DOM доступен"}`,"",`Формы/поля: ${a.input_count??"?"}`,`Кнопки: ${a.button_count??"?"}`,`Ссылки-кандидаты: ${a.listing_link_count??"?"}`,"Поиск, ввод, изменение фильтров, открытие объявлений и отправка сообщений не выполнялись."].join("\n");}
+-  root.AvitoFinderCore=Object.freeze({STORAGE,REQUIRED_COMMAND_LABELS,isChatGPTUrl,isAvitoUrl,conversationIdentityFromUrl,isConversationIdentity,sameConversationIdentity,samePinnedChatContext,normalizeText,fingerprint,makeSearchId,parseCommandForm,makeState,appendLog,formatInspectionReport});
+-  if(typeof module!=="undefined"&&module.exports) module.exports=root.AvitoFinderCore;
++  function normalizeText(value) {
++    return String(value || "").replace(/\u00a0/g, " ").replace(/\r/g, "")
++      .replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
++  }
++  function fingerprint(value) {
++    const text = normalizeText(value); let h = 2166136261;
++    for (let i = 0; i < text.length; i += 1) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
++    return `${text.length}:${(h >>> 0).toString(16)}`;
++  }
++  function makeSearchId(now, random) {
++    const stamp = new Date(now || Date.now()).toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
++    const entropy = Math.floor((random === undefined ? Math.random() : random) * 0xffffff).toString(36).padStart(4, "0").slice(-4);
++    return `af-${stamp}-${entropy}`;
++  }
++  function parseLabeledSections(text) {
++    const out = {}; let current = null;
++    for (const raw of normalizeText(text).split("\n")) {
++      const line = raw.trim();
++      const m = line.match(/^([^:]{2,80}):\s*(.*)$/u);
++      if (m && REQUIRED_COMMAND_LABELS.includes(m[1].trim())) { current = m[1].trim(); out[current] = m[2].trim(); continue; }
++      if (current && line) out[current] = `${out[current]}\n${line}`.trim();
++    }
++    return out;
++  }
++  function directiveValue(text, label) {
++    const match = normalizeText(text).match(new RegExp(`(?:^|\\n)\\s*${label}\\s*:\\s*([^\\n]+)`, "iu"));
++    return match ? match[1].trim() : "";
++  }
++  function parseDiagnosticDirective(fields) {
++    const action = String(fields["Действие"] || "");
++    const pageUrl = directiveValue(action, "Страница");
++    const scope = directiveValue(action, "Область").toUpperCase();
++    const errors = [];
++    if (!pageUrl) errors.push("DIAGNOSTIC_PAGE_REQUIRED");
++    else if (!isAvitoUrl(pageUrl)) errors.push("DIAGNOSTIC_PAGE_NOT_ALLOWED");
++    if (!scope) errors.push("DIAGNOSTIC_SCOPE_REQUIRED");
++    else if (!DIAGNOSTIC_SCOPES.has(scope)) errors.push("DIAGNOSTIC_SCOPE_NOT_ALLOWED");
++    return { valid: errors.length === 0, errors, page_url: pageUrl, scope };
++  }
++  function parseCommandForm(text) {
++    const fields = parseLabeledSections(text);
++    const missing = REQUIRED_COMMAND_LABELS.filter((key) => !(key in fields));
++    const mode = String(fields["Режим"] || "").trim().toUpperCase();
++    const count = Number.parseInt(String(fields["Количество кандидатов"] || ""), 10);
++    const errors = [];
++    if (missing.length) errors.push(`MISSING_LABELS:${missing.join(",")}`);
++    if (!VALID_MODES.has(mode)) errors.push("INVALID_MODE");
++    if (!Number.isInteger(count) || count < 1 || count > 30) errors.push("INVALID_CANDIDATE_COUNT");
++    if (mode === "SEARCH" && !String(fields["Город"] || "").trim()) errors.push("CITY_REQUIRED_FOR_SEARCH");
++    let diagnostic = null;
++    if (mode === "DIAGNOSE_DOM") {
++      diagnostic = parseDiagnosticDirective(fields);
++      errors.push(...diagnostic.errors);
++    }
++    return { valid: errors.length === 0, errors, mode, candidate_count: Number.isInteger(count) ? count : null, fields, diagnostic, raw: normalizeText(text) };
++  }
++  function makeState(overrides) {
++    return Object.assign({
++      version: 7, search_id: null, status: "IDLE", phase: "IDLE", started_at: null,
++      updated_at: new Date().toISOString(), current_window_id: null, chatgpt_tab_id: null,
++      chatgpt_window_id: null, chat_origin: null, chat_path: null, avito_tab_id: null,
++      conversation_id: null, anchor_turn_id: null, assistant_turn_id: null, blocked_reason: null,
++      user_started: false, inspection_only: true, report: null, command_mode: null,
++      diagnostic_request: null, report_delivery_id: null
++    }, overrides || {});
++  }
++  function appendLog(existing, type, fields) {
++    return [...(Array.isArray(existing) ? existing : []), Object.assign({ at: new Date().toISOString(), type }, fields || {})].slice(-MAX_LOGS);
++  }
++  function formatInspectionReport(inspection) {
++    const a = inspection?.avito || {};
++    return [
++      "Avito Finder: read-only обследование завершено", "",
++      `Задача: ${inspection?.search_id || "?"}`,
++      `Статус Avito: ${a.blocked_reason || "DOM доступен"}`, "",
++      `Формы/поля: ${a.input_count ?? "?"}`,
++      `Кнопки: ${a.button_count ?? "?"}`,
++      `Ссылки-кандидаты: ${a.listing_link_count ?? "?"}`,
++      "Поиск, ввод, изменение фильтров, открытие объявлений и отправка сообщений не выполнялись."
++    ].join("\n");
++  }
++  function formatDiagnosticReport(diagnostic) {
++    const d = diagnostic?.avito || {};
++    const controls = Array.isArray(d.controls) ? d.controls.map((item, index) =>
++      `${index + 1}. ${item.tag}${item.role ? ` role=${item.role}` : ""}${item.type ? ` type=${item.type}` : ""}${item.text ? ` — ${item.text}` : ""}${item.aria_label ? ` [${item.aria_label}]` : ""}`).join("\n") : "";
++    return [
++      "Avito Finder: диагностический DOM-снимок", "",
++      `Задача: ${diagnostic?.search_id || "?"}`,
++      `Страница: ${d.url || "?"}`,
++      `Область: ${d.scope || "?"}`,
++      `Статус: ${d.blocked_reason || "DOM доступен"}`,
++      `Корень: ${d.root_description || "не найден"}`,
++      `Снимок: ${d.snapshot_fingerprint || "?"}`,
++      `Ограничения: ${d.truncated ? "снимок ограничен по размеру" : "нет"}`,
++      "", "DOM-дерево:", d.tree_text || "нет данных",
++      "", "Видимые элементы управления:", controls || "нет данных",
++      "", "Ограниченный HTML-снимок:", d.bounded_html || "нет данных",
++      "", "Никакие поля, фильтры, поиск, объявления, сообщения продавцам и скрытые API не использовались."
++    ].join("\n").slice(0, 24000);
++  }
++  root.AvitoFinderCore = Object.freeze({
++    STORAGE, REQUIRED_COMMAND_LABELS, DIAGNOSTIC_SCOPES, isChatGPTUrl, isAvitoUrl,
++    conversationIdentityFromUrl, isConversationIdentity, sameConversationIdentity,
++    samePinnedChatContext, normalizeText, fingerprint, makeSearchId, parseCommandForm,
++    makeState, appendLog, formatInspectionReport, formatDiagnosticReport
++  });
++  if (typeof module !== "undefined" && module.exports) module.exports = root.AvitoFinderCore;
+ })(globalThis);
+
+--- v0.4.3/manifest.json
++++ v0.5.0/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.4.3",
+-  "version_name": "0.4.3-avito-page-ready-gate-test-candidate",
+-  "description": "Отдельный Avito Finder: точный ChatGPT capture-контур и обязательное ожидание готового Avito DOM до read-only обследования.",
++  "version": "0.5.0",
++  "version_name": "0.5.0-diagnostic-dom-dialog-test-candidate",
++  "description": "Отдельный Avito Finder: точный ChatGPT capture-контур, строго привязанный диалог и bounded DOM-диагностика публичных Avito-областей.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.4.3/popup.html
++++ v0.5.0/popup.html
+@@ -1,8 +1,10 @@
+ <!doctype html>
+-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avito Finder</title><link rel="stylesheet" href="popup.css"></head>
+-<body><main><h1>Avito Finder</h1><p class="sub">Этапы 3–4 ТЗ. «Начать» отправляет «Ищи» через полный контур Bridge; журнал отражает фактические события без очистки.</p>
+-<section class="status" aria-live="polite"><strong id="status">Загрузка…</strong><span id="detail"></span></section>
+-<div class="actions"><button id="start" type="button">Начать</button><button id="stop" type="button" class="secondary">Стоп</button></div>
+-<label for="logs">Живой журнал</label><pre id="logs" aria-live="polite"></pre>
+-<label for="report">Последний отчёт</label><textarea id="report" readonly rows="12" spellcheck="false"></textarea><button id="copy" type="button" class="secondary">Скопировать отчёт</button>
++<html lang="ru"><head><meta charset="utf-8"><title>Avito Finder</title><link rel="stylesheet" href="popup.css"></head>
++<body><main>
++  <h1>Avito Finder</h1>
++  <p id="subtitle">Диагностический режим: «Ищи» → writing block → ограниченный DOM-снимок → отчёт в тот же чат.</p>
++  <div id="status">IDLE</div><div id="detail"></div>
++  <div class="actions"><button id="start">Начать</button><button id="continue" disabled>Продолжить отчёт</button><button id="stop">Стоп</button></div>
++  <h2>Живой журнал</h2><pre id="logs"></pre>
++  <h2>Последний отчёт</h2><textarea id="report" readonly></textarea><button id="copy">Скопировать отчёт</button>
+ </main><script src="popup.js"></script></body></html>
+
+--- v0.4.3/popup.js
++++ v0.5.0/popup.js
+@@ -1,11 +1,12 @@
+ "use strict";
+-const status=document.querySelector("#status"),detail=document.querySelector("#detail"),logs=document.querySelector("#logs"),report=document.querySelector("#report"),start=document.querySelector("#start"),stop=document.querySelector("#stop"),copy=document.querySelector("#copy");
++const status=document.querySelector("#status"),detail=document.querySelector("#detail"),logs=document.querySelector("#logs"),report=document.querySelector("#report"),start=document.querySelector("#start"),resume=document.querySelector("#continue"),stop=document.querySelector("#stop"),copy=document.querySelector("#copy");
+ const send=(message)=>new Promise((resolve)=>chrome.runtime.sendMessage(message,resolve));
+ let refreshTimer=null;
+ function compact(value){const text=typeof value==="string"?value:JSON.stringify(value);return text.length>380?`${text.slice(0,377)}…`:text;}
+-function render(view){const state=view?.state||{};status.textContent=state.status||"IDLE";detail.textContent=state.blocked_reason||state.phase||state.search_id||"";report.value=view?.inspection?.report||state.report||"";logs.textContent=(view?.logs||[]).slice(-80).map((entry)=>{const fields=Object.entries(entry).filter(([key])=>key!=="at"&&key!=="type").map(([key,value])=>`${key}=${compact(value)}`).join(" ");return `${entry.at||""} ${entry.type||"EVENT"}${fields?` ${fields}`:""}`;}).join("\n");logs.scrollTop=logs.scrollHeight;}
++function render(view){const state=view?.state||{};status.textContent=state.status||"IDLE";detail.textContent=state.blocked_reason||state.phase||state.search_id||"";report.value=view?.inspection?.report||state.report||"";resume.disabled=!["PAUSED_USER_COMPOSER_OCCUPIED","REPORT_DELIVERY_BLOCKED"].includes(state.status)||!state.report;logs.textContent=(view?.logs||[]).slice(-100).map((entry)=>{const fields=Object.entries(entry).filter(([key])=>key!=="at"&&key!=="type").map(([key,value])=>`${key}=${compact(value)}`).join(" ");return `${entry.at||""} ${entry.type||"EVENT"}${fields?` ${fields}`:""}`;}).join("\n");logs.scrollTop=logs.scrollHeight;}
+ async function refresh(){const view=await send({type:"AF_GET_VIEW"});if(view?.ok)render(view);}
+-async function startCapture(){start.disabled=true;try{await send({type:"AF_START"});}finally{start.disabled=false;await refresh();}}
+-start.addEventListener("click",startCapture);stop.addEventListener("click",async()=>{await send({type:"AF_STOP"});await refresh();});copy.addEventListener("click",async()=>{if(!report.value)return;try{await navigator.clipboard.writeText(report.value);copy.textContent="Скопировано";setTimeout(()=>copy.textContent="Скопировать отчёт",1200);}catch(_){report.focus();report.select();document.execCommand("copy");}});
+-chrome.storage.onChanged.addListener((_changes,area)=>{if(area==="local")refresh();});
+-refresh();refreshTimer=setInterval(refresh,1000);window.addEventListener("unload",()=>{if(refreshTimer)clearInterval(refreshTimer);});
++start.addEventListener("click",async()=>{start.disabled=true;try{await send({type:"AF_START"});}finally{start.disabled=false;await refresh();}});
++resume.addEventListener("click",async()=>{resume.disabled=true;try{await send({type:"AF_CONTINUE_REPORT"});}finally{await refresh();}});
++stop.addEventListener("click",async()=>{await send({type:"AF_STOP"});await refresh();});
++copy.addEventListener("click",async()=>{if(!report.value)return;try{await navigator.clipboard.writeText(report.value);copy.textContent="Скопировано";setTimeout(()=>copy.textContent="Скопировать отчёт",1200);}catch(_){report.focus();report.select();document.execCommand("copy");}});
++chrome.storage.onChanged.addListener((_changes,area)=>{if(area==="local")refresh();});refresh();refreshTimer=setInterval(refresh,1000);window.addEventListener("unload",()=>{if(refreshTimer)clearInterval(refreshTimer);});
+
+--- v0.4.3/service_worker.js
++++ v0.5.0/service_worker.js
+@@ -1,79 +1,302 @@
+-/* Avito Finder v0.4.3 — isolated worker with exact active-dialog binding and Avito page-ready gate. */
++/* Avito Finder v0.5.0 — isolated diagnostic dialogue; no Business Bridge runtime. */
+ "use strict";
+ importScripts("core.js");
+-const Core=AvitoFinderCore;
+-const STATE_KEY=Core.STORAGE.state, LOG_KEY=Core.STORAGE.logs, INSPECTION_KEY=Core.STORAGE.lastInspection;
+-const CAPTURE_PROTOCOL="avito_finder_bridge_exact_capture_v1";
+-const CAPTURE_VERSION="0.4.3";
+-const AVITO_READY_TIMEOUT_MS=30000;
+-const avitoReadyTimers=new Map();
+-const ensureLocks=new Map();
+-function cb(invoke){return new Promise((resolve,reject)=>invoke((value)=>{const error=chrome.runtime.lastError;if(error)reject(new Error(error.message));else resolve(value);}));}
+-const storageGet=(keys)=>cb((done)=>chrome.storage.local.get(keys,done));
+-const storageSet=(values)=>cb((done)=>chrome.storage.local.set(values,done));
+-const tabsQuery=(query)=>cb((done)=>chrome.tabs.query(query,done));
+-const tabsGet=(tabId)=>cb((done)=>chrome.tabs.get(tabId,done));
+-const tabsUpdate=(tabId,props)=>cb((done)=>chrome.tabs.update(tabId,props,done));
+-const tabsCreate=(props)=>cb((done)=>chrome.tabs.create(props,done));
+-const tabsSend=(tabId,message)=>cb((done)=>chrome.tabs.sendMessage(tabId,message,done));
+-const execute=(details)=>cb((done)=>chrome.scripting.executeScript(details,done));
+-function shortTab(tab){return {id:tab?.id??null,windowId:tab?.windowId??null,active:Boolean(tab?.active),url:tab?.url||null,title:tab?.title||null};}
+-function noReceiver(error){return /Receiving end does not exist|Could not establish connection|message port closed|Extension context invalidated/i.test(String(error?.message||error||""));}
+-function contextFromState(state){return {tab_id:state?.chatgpt_tab_id,window_id:state?.chatgpt_window_id,origin:state?.chat_origin,chat_path:state?.chat_path,conversation_id:state?.conversation_id};}
+-function contextForTab(tab,identity){return {tab_id:tab?.id??null,window_id:tab?.windowId??null,origin:identity?.origin||null,chat_path:identity?.chat_path||null,conversation_id:identity?.conversation_id||null};}
+-function sameContext(expected,actual){return Core.samePinnedChatContext(expected,actual);}
+-async function getState(){const raw=await storageGet(STATE_KEY);return Core.makeState(raw[STATE_KEY]||{});}
+-async function saveState(next){const state=Core.makeState({...next,updated_at:new Date().toISOString()});await storageSet({[STATE_KEY]:state});return state;}
+-async function log(type,fields={}){const raw=await storageGet(LOG_KEY);const entries=Core.appendLog(raw[LOG_KEY],type,fields);await storageSet({[LOG_KEY]:entries});return entries[entries.length-1];}
+-async function getTab(tabId){return (await tabsQuery({})).find((tab)=>tab.id===tabId)||null;}
+-async function activate(tab,role){const updated=await tabsUpdate(tab.id,{active:true});if(!updated?.active){await log("BLOCKED_TAB_ACTIVATION",{role,tab:shortTab(updated||tab)});throw new Error(`BLOCKED_TAB_ACTIVATION:${role}`);}await log("TAB_ACTIVATED",{role,tab:shortTab(updated)});return updated;}
+-async function findInWindow(kind,windowId){const tabs=await tabsQuery({windowId});const predicate=kind==="avito"?Core.isAvitoUrl:null;return predicate?tabs.find((tab)=>predicate(tab.url))||null:null;}
+-// Exact Bridge entry rule: start only from the one active ChatGPT tab in the last-focused window.
+-async function activeChatTab(){const tabs=await tabsQuery({active:true,lastFocusedWindow:true});const tab=tabs[0];if(!tab?.id||!Core.isChatGPTUrl(tab.url||""))throw new Error("Открой нужный ChatGPT-чат в активной вкладке.");return tab;}
+-async function withEnsureLock(tabId,fn){const prior=ensureLocks.get(tabId)||Promise.resolve();let release;const gate=new Promise((resolve)=>{release=resolve;});const tail=prior.catch(()=>{}).then(()=>gate);ensureLocks.set(tabId,tail);await prior.catch(()=>{});try{return await fn();}finally{release();if(ensureLocks.get(tabId)===tail)ensureLocks.delete(tabId);}}
+-function validCapturePing(ping){return Boolean(ping?.ok&&ping.content_script_protocol===CAPTURE_PROTOCOL&&String(ping.content_script_version||"")===CAPTURE_VERSION&&Core.isConversationIdentity(ping.identity));}
+-async function pingCapture(tabId){return tabsSend(tabId,{type:"AF_CAPTURE_PING"});}
+-async function injectChatAdapter(tabId){const target=await getTab(tabId);if(!target||!Core.isChatGPTUrl(target.url))throw new Error("CONTENT_TARGET_URL_REJECTED:chatgpt");await execute({target:{tabId},files:["core.js","chatgpt_content.js"],injectImmediately:true});await log("CONTENT_SCRIPT_INJECTED",{role:"chatgpt",tab:shortTab(target),files:["core.js","chatgpt_content.js"]});}
+-async function ensureChatAdapter(tabId){return withEnsureLock(tabId,async()=>{let priorPing=null;try{priorPing=await pingCapture(tabId);if(validCapturePing(priorPing))return priorPing;}catch(error){if(!noReceiver(error))throw error;await log("CONTENT_RECEIVER_MISSING",{role:"chatgpt",tab_id:tabId,message_type:"AF_CAPTURE_PING"});}
+-await injectChatAdapter(tabId);const fresh=await pingCapture(tabId);if(!validCapturePing(fresh))throw new Error("CONTENT_ADAPTER_HANDSHAKE_FAILED");await log("CONTENT_ADAPTER_READY",{role:"chatgpt",tab_id:tabId,content_script_version:fresh.content_script_version,content_script_protocol:fresh.content_script_protocol,conversation_id:fresh.identity.conversation_id});return fresh;});}
+-async function sendChat(tabId,message){await ensureChatAdapter(tabId);return tabsSend(tabId,message);}
+-async function captureActiveChatContext(){const tab=await activeChatTab();const ping=await ensureChatAdapter(tab.id);const urlIdentity=Core.conversationIdentityFromUrl(tab.url);if(!Core.isConversationIdentity(urlIdentity)||!Core.sameConversationIdentity(urlIdentity,ping.identity))throw new Error("ACTIVE_CHAT_CONVERSATION_IDENTITY_MISMATCH");const context=contextForTab(tab,ping.identity);await log("ACTIVE_CHAT_CONTEXT_CAPTURED",{tab_id:context.tab_id,window_id:context.window_id,conversation_id:context.conversation_id,chat_path:context.chat_path});return {tab,context};}
+-async function blockConversationContext(state,reason,details={}){const next=await saveState({...state,status:"BLOCKED_CONVERSATION_CONTEXT_CHANGED",phase:"CHATGPT_CONTEXT_GUARD",blocked_reason:reason});await log("BLOCKED_CONVERSATION_CONTEXT_CHANGED",{search_id:next.search_id,reason,expected_tab_id:state.chatgpt_tab_id,expected_window_id:state.chatgpt_window_id,expected_conversation_id:state.conversation_id,...details});return next;}
+-async function assertPinnedChatContext(state,operation,{activateTab=false}={}){const expected=contextFromState(state);const tab=await getTab(expected.tab_id);if(!tab||!Core.isChatGPTUrl(tab.url)||tab.windowId!==expected.window_id){const next=await blockConversationContext(state,"PINNED_CHAT_TAB_MISSING_OR_CHANGED",{operation,actual_tab:shortTab(tab)});const error=new Error(next.blocked_reason);error.state=next;throw error;}
+-const selected=activateTab?await activate(tab,operation):tab;const ping=await ensureChatAdapter(selected.id);const actual=contextForTab(selected,ping.identity);if(!sameContext(expected,actual)){const next=await blockConversationContext(state,"PINNED_CHAT_CONVERSATION_MISMATCH",{operation,actual_tab:shortTab(selected),actual_conversation_id:actual.conversation_id,actual_chat_path:actual.chat_path});const error=new Error(next.blocked_reason);error.state=next;throw error;}
+-await log("PINNED_CHAT_CONTEXT_CONFIRMED",{search_id:state.search_id,operation,tab_id:selected.id,conversation_id:actual.conversation_id});return {tab:selected,context:actual};}
+-function isAvitoPageReady(tab,windowId){return Boolean(tab&&tab.windowId===windowId&&Core.isAvitoUrl(tab.url||"")&&tab.status==="complete");}
+-function clearAvitoReadyDeadline(searchId){const timer=avitoReadyTimers.get(searchId);if(timer)clearTimeout(timer);avitoReadyTimers.delete(searchId);}
+-function isDeadlineExpired(state){const deadline=Date.parse(String(state?.avito_ready_deadline_at||""));return Number.isFinite(deadline)&&Date.now()>=deadline;}
+-async function blockAvitoPageReady(state,reason,details={}){const latest=await getState();if(latest.search_id!==state.search_id||latest.status==="CANCELLED_BY_USER"||latest.status==="INSPECTION_COMPLETE")return latest;clearAvitoReadyDeadline(state.search_id);const next=await saveState({...latest,status:"BLOCKED_AVITO_PAGE_READY",phase:"AVITO_NAVIGATION",blocked_reason:reason});await log("AVITO_PAGE_READY_BLOCKED",{search_id:next.search_id,reason,avito_tab_id:next.avito_tab_id,...details});return next;}
+-function scheduleAvitoReadyDeadline(state){clearAvitoReadyDeadline(state.search_id);const deadline=Date.parse(state.avito_ready_deadline_at);if(!Number.isFinite(deadline))return;const delay=Math.max(0,deadline-Date.now());const timer=setTimeout(()=>{(async()=>{const current=await getState();if(current.search_id===state.search_id&&current.status==="WAITING_FOR_AVITO_PAGE_READY")await blockAvitoPageReady(current,`AVITO_PAGE_READY_TIMEOUT:${current.avito_tab_id}`,{deadline_at:current.avito_ready_deadline_at});})().catch(()=>{});},delay);avitoReadyTimers.set(state.search_id,timer);}
+-async function ensureAvitoTab(windowId){const existing=await findInWindow("avito",windowId);if(existing)return {tab:existing,created:false};const created=await tabsCreate({windowId,active:true,url:"https://www.avito.ru/"});await log("AVITO_TAB_CREATED",{tab:shortTab(created),requested_url:"https://www.avito.ru/"});return {tab:created,created:true};}
+-async function requireReadyAvitoTarget(tabId,windowId){const target=await tabsGet(tabId);if(!isAvitoPageReady(target,windowId))throw new Error(`AVITO_PAGE_NOT_READY:${tabId}`);return target;}
+-async function sendAvito(tabId,windowId,message){const ready=await requireReadyAvitoTarget(tabId,windowId);try{return await tabsSend(tabId,message);}catch(error){if(!noReceiver(error))throw error;await execute({target:{tabId},files:["core.js","avito_content.js"],injectImmediately:true});await log("CONTENT_SCRIPT_INJECTED",{role:"avito",tab:shortTab(ready),files:["core.js","avito_content.js"]});return tabsSend(tabId,message);}}
+-async function inspectAvito(tabId,windowId){const response=await sendAvito(tabId,windowId,{type:"AF_INSPECT_AVITO_DOM"});if(!response?.ok)throw new Error(`AVITO_DOM_UNAVAILABLE:${response?.error||"unknown"}`);return response.snapshot;}
+-async function continueAvitoInspection(queuedState,readyTab,source){const state=await getState();if(state.search_id!==queuedState.search_id||state.status!=="WAITING_FOR_AVITO_PAGE_READY"||state.avito_tab_id!==readyTab.id)return; if(isDeadlineExpired(state)){await blockAvitoPageReady(state,`AVITO_PAGE_READY_TIMEOUT:${readyTab.id}`,{source});return;}if(!isAvitoPageReady(readyTab,state.current_window_id))return;const activeAvito=await activate(readyTab,"avito_inspect_filters");const verifiedActiveAvito=await requireReadyAvitoTarget(activeAvito.id,state.current_window_id);const latest=await getState();if(latest.search_id!==state.search_id||latest.status!=="WAITING_FOR_AVITO_PAGE_READY")return;clearAvitoReadyDeadline(state.search_id);await log("AVITO_PAGE_READY",{search_id:state.search_id,tab:shortTab(verifiedActiveAvito),source});let inspecting=await saveState({...latest,status:"AVITO_TAB_ACTIVE",phase:"INSPECTING_FILTERS",avito_tab_id:verifiedActiveAvito.id,blocked_reason:null});const snapshot=await inspectAvito(verifiedActiveAvito.id,inspecting.current_window_id);await log("AVITO_FILTER_SURFACE_CAPTURED",{search_id:inspecting.search_id,tab_id:verifiedActiveAvito.id,created:inspecting.avito_tab_created===true,blocked_reason:snapshot.blocked_reason||null});let pinned;try{pinned=await assertPinnedChatContext(inspecting,"chatgpt_return_after_inspect",{activateTab:true});}catch(error){return;}const inspection={search_id:inspecting.search_id,mode:inspecting.command_mode||"INSPECT_FILTERS",captured_at:new Date().toISOString(),avito:snapshot,report:Core.formatInspectionReport({search_id:inspecting.search_id,avito:snapshot})};await storageSet({[INSPECTION_KEY]:inspection});inspecting=await saveState({...inspecting,status:"INSPECTION_COMPLETE",phase:"READONLY_INSPECTION_COMPLETE",report:inspection.report,blocked_reason:snapshot.blocked_reason||null});await log("READONLY_INSPECTION_COMPLETE",{search_id:inspecting.search_id,status:inspecting.status,chatgpt_tab_id:pinned.tab.id});}
+-async function queueAvitoInspection(initialState,parsed){const avito=await ensureAvitoTab(initialState.current_window_id);const deadline=new Date(Date.now()+AVITO_READY_TIMEOUT_MS).toISOString();const state=await saveState({...initialState,status:"WAITING_FOR_AVITO_PAGE_READY",phase:"AVITO_NAVIGATION",avito_tab_id:avito.tab.id,avito_tab_created:avito.created,command_mode:parsed.mode,avito_ready_deadline_at:deadline,blocked_reason:null});const current=await tabsGet(avito.tab.id);if(!current){await blockAvitoPageReady(state,`AVITO_TAB_MISSING:${avito.tab.id}`);return;}if(current.windowId!==state.current_window_id){await blockAvitoPageReady(state,`AVITO_TAB_WINDOW_MISMATCH:${avito.tab.id}`,{actual_tab:shortTab(current)});return;}if(isAvitoPageReady(current,state.current_window_id)){await continueAvitoInspection(state,current,"immediate");return;}await log("AVITO_NAVIGATION_WAIT_STARTED",{search_id:state.search_id,tab:shortTab(current),pending_url:current.pendingUrl||null,required_url_prefix:"https://www.avito.ru/",required_status:"complete",deadline_at:deadline});scheduleAvitoReadyDeadline(state);}
+-async function reconcilePendingAvitoReadiness(){const state=await getState();if(state.status!=="WAITING_FOR_AVITO_PAGE_READY"||!state.avito_tab_id)return;if(isDeadlineExpired(state)){await blockAvitoPageReady(state,`AVITO_PAGE_READY_TIMEOUT:${state.avito_tab_id}`,{source:"reconcile"});return;}const tab=await tabsGet(state.avito_tab_id);if(!tab){await blockAvitoPageReady(state,`AVITO_TAB_MISSING:${state.avito_tab_id}`,{source:"reconcile"});return;}if(tab.windowId!==state.current_window_id){await blockAvitoPageReady(state,`AVITO_TAB_WINDOW_MISMATCH:${state.avito_tab_id}`,{source:"reconcile",actual_tab:shortTab(tab)});return;}if(isAvitoPageReady(tab,state.current_window_id))await continueAvitoInspection(state,tab,"reconcile");}
+-function diagnosticFields(details={}){const allowed=["code","anchor_turn_id","assistant_turn_id","copy_mode","copy_ready","assistant_finality_confirmed","structural_signature","trace_id","anchor_mode","anchor_policy","anchor_selection","candidate_turn_id","candidate_text_fingerprint","candidate_text_length","candidate_position","baseline_user_turn_count","candidate_count","rejection_reason","event_source","payload_extracted","payload_bytes","payload_extraction_error","composer_scope","composer_anchor","embedded_editor_detected","form_path","buttons","run_id","conversation_id","chat_path","phase","expected_assistant_turn_id","expected_origin"];const result={};for(const key of allowed)if(details[key]!==undefined)result[key]=details[key];return result;}
+-async function begin(){let active;try{active=await captureActiveChatContext();}catch(error){const state=await saveState(Core.makeState({status:"ACTIVE_CHATGPT_CONTEXT_REQUIRED",phase:"CHATGPT_START",blocked_reason:String(error?.message||error),user_started:true}));await log("START_BLOCKED",{search_id:state.search_id,reason:state.blocked_reason});return {ok:false,state,error:state.blocked_reason};}
+-const searchId=Core.makeSearchId();let state=await saveState(Core.makeState({search_id:searchId,status:"STARTING_BRIDGE_EXACT_CAPTURE",phase:"CHATGPT_START",started_at:new Date().toISOString(),current_window_id:active.context.window_id,chatgpt_tab_id:active.context.tab_id,chatgpt_window_id:active.context.window_id,chat_origin:active.context.origin,chat_path:active.context.chat_path,conversation_id:active.context.conversation_id,user_started:true,inspection_only:true,report:null}));
+-await log("BRIDGE_EXACT_START_REQUESTED",{search_id:searchId,message_text:"Ищи",tab_id:active.context.tab_id,window_id:active.context.window_id,conversation_id:active.context.conversation_id,chat_path:active.context.chat_path});
+-let pinned;try{pinned=await assertPinnedChatContext(state,"chatgpt_start_command");}catch(error){return {ok:false,state:error.state||await getState(),error:String(error?.message||error)};}
+-let startResult;try{startResult=await sendChat(pinned.tab.id,{type:"AF_CAPTURE_START_AND_ANCHOR",search_id:searchId,message_text:"Ищи",wait_for_conversation_identity:true,expected_identity:pinned.context});}catch(error){const reason=String(error?.message||error);state=await saveState({...state,status:"START_CAPTURE_TRANSPORT_FAILED",phase:"CHATGPT_START",blocked_reason:reason});await log("START_CAPTURE_TRANSPORT_FAILED",{search_id:searchId,reason});return {ok:false,state,error:reason};}
+-if(!startResult?.ok||!startResult.anchor_turn_id||!Core.sameConversationIdentity(pinned.context,startResult.identity)){const reason=startResult?.error||"START_EXACT_ANCHOR_OR_CONTEXT_UNCONFIRMED";state=await saveState({...state,status:"START_CAPTURE_FAILED",phase:"CHATGPT_START",blocked_reason:reason});await log("START_CAPTURE_FAILED",{search_id:searchId,reason,code:startResult?.code||null});return {ok:false,state,error:reason};}
+-state=await saveState({...state,status:"WAITING_FOR_ASSISTANT_WRITING_BLOCK",phase:"CHATGPT_CAPTURE",anchor_turn_id:startResult.anchor_turn_id,blocked_reason:null});await log("BRIDGE_EXACT_START_SENT_AND_ANCHORED",{search_id:searchId,anchor_turn_id:startResult.anchor_turn_id,conversation_id:state.conversation_id,content_script_version:startResult.content_script_version||null});
+-const poll=await sendChat(pinned.tab.id,{type:"AF_CAPTURE_BEGIN_PROMPT_POLL",search_id:searchId,conversation_id:state.conversation_id,anchor_turn_id:startResult.anchor_turn_id,expected_identity:pinned.context});if(!poll?.ok){const reason=poll?.error||"PROMPT_POLL_START_FAILED";state=await saveState({...state,status:"PROMPT_POLL_START_FAILED",phase:"CHATGPT_CAPTURE",blocked_reason:reason});await log("PROMPT_POLL_START_FAILED",{search_id:searchId,reason});return {ok:false,state,error:reason};}
+-await log("BRIDGE_EXACT_PROMPT_POLL_STARTED",{search_id:searchId,anchor_turn_id:startResult.anchor_turn_id,conversation_id:state.conversation_id});return {ok:true,state};}
+-async function inspectAfterValidatedCommand(initialState,parsed){await queueAvitoInspection(initialState,parsed);}
+-async function handleFullText(message,sender){let state=await getState();const candidate=message.candidate&&typeof message.candidate==="object"?message.candidate:{};if(!state.search_id||candidate.run_id!==state.search_id)return {ok:true,data:{ignored:true,reason:"SEARCH_ID_MISMATCH"}};if(sender?.tab?.id!==state.chatgpt_tab_id)return {ok:true,data:{ignored:true,reason:"SENDER_TAB_MISMATCH"}};const expected=contextFromState(state);const actual={tab_id:sender?.tab?.id??null,window_id:sender?.tab?.windowId??null,origin:candidate.origin,chat_path:candidate.chat_path,conversation_id:candidate.conversation_id};if(!sameContext(expected,actual)||candidate.anchor_turn_id!==state.anchor_turn_id){const next=await blockConversationContext(state,"FULL_TEXT_CONTEXT_OR_ANCHOR_MISMATCH",{actual_conversation_id:actual.conversation_id,actual_chat_path:actual.chat_path,actual_tab:shortTab(sender?.tab)});return {ok:true,data:{ignored:true,reason:next.blocked_reason}};}
+-const text=String(candidate.prompt_text||"");await log("FULL_WRITING_BLOCK_TEXT_RECEIVED",{search_id:state.search_id,anchor_turn_id:state.anchor_turn_id,assistant_turn_id:candidate.assistant_turn_id||null,payload_bytes:Number(candidate.payload_bytes||0),payload_extracted:candidate.payload_extracted===true,text_fingerprint:Core.fingerprint(text)});state=await saveState({...state,status:"FORM_TEXT_CAPTURED_UNVALIDATED",phase:"LOCAL_EXTENSION_VALIDATION",assistant_turn_id:candidate.assistant_turn_id||null,blocked_reason:null});
+-const parsed=Core.parseCommandForm(text);await log("LOCAL_COMMAND_VALIDATION_COMPLETED",{search_id:state.search_id,valid:parsed.valid,errors:parsed.errors,mode:parsed.mode,candidate_count:parsed.candidate_count,text_fingerprint:Core.fingerprint(text)});if(!parsed.valid){await saveState({...state,status:"COMMAND_INVALID_AFTER_FULL_COPY",phase:"LOCAL_EXTENSION_VALIDATION",blocked_reason:parsed.errors.join("; "),report:`Avito Finder: полный текст writing block получен через local Copy, но локальная проверка не пройдена.\nПричины: ${parsed.errors.join("; ")}`});return {ok:true,data:{paused:true,reason:"COMMAND_INVALID_AFTER_FULL_COPY"}};}
+-if(parsed.mode!=="INSPECT_FILTERS"){await saveState({...state,status:"COMMAND_CAPTURED_SEARCH_NOT_IMPLEMENTED",phase:"COMMAND_CAPTURED",blocked_reason:"SEARCH_NOT_IMPLEMENTED",report:"Команда SEARCH получена после local Copy. Этап 5 ТЗ ещё не реализован; Avito не изменялся."});return {ok:true,data:{paused:true,reason:"SEARCH_NOT_IMPLEMENTED"}};}
+-state=await saveState({...state,status:"COMMAND_CAPTURED",phase:"COMMAND_CAPTURED",blocked_reason:null});inspectAfterValidatedCommand(state,parsed).catch(async(error)=>{const reason=String(error?.message||error);const latest=await getState();if(latest.search_id!==state.search_id||latest.status==="CANCELLED_BY_USER")return;const pageReadyFailure=/^AVITO_(?:PAGE_READY_TIMEOUT|PAGE_READY_CANCELLED|PAGE_NOT_READY|TAB_MISSING|TAB_CLOSED|TAB_WINDOW_MISMATCH|TAB_READ_FAILED)/.test(reason);await saveState({...latest,status:pageReadyFailure?"BLOCKED_AVITO_PAGE_READY":"FAILED_WITH_EVIDENCE",phase:"INSPECTING_FILTERS",blocked_reason:reason});await log(pageReadyFailure?"AVITO_PAGE_READY_BLOCKED":"READONLY_INSPECTION_BLOCKED",{search_id:state.search_id,reason});});return {ok:true,data:{accepted:true}};}
+-async function stop(){const old=await getState();clearAvitoReadyDeadline(old.search_id);if(old.chatgpt_tab_id&&old.conversation_id){try{const pinned=await assertPinnedChatContext(old,"chatgpt_stop");await sendChat(pinned.tab.id,{type:"AF_CAPTURE_STOP",expected_identity:pinned.context});}catch(error){await log("CAPTURE_STOP_CONTEXT_BLOCKED",{search_id:old.search_id,reason:String(error?.message||error)});}}const state=await saveState({...old,status:"CANCELLED_BY_USER",phase:"STOPPED",blocked_reason:"CANCELLED_BY_USER",user_started:false});await log("STOPPED_BY_USER",{search_id:state.search_id});return state;}
+-async function view(){await reconcilePendingAvitoReadiness();const raw=await storageGet([STATE_KEY,LOG_KEY,INSPECTION_KEY]);return {ok:true,state:Core.makeState(raw[STATE_KEY]||{}),logs:raw[LOG_KEY]||[],inspection:raw[INSPECTION_KEY]||null};}
+-async function contextBlockedFromContent(message,sender){const state=await getState();if(!state.search_id||message.search_id!==state.search_id||sender?.tab?.id!==state.chatgpt_tab_id)return {ok:true,data:{ignored:true}};const next=await blockConversationContext(state,message.reason||"CONTENT_CONTEXT_CHANGED",{actual_conversation_id:message.actual_identity?.conversation_id||null,actual_chat_path:message.actual_identity?.chat_path||null,actual_tab:shortTab(sender?.tab)});return {ok:true,data:{blocked:true,state:next}};}
+-chrome.runtime.onInstalled.addListener(async()=>{const current=await getState();await saveState(current);await log("EXTENSION_INSTALLED_OR_UPDATED",{version:chrome.runtime.getManifest().version});});
+-chrome.tabs.onUpdated.addListener((tabId,changeInfo,tab)=>{if(changeInfo.status!=="complete"&&!changeInfo.url)return;reconcilePendingAvitoReadiness().catch(async(error)=>{const state=await getState();if(state.status==="WAITING_FOR_AVITO_PAGE_READY")await blockAvitoPageReady(state,`AVITO_READY_EVENT_FAILED:${String(error?.message||error)}`,{tab_id:tabId});});});
+-chrome.tabs.onRemoved.addListener((tabId)=>{(async()=>{const state=await getState();if(state.status==="WAITING_FOR_AVITO_PAGE_READY"&&state.avito_tab_id===tabId)await blockAvitoPageReady(state,`AVITO_TAB_CLOSED:${tabId}`,{source:"tabs.onRemoved"});})().catch(()=>{});});
+-chrome.runtime.onMessage.addListener((message,sender,sendResponse)=>{(async()=>{try{switch(message?.type){case "AF_START":sendResponse(await begin());return;case "AF_STOP":sendResponse({ok:true,state:await stop()});return;case "AF_GET_VIEW":sendResponse(await view());return;case "AF_CAPTURE_PING":sendResponse({ok:false,error:"PING_IS_CONTENT_ONLY"});return;case "AF_CAPTURE_GET_SEND_PROFILE":sendResponse({ok:true,data:null});return;case "AF_CAPTURE_DIAGNOSTIC":await log(`CAPTURE_${message.details?.code||"DIAGNOSTIC"}`,diagnosticFields(message.details));sendResponse({ok:true,data:{recorded:true}});return;case "AF_CAPTURE_ACTIVITY":await log("CAPTURE_ACTIVITY",diagnosticFields(message));sendResponse({ok:true,data:{recorded:true}});return;case "AF_CAPTURE_CONTEXT_BLOCKED":sendResponse(await contextBlockedFromContent(message,sender));return;case "AF_CAPTURE_FULL_TEXT":sendResponse(await handleFullText(message,sender));return;default:sendResponse({ok:false,error:"UNKNOWN_MESSAGE"});return;}}catch(error){sendResponse({ok:false,error:String(error?.message||error)});}})();return true;});
++const Core = AvitoFinderCore;
++const STATE_KEY = Core.STORAGE.state;
++const LOG_KEY = Core.STORAGE.logs;
++const INSPECTION_KEY = Core.STORAGE.lastInspection;
++const CAPTURE_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
++const CAPTURE_VERSION = "0.5.0";
++const AVITO_READY_TIMEOUT_MS = 30000;
++const avitoReadyTimers = new Map();
++const ensureLocks = new Map();
++
++function cb(invoke) { return new Promise((resolve, reject) => invoke((value) => { const error = chrome.runtime.lastError; if (error) reject(new Error(error.message)); else resolve(value); })); }
++const storageGet = (keys) => cb((done) => chrome.storage.local.get(keys, done));
++const storageSet = (values) => cb((done) => chrome.storage.local.set(values, done));
++const tabsQuery = (query) => cb((done) => chrome.tabs.query(query, done));
++const tabsGet = (tabId) => cb((done) => chrome.tabs.get(tabId, done));
++const tabsUpdate = (tabId, props) => cb((done) => chrome.tabs.update(tabId, props, done));
++const tabsCreate = (props) => cb((done) => chrome.tabs.create(props, done));
++const tabsSend = (tabId, message) => cb((done) => chrome.tabs.sendMessage(tabId, message, done));
++const execute = (details) => cb((done) => chrome.scripting.executeScript(details, done));
++
++function shortTab(tab) { return { id: tab?.id ?? null, windowId: tab?.windowId ?? null, active: Boolean(tab?.active), url: tab?.url || null, title: tab?.title || null, status: tab?.status || null }; }
++function noReceiver(error) { return /Receiving end does not exist|Could not establish connection|message port closed|Extension context invalidated/i.test(String(error?.message || error || "")); }
++function contextFromState(state) { return { tab_id: state?.chatgpt_tab_id, window_id: state?.chatgpt_window_id, origin: state?.chat_origin, chat_path: state?.chat_path, conversation_id: state?.conversation_id }; }
++function contextForTab(tab, identity) { return { tab_id: tab?.id ?? null, window_id: tab?.windowId ?? null, origin: identity?.origin || null, chat_path: identity?.chat_path || null, conversation_id: identity?.conversation_id || null }; }
++
++async function getState() { const raw = await storageGet(STATE_KEY); return Core.makeState(raw[STATE_KEY] || {}); }
++async function saveState(next) { const state = Core.makeState({ ...next, updated_at: new Date().toISOString() }); await storageSet({ [STATE_KEY]: state }); return state; }
++async function log(type, fields = {}) { const raw = await storageGet(LOG_KEY); const entries = Core.appendLog(raw[LOG_KEY], type, fields); await storageSet({ [LOG_KEY]: entries }); return entries.at(-1); }
++async function getTab(tabId) { try { return await tabsGet(tabId); } catch (_) { return null; } }
++async function activate(tab, role) {
++  const updated = await tabsUpdate(tab.id, { active: true });
++  if (!updated?.active) { await log("BLOCKED_TAB_ACTIVATION", { role, tab: shortTab(updated || tab) }); throw new Error(`BLOCKED_TAB_ACTIVATION:${role}`); }
++  await log("TAB_ACTIVATED", { role, tab: shortTab(updated) });
++  return updated;
++}
++
++async function activeChatTab() {
++  const tabs = await tabsQuery({ active: true, lastFocusedWindow: true });
++  const tab = tabs[0];
++  if (!tab?.id || !Core.isChatGPTUrl(tab.url || "")) throw new Error("Открой нужный ChatGPT-чат в активной вкладке.");
++  return tab;
++}
++async function withEnsureLock(tabId, fn) {
++  const prior = ensureLocks.get(tabId) || Promise.resolve(); let release;
++  const gate = new Promise((resolve) => { release = resolve; });
++  const tail = prior.catch(() => {}).then(() => gate); ensureLocks.set(tabId, tail);
++  await prior.catch(() => {});
++  try { return await fn(); } finally { release(); if (ensureLocks.get(tabId) === tail) ensureLocks.delete(tabId); }
++}
++function validCapturePing(ping) {
++  return Boolean(ping?.ok && ping.content_script_protocol === CAPTURE_PROTOCOL && String(ping.content_script_version || "") === CAPTURE_VERSION && Core.isConversationIdentity(ping.identity));
++}
++async function pingCapture(tabId) { return tabsSend(tabId, { type: "AF_CAPTURE_PING" }); }
++async function injectChatAdapter(tabId) {
++  const target = await getTab(tabId);
++  if (!target || !Core.isChatGPTUrl(target.url)) throw new Error("CONTENT_TARGET_URL_REJECTED:chatgpt");
++  await execute({ target: { tabId }, files: ["core.js", "chatgpt_content.js"], injectImmediately: true });
++  await log("CONTENT_SCRIPT_INJECTED", { role: "chatgpt", tab: shortTab(target), files: ["core.js", "chatgpt_content.js"] });
++}
++async function ensureChatAdapter(tabId) {
++  return withEnsureLock(tabId, async () => {
++    try { const ping = await pingCapture(tabId); if (validCapturePing(ping)) return ping; } catch (error) {
++      if (!noReceiver(error)) throw error;
++      await log("CONTENT_RECEIVER_MISSING", { role: "chatgpt", tab_id: tabId, message_type: "AF_CAPTURE_PING" });
++    }
++    await injectChatAdapter(tabId);
++    const fresh = await pingCapture(tabId);
++    if (!validCapturePing(fresh)) throw new Error("CONTENT_ADAPTER_HANDSHAKE_FAILED");
++    await log("CONTENT_ADAPTER_READY", { role: "chatgpt", tab_id: tabId, content_script_version: fresh.content_script_version, content_script_protocol: fresh.content_script_protocol, conversation_id: fresh.identity.conversation_id });
++    return fresh;
++  });
++}
++async function sendChat(tabId, message) { await ensureChatAdapter(tabId); return tabsSend(tabId, message); }
++async function captureActiveChatContext() {
++  const tab = await activeChatTab(); const ping = await ensureChatAdapter(tab.id);
++  const urlIdentity = Core.conversationIdentityFromUrl(tab.url);
++  if (!Core.isConversationIdentity(urlIdentity) || !Core.sameConversationIdentity(urlIdentity, ping.identity)) throw new Error("ACTIVE_CHAT_CONVERSATION_IDENTITY_MISMATCH");
++  const context = contextForTab(tab, ping.identity);
++  await log("ACTIVE_CHAT_CONTEXT_CAPTURED", { tab_id: context.tab_id, window_id: context.window_id, conversation_id: context.conversation_id, chat_path: context.chat_path });
++  return { tab, context };
++}
++async function blockConversationContext(state, reason, details = {}) {
++  const next = await saveState({ ...state, status: "BLOCKED_CONVERSATION_CONTEXT_CHANGED", phase: "CHATGPT_CONTEXT_GUARD", blocked_reason: reason });
++  await log("BLOCKED_CONVERSATION_CONTEXT_CHANGED", { search_id: next.search_id, reason, expected_tab_id: state.chatgpt_tab_id, expected_window_id: state.chatgpt_window_id, expected_conversation_id: state.conversation_id, ...details });
++  return next;
++}
++async function assertPinnedChatContext(state, operation, options = {}) {
++  const expected = contextFromState(state); const tab = await getTab(expected.tab_id);
++  if (!tab || !Core.isChatGPTUrl(tab.url) || tab.windowId !== expected.window_id) {
++    const next = await blockConversationContext(state, "PINNED_CHAT_TAB_MISSING_OR_CHANGED", { operation, actual_tab: shortTab(tab) }); const error = new Error(next.blocked_reason); error.state = next; throw error;
++  }
++  const selected = options.activateTab ? await activate(tab, operation) : tab;
++  const ping = await ensureChatAdapter(selected.id); const actual = contextForTab(selected, ping.identity);
++  if (!Core.samePinnedChatContext(expected, actual)) {
++    const next = await blockConversationContext(state, "PINNED_CHAT_CONVERSATION_MISMATCH", { operation, actual_tab: shortTab(selected), actual_conversation_id: actual.conversation_id, actual_chat_path: actual.chat_path }); const error = new Error(next.blocked_reason); error.state = next; throw error;
++  }
++  await log("PINNED_CHAT_CONTEXT_CONFIRMED", { search_id: state.search_id, operation, tab_id: selected.id, conversation_id: actual.conversation_id });
++  return { tab: selected, context: actual };
++}
++
++function isAvitoPageReady(tab, windowId) { return Boolean(tab && tab.windowId === windowId && Core.isAvitoUrl(tab.url || "") && tab.status === "complete"); }
++function clearAvitoReadyDeadline(searchId) { const timer = avitoReadyTimers.get(searchId); if (timer) clearTimeout(timer); avitoReadyTimers.delete(searchId); }
++function deadlineExpired(state) { const deadline = Date.parse(String(state?.avito_ready_deadline_at || "")); return Number.isFinite(deadline) && Date.now() >= deadline; }
++async function blockAvitoPageReady(state, reason, details = {}) {
++  const latest = await getState();
++  if (latest.search_id !== state.search_id || ["CANCELLED_BY_USER", "REPORT_SENT_CONFIRMED"].includes(latest.status)) return latest;
++  clearAvitoReadyDeadline(state.search_id);
++  const next = await saveState({ ...latest, status: "BLOCKED_AVITO_PAGE_READY", phase: "AVITO_NAVIGATION", blocked_reason: reason });
++  await log("AVITO_PAGE_READY_BLOCKED", { search_id: next.search_id, reason, avito_tab_id: next.avito_tab_id, ...details });
++  return next;
++}
++function scheduleAvitoReadyDeadline(state) {
++  clearAvitoReadyDeadline(state.search_id); const deadline = Date.parse(state.avito_ready_deadline_at); if (!Number.isFinite(deadline)) return;
++  const timer = setTimeout(() => { (async () => { const current = await getState(); if (current.search_id === state.search_id && current.status === "WAITING_FOR_AVITO_PAGE_READY") await blockAvitoPageReady(current, `AVITO_PAGE_READY_TIMEOUT:${current.avito_tab_id}`, { deadline_at: current.avito_ready_deadline_at }); })().catch(() => {}); }, Math.max(0, deadline - Date.now()));
++  avitoReadyTimers.set(state.search_id, timer);
++}
++async function findAvitoTabInWindow(windowId) {
++  const tabs = await tabsQuery({ windowId });
++  return tabs.find((tab) => tab.active && Core.isAvitoUrl(tab.url || "")) || tabs.find((tab) => Core.isAvitoUrl(tab.url || "")) || null;
++}
++async function ensureAvitoTarget(windowId, requestedUrl, purpose) {
++  const existing = await findAvitoTabInWindow(windowId);
++  if (existing) {
++    if (existing.url !== requestedUrl) {
++      const updated = await tabsUpdate(existing.id, { url: requestedUrl, active: true });
++      await log("AVITO_DIAGNOSTIC_NAVIGATION_REQUESTED", { purpose, tab_id: existing.id, requested_url: requestedUrl, previous_url: existing.url || null });
++      return { tab: updated, created: false, navigated: true };
++    }
++    return { tab: await activate(existing, purpose), created: false, navigated: false };
++  }
++  const created = await tabsCreate({ windowId, active: true, url: requestedUrl });
++  await log("AVITO_TAB_CREATED", { purpose, tab: shortTab(created), requested_url: requestedUrl });
++  return { tab: created, created: true, navigated: true };
++}
++async function requireReadyAvitoTarget(tabId, windowId) {
++  const target = await getTab(tabId); if (!isAvitoPageReady(target, windowId)) throw new Error(`AVITO_PAGE_NOT_READY:${tabId}`); return target;
++}
++async function sendAvito(tabId, windowId, message) {
++  const ready = await requireReadyAvitoTarget(tabId, windowId);
++  try { return await tabsSend(tabId, message); } catch (error) {
++    if (!noReceiver(error)) throw error;
++    await execute({ target: { tabId }, files: ["core.js", "avito_content.js"], injectImmediately: true });
++    await log("CONTENT_SCRIPT_INJECTED", { role: "avito", tab: shortTab(ready), files: ["core.js", "avito_content.js"] });
++    return tabsSend(tabId, message);
++  }
++}
++async function inspectAvito(tabId, windowId) { const response = await sendAvito(tabId, windowId, { type: "AF_INSPECT_AVITO_DOM" }); if (!response?.ok) throw new Error(`AVITO_DOM_UNAVAILABLE:${response?.error || "unknown"}`); return response.snapshot; }
++async function diagnoseAvito(tabId, windowId, request) { const response = await sendAvito(tabId, windowId, { type: "AF_DIAGNOSE_AVITO_DOM", request }); if (!response?.ok) throw new Error(`AVITO_DIAGNOSTIC_UNAVAILABLE:${response?.error || "unknown"}`); return response.snapshot; }
++
++async function deliverReportToPinnedChat(state, report, reportKind) {
++  const latest = await getState();
++  if (latest.search_id !== state.search_id || latest.status === "CANCELLED_BY_USER") return latest;
++  const deliveryId = latest.report_delivery_id || `${latest.search_id}:${reportKind}`;
++  const staged = await saveState({ ...latest, status: "REPORT_DELIVERY_IN_PROGRESS", phase: "CHATGPT_REPORT_DELIVERY", report, report_delivery_id: deliveryId, blocked_reason: null });
++  let pinned;
++  try { pinned = await assertPinnedChatContext(staged, `chatgpt_return_after_${reportKind}`, { activateTab: true }); } catch (_) { return await getState(); }
++  await log("REPORT_DELIVERY_REQUESTED", { search_id: staged.search_id, report_kind: reportKind, tab_id: pinned.tab.id, report_fingerprint: Core.fingerprint(report) });
++  let response;
++  try {
++    response = await sendChat(pinned.tab.id, { type: "AF_CAPTURE_SEND_REPORT", search_id: staged.search_id, delivery_id: deliveryId, report_text: report, expected_identity: pinned.context });
++  } catch (error) { response = { ok: false, error: String(error?.message || error), code: "REPORT_TRANSPORT_FAILED" }; }
++  if (!response?.ok || !Core.sameConversationIdentity(pinned.context, response.identity)) {
++    const reason = response?.error || "REPORT_DELIVERY_CONTEXT_UNCONFIRMED";
++    const pause = /PRIMARY_COMPOSER_OCCUPIED|composer.*другой|неотправленный текст/i.test(reason);
++    const current = await getState();
++    const next = await saveState({ ...current, status: pause ? "PAUSED_USER_COMPOSER_OCCUPIED" : "REPORT_DELIVERY_BLOCKED", phase: "CHATGPT_REPORT_DELIVERY", blocked_reason: reason, report, report_delivery_id: deliveryId });
++    await log(pause ? "REPORT_DELIVERY_PAUSED_USER_COMPOSER_OCCUPIED" : "REPORT_DELIVERY_BLOCKED", { search_id: next.search_id, report_kind: reportKind, reason });
++    return next;
++  }
++  const final = await saveState({ ...staged, status: "REPORT_SENT_CONFIRMED", phase: reportKind === "diagnostic" ? "DIAGNOSTIC_COMPLETE" : "READONLY_INSPECTION_COMPLETE", report, blocked_reason: null });
++  await log("REPORT_SENT_CONFIRMED", { search_id: final.search_id, report_kind: reportKind, user_turn_id: response.anchor_turn_id || null, chatgpt_tab_id: pinned.tab.id });
++  return final;
++}
++
++async function completeAvitoTask(queuedState, readyTab, source) {
++  const state = await getState();
++  if (state.search_id !== queuedState.search_id || state.status !== "WAITING_FOR_AVITO_PAGE_READY" || state.avito_tab_id !== readyTab.id) return;
++  if (deadlineExpired(state)) { await blockAvitoPageReady(state, `AVITO_PAGE_READY_TIMEOUT:${readyTab.id}`, { source }); return; }
++  if (!isAvitoPageReady(readyTab, state.current_window_id)) return;
++  const role = state.command_mode === "DIAGNOSE_DOM" ? "avito_diagnose_dom" : "avito_inspect_filters";
++  const activeAvito = await activate(readyTab, role); const verified = await requireReadyAvitoTarget(activeAvito.id, state.current_window_id);
++  const latest = await getState(); if (latest.search_id !== state.search_id || latest.status !== "WAITING_FOR_AVITO_PAGE_READY") return;
++  clearAvitoReadyDeadline(state.search_id);
++  await log("AVITO_PAGE_READY", { search_id: state.search_id, tab: shortTab(verified), source, mode: state.command_mode });
++  const working = await saveState({ ...latest, status: "AVITO_TAB_ACTIVE", phase: state.command_mode === "DIAGNOSE_DOM" ? "DIAGNOSING_DOM" : "INSPECTING_FILTERS", avito_tab_id: verified.id, blocked_reason: null });
++  if (working.command_mode === "DIAGNOSE_DOM") {
++    const snapshot = await diagnoseAvito(verified.id, working.current_window_id, working.diagnostic_request);
++    await log("AVITO_DOM_SNAPSHOT_CAPTURED", { search_id: working.search_id, tab_id: verified.id, scope: working.diagnostic_request?.scope || null, root_description: snapshot.root_description || null, blocked_reason: snapshot.blocked_reason || null, snapshot_fingerprint: snapshot.snapshot_fingerprint || null, truncated: snapshot.truncated === true });
++    const diagnostic = { search_id: working.search_id, mode: "DIAGNOSE_DOM", captured_at: new Date().toISOString(), avito: snapshot };
++    const report = Core.formatDiagnosticReport(diagnostic);
++    await storageSet({ [INSPECTION_KEY]: diagnostic });
++    const readyForReport = await saveState({ ...working, status: "REPORT_READY_FOR_DELIVERY", phase: "DIAGNOSTIC_REPORT_READY", report, blocked_reason: snapshot.blocked_reason || null });
++    await log("DIAGNOSTIC_REPORT_READY", { search_id: readyForReport.search_id, report_fingerprint: Core.fingerprint(report), scope: working.diagnostic_request?.scope || null });
++    await deliverReportToPinnedChat(readyForReport, report, "diagnostic");
++    return;
++  }
++  const snapshot = await inspectAvito(verified.id, working.current_window_id);
++  await log("AVITO_FILTER_SURFACE_CAPTURED", { search_id: working.search_id, tab_id: verified.id, blocked_reason: snapshot.blocked_reason || null });
++  const inspection = { search_id: working.search_id, mode: working.command_mode, captured_at: new Date().toISOString(), avito: snapshot };
++  const report = Core.formatInspectionReport(inspection);
++  await storageSet({ [INSPECTION_KEY]: inspection });
++  const readyForReport = await saveState({ ...working, status: "REPORT_READY_FOR_DELIVERY", phase: "INSPECTION_REPORT_READY", report, blocked_reason: snapshot.blocked_reason || null });
++  await log("READONLY_INSPECTION_REPORT_READY", { search_id: readyForReport.search_id, report_fingerprint: Core.fingerprint(report) });
++  await deliverReportToPinnedChat(readyForReport, report, "inspection");
++}
++async function queueAvitoTask(initialState, parsed) {
++  const request = parsed.mode === "DIAGNOSE_DOM" ? parsed.diagnostic : null;
++  const requestedUrl = request?.page_url || "https://www.avito.ru/";
++  const purpose = parsed.mode === "DIAGNOSE_DOM" ? "avito_diagnose_dom" : "avito_inspect_filters";
++  const avito = await ensureAvitoTarget(initialState.current_window_id, requestedUrl, purpose);
++  const deadline = new Date(Date.now() + AVITO_READY_TIMEOUT_MS).toISOString();
++  const state = await saveState({ ...initialState, status: "WAITING_FOR_AVITO_PAGE_READY", phase: "AVITO_NAVIGATION", avito_tab_id: avito.tab.id, avito_tab_created: avito.created, command_mode: parsed.mode, diagnostic_request: request, avito_ready_deadline_at: deadline, blocked_reason: null });
++  const current = await getTab(avito.tab.id);
++  if (!current) { await blockAvitoPageReady(state, `AVITO_TAB_MISSING:${avito.tab.id}`); return; }
++  if (current.windowId !== state.current_window_id) { await blockAvitoPageReady(state, `AVITO_TAB_WINDOW_MISMATCH:${avito.tab.id}`, { actual_tab: shortTab(current) }); return; }
++  if (isAvitoPageReady(current, state.current_window_id)) { await completeAvitoTask(state, current, "immediate"); return; }
++  await log("AVITO_NAVIGATION_WAIT_STARTED", { search_id: state.search_id, tab: shortTab(current), requested_url: requestedUrl, required_url_prefix: "https://www.avito.ru/", required_status: "complete", deadline_at: deadline, mode: parsed.mode });
++  scheduleAvitoReadyDeadline(state);
++}
++async function reconcilePendingAvitoReadiness() {
++  const state = await getState(); if (state.status !== "WAITING_FOR_AVITO_PAGE_READY" || !state.avito_tab_id) return;
++  if (deadlineExpired(state)) { await blockAvitoPageReady(state, `AVITO_PAGE_READY_TIMEOUT:${state.avito_tab_id}`, { source: "reconcile" }); return; }
++  const tab = await getTab(state.avito_tab_id);
++  if (!tab) { await blockAvitoPageReady(state, `AVITO_TAB_MISSING:${state.avito_tab_id}`, { source: "reconcile" }); return; }
++  if (tab.windowId !== state.current_window_id) { await blockAvitoPageReady(state, `AVITO_TAB_WINDOW_MISMATCH:${state.avito_tab_id}`, { source: "reconcile", actual_tab: shortTab(tab) }); return; }
++  if (isAvitoPageReady(tab, state.current_window_id)) await completeAvitoTask(state, tab, "reconcile");
++}
++
++function diagnosticFields(details = {}) {
++  const allowed = ["code", "anchor_turn_id", "assistant_turn_id", "copy_mode", "copy_ready", "assistant_finality_confirmed", "structural_signature", "trace_id", "anchor_mode", "anchor_policy", "anchor_selection", "candidate_turn_id", "candidate_text_fingerprint", "candidate_text_length", "candidate_position", "baseline_user_turn_count", "candidate_count", "rejection_reason", "event_source", "payload_extracted", "payload_bytes", "payload_extraction_error", "composer_scope", "composer_anchor", "embedded_editor_detected", "form_path", "buttons", "run_id", "conversation_id", "chat_path", "phase", "expected_assistant_turn_id", "expected_origin"];
++  const result = {}; for (const key of allowed) if (details[key] !== undefined) result[key] = details[key]; return result;
++}
++async function begin() {
++  let active;
++  try { active = await captureActiveChatContext(); } catch (error) {
++    const state = await saveState(Core.makeState({ status: "ACTIVE_CHATGPT_CONTEXT_REQUIRED", phase: "CHATGPT_START", blocked_reason: String(error?.message || error), user_started: true })); await log("START_BLOCKED", { search_id: state.search_id, reason: state.blocked_reason }); return { ok: false, state, error: state.blocked_reason };
++  }
++  const searchId = Core.makeSearchId(); let state = await saveState(Core.makeState({ search_id: searchId, status: "STARTING_BRIDGE_EXACT_CAPTURE", phase: "CHATGPT_START", started_at: new Date().toISOString(), current_window_id: active.context.window_id, chatgpt_tab_id: active.context.tab_id, chatgpt_window_id: active.context.window_id, chat_origin: active.context.origin, chat_path: active.context.chat_path, conversation_id: active.context.conversation_id, user_started: true, inspection_only: true, report: null }));
++  await log("BRIDGE_EXACT_START_REQUESTED", { search_id: searchId, message_text: "Ищи", tab_id: active.context.tab_id, window_id: active.context.window_id, conversation_id: active.context.conversation_id, chat_path: active.context.chat_path });
++  let pinned; try { pinned = await assertPinnedChatContext(state, "chatgpt_start_command"); } catch (error) { return { ok: false, state: error.state || await getState(), error: String(error?.message || error) }; }
++  let startResult;
++  try { startResult = await sendChat(pinned.tab.id, { type: "AF_CAPTURE_START_AND_ANCHOR", search_id: searchId, message_text: "Ищи", wait_for_conversation_identity: true, expected_identity: pinned.context }); } catch (error) {
++    const reason = String(error?.message || error); state = await saveState({ ...state, status: "START_CAPTURE_TRANSPORT_FAILED", phase: "CHATGPT_START", blocked_reason: reason }); await log("START_CAPTURE_TRANSPORT_FAILED", { search_id: searchId, reason }); return { ok: false, state, error: reason };
++  }
++  if (!startResult?.ok || !startResult.anchor_turn_id || !Core.sameConversationIdentity(pinned.context, startResult.identity)) {
++    const reason = startResult?.error || "START_EXACT_ANCHOR_OR_CONTEXT_UNCONFIRMED"; state = await saveState({ ...state, status: "START_CAPTURE_FAILED", phase: "CHATGPT_START", blocked_reason: reason }); await log("START_CAPTURE_FAILED", { search_id: searchId, reason, code: startResult?.code || null }); return { ok: false, state, error: reason };
++  }
++  state = await saveState({ ...state, status: "WAITING_FOR_ASSISTANT_WRITING_BLOCK", phase: "CHATGPT_CAPTURE", anchor_turn_id: startResult.anchor_turn_id, blocked_reason: null }); await log("BRIDGE_EXACT_START_SENT_AND_ANCHORED", { search_id: searchId, anchor_turn_id: startResult.anchor_turn_id, conversation_id: state.conversation_id, content_script_version: startResult.content_script_version || null });
++  const poll = await sendChat(pinned.tab.id, { type: "AF_CAPTURE_BEGIN_PROMPT_POLL", search_id: searchId, conversation_id: state.conversation_id, anchor_turn_id: startResult.anchor_turn_id, expected_identity: pinned.context });
++  if (!poll?.ok) { const reason = poll?.error || "PROMPT_POLL_START_FAILED"; state = await saveState({ ...state, status: "PROMPT_POLL_START_FAILED", phase: "CHATGPT_CAPTURE", blocked_reason: reason }); await log("PROMPT_POLL_START_FAILED", { search_id: searchId, reason }); return { ok: false, state, error: reason }; }
++  await log("BRIDGE_EXACT_PROMPT_POLL_STARTED", { search_id: searchId, anchor_turn_id: startResult.anchor_turn_id, conversation_id: state.conversation_id }); return { ok: true, state };
++}
++async function handleFullText(message, sender) {
++  let state = await getState(); const candidate = message.candidate && typeof message.candidate === "object" ? message.candidate : {};
++  if (!state.search_id || candidate.run_id !== state.search_id) return { ok: true, data: { ignored: true, reason: "SEARCH_ID_MISMATCH" } };
++  if (sender?.tab?.id !== state.chatgpt_tab_id) return { ok: true, data: { ignored: true, reason: "SENDER_TAB_MISMATCH" } };
++  const expected = contextFromState(state); const actual = { tab_id: sender?.tab?.id ?? null, window_id: sender?.tab?.windowId ?? null, origin: candidate.origin, chat_path: candidate.chat_path, conversation_id: candidate.conversation_id };
++  if (!Core.samePinnedChatContext(expected, actual) || candidate.anchor_turn_id !== state.anchor_turn_id) { const next = await blockConversationContext(state, "FULL_TEXT_CONTEXT_OR_ANCHOR_MISMATCH", { actual_conversation_id: actual.conversation_id, actual_chat_path: actual.chat_path, actual_tab: shortTab(sender?.tab) }); return { ok: true, data: { ignored: true, reason: next.blocked_reason } }; }
++  const text = String(candidate.prompt_text || ""); await log("FULL_WRITING_BLOCK_TEXT_RECEIVED", { search_id: state.search_id, anchor_turn_id: state.anchor_turn_id, assistant_turn_id: candidate.assistant_turn_id || null, payload_bytes: Number(candidate.payload_bytes || 0), payload_extracted: candidate.payload_extracted === true, text_fingerprint: Core.fingerprint(text) });
++  state = await saveState({ ...state, status: "FORM_TEXT_CAPTURED_UNVALIDATED", phase: "LOCAL_EXTENSION_VALIDATION", assistant_turn_id: candidate.assistant_turn_id || null, blocked_reason: null });
++  const parsed = Core.parseCommandForm(text); await log("LOCAL_COMMAND_VALIDATION_COMPLETED", { search_id: state.search_id, valid: parsed.valid, errors: parsed.errors, mode: parsed.mode, candidate_count: parsed.candidate_count, text_fingerprint: Core.fingerprint(text) });
++  if (!parsed.valid) { await saveState({ ...state, status: "COMMAND_INVALID_AFTER_FULL_COPY", phase: "LOCAL_EXTENSION_VALIDATION", blocked_reason: parsed.errors.join("; "), report: `Avito Finder: полный текст writing block получен через local Copy, но локальная проверка не пройдена.\nПричины: ${parsed.errors.join("; ")}` }); return { ok: true, data: { paused: true, reason: "COMMAND_INVALID_AFTER_FULL_COPY" } }; }
++  if (parsed.mode === "SEARCH") { await saveState({ ...state, status: "COMMAND_CAPTURED_SEARCH_NOT_IMPLEMENTED", phase: "COMMAND_CAPTURED", blocked_reason: "SEARCH_NOT_IMPLEMENTED", report: "Команда SEARCH получена после local Copy. Этап 5 ТЗ ещё не реализован; Avito не изменялся." }); return { ok: true, data: { paused: true, reason: "SEARCH_NOT_IMPLEMENTED" } }; }
++  state = await saveState({ ...state, status: "COMMAND_CAPTURED", phase: "COMMAND_CAPTURED", command_mode: parsed.mode, diagnostic_request: parsed.diagnostic || null, blocked_reason: null });
++  queueAvitoTask(state, parsed).catch(async (error) => { const reason = String(error?.message || error); const latest = await getState(); if (latest.search_id !== state.search_id || latest.status === "CANCELLED_BY_USER") return; const pageReadyFailure = /^AVITO_(?:PAGE_READY_TIMEOUT|PAGE_NOT_READY|TAB_MISSING|TAB_CLOSED|TAB_WINDOW_MISMATCH|TAB_READ_FAILED)/.test(reason); await saveState({ ...latest, status: pageReadyFailure ? "BLOCKED_AVITO_PAGE_READY" : "FAILED_WITH_EVIDENCE", phase: latest.phase || "AVITO_TASK", blocked_reason: reason }); await log(pageReadyFailure ? "AVITO_PAGE_READY_BLOCKED" : "AVITO_TASK_BLOCKED", { search_id: state.search_id, reason }); });
++  return { ok: true, data: { accepted: true } };
++}
++async function continueReport() {
++  const state = await getState();
++  if (!["PAUSED_USER_COMPOSER_OCCUPIED", "REPORT_DELIVERY_BLOCKED"].includes(state.status) || !state.report) return { ok: false, error: "NO_PENDING_REPORT" };
++  const result = await deliverReportToPinnedChat(state, state.report, state.command_mode === "DIAGNOSE_DOM" ? "diagnostic" : "inspection");
++  return { ok: true, state: result };
++}
++async function stop() {
++  const old = await getState(); clearAvitoReadyDeadline(old.search_id);
++  if (old.chatgpt_tab_id && old.conversation_id) { try { const pinned = await assertPinnedChatContext(old, "chatgpt_stop"); await sendChat(pinned.tab.id, { type: "AF_CAPTURE_STOP", expected_identity: pinned.context }); } catch (error) { await log("CAPTURE_STOP_CONTEXT_BLOCKED", { search_id: old.search_id, reason: String(error?.message || error) }); } }
++  const state = await saveState({ ...old, status: "CANCELLED_BY_USER", phase: "STOPPED", blocked_reason: "CANCELLED_BY_USER", user_started: false }); await log("STOPPED_BY_USER", { search_id: state.search_id }); return state;
++}
++async function view() { await reconcilePendingAvitoReadiness(); const raw = await storageGet([STATE_KEY, LOG_KEY, INSPECTION_KEY]); return { ok: true, state: Core.makeState(raw[STATE_KEY] || {}), logs: raw[LOG_KEY] || [], inspection: raw[INSPECTION_KEY] || null }; }
++async function contextBlockedFromContent(message, sender) { const state = await getState(); if (!state.search_id || message.search_id !== state.search_id || sender?.tab?.id !== state.chatgpt_tab_id) return { ok: true, data: { ignored: true } }; const next = await blockConversationContext(state, message.reason || "CONTENT_CONTEXT_CHANGED", { actual_conversation_id: message.actual_identity?.conversation_id || null, actual_chat_path: message.actual_identity?.chat_path || null, actual_tab: shortTab(sender?.tab) }); return { ok: true, data: { blocked: true, state: next } }; }
++
++chrome.runtime.onInstalled.addListener(async () => { const current = await getState(); await saveState(current); await log("EXTENSION_INSTALLED_OR_UPDATED", { version: chrome.runtime.getManifest().version }); });
++chrome.tabs.onUpdated.addListener(() => { reconcilePendingAvitoReadiness().catch(async (error) => { const state = await getState(); if (state.status === "WAITING_FOR_AVITO_PAGE_READY") await blockAvitoPageReady(state, `AVITO_READY_EVENT_FAILED:${String(error?.message || error)}`); }); });
++chrome.tabs.onRemoved.addListener((tabId) => { (async () => { const state = await getState(); if (state.status === "WAITING_FOR_AVITO_PAGE_READY" && state.avito_tab_id === tabId) await blockAvitoPageReady(state, `AVITO_TAB_CLOSED:${tabId}`, { source: "tabs.onRemoved" }); })().catch(() => {}); });
++chrome.runtime.onMessage.addListener((message, sender, sendResponse) => { (async () => { try {
++  switch (message?.type) {
++    case "AF_START": sendResponse(await begin()); return;
++    case "AF_STOP": sendResponse({ ok: true, state: await stop() }); return;
++    case "AF_CONTINUE_REPORT": sendResponse(await continueReport()); return;
++    case "AF_GET_VIEW": sendResponse(await view()); return;
++    case "AF_CAPTURE_PING": sendResponse({ ok: false, error: "PING_IS_CONTENT_ONLY" }); return;
++    case "AF_CAPTURE_GET_SEND_PROFILE": sendResponse({ ok: true, data: null }); return;
++    case "AF_CAPTURE_DIAGNOSTIC": await log(`CAPTURE_${message.details?.code || "DIAGNOSTIC"}`, diagnosticFields(message.details)); sendResponse({ ok: true, data: { recorded: true } }); return;
++    case "AF_CAPTURE_ACTIVITY": await log("CAPTURE_ACTIVITY", diagnosticFields(message)); sendResponse({ ok: true, data: { recorded: true } }); return;
++    case "AF_CAPTURE_CONTEXT_BLOCKED": sendResponse(await contextBlockedFromContent(message, sender)); return;
++    case "AF_CAPTURE_FULL_TEXT": sendResponse(await handleFullText(message, sender)); return;
++    default: sendResponse({ ok: false, error: "UNKNOWN_MESSAGE" }); return;
++  }
++} catch (error) { sendResponse({ ok: false, error: String(error?.message || error) }); } })(); return true; });
+

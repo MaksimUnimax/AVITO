@@ -1,0 +1,67 @@
+--- v1.0.0/manifest.json
++++ v1.0.1/manifest.json
+@@ -2,8 +2,8 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "1.0.0",
+-  "version_name": "1.0.0-assistant-directed-generic-search-collector-test-candidate",
++  "version": "1.0.1",
++  "version_name": "1.0.1-popup-assistant-protocol-prompt-test-candidate",
+   "description": "Avito Finder — исполнитель видимого публичного UI Avito в паре с ассистентом. Ассистент задаёт поиск, фильтры, сортировку, список лотов и критерии; расширение выполняет только валидированные видимые действия и возвращает публичные данные. Оно не сортирует, не оценивает и не выбирает лоты. Локально хранится лишь незавершённый технический checkpoint до доставки отчёта; после подтверждённой доставки собранные данные удаляются.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+
+--- v1.0.0/popup.css
++++ v1.0.1/popup.css
+@@ -10,3 +10,7 @@
+ textarea, pre { width: 100%; box-sizing: border-box; border: 1px solid #777; border-radius: 6px; padding: 8px; font: 11px/1.35 monospace; white-space: pre-wrap; }
+ pre { max-height: 160px; overflow: auto; margin: 0; }
+ label { font-weight: 700; font-size: 12px; }
++/* v1.0.1: isolated popup-only assistant protocol form. */
++.assistant-prompt { display: grid; gap: 8px; padding: 10px; border: 1px solid #777; border-radius: 6px; }
++.assistant-prompt h2 { margin: 0; font-size: 14px; }
++#assistant-prompt { min-height: 210px; resize: vertical; }
+
+--- v1.0.0/popup.html
++++ v1.0.1/popup.html
+@@ -3,6 +3,22 @@
+ <body><main>
+   <h1>Avito Finder</h1>
+   <p id="subtitle">Режим: ассистент управляет видимым поиском и передаёт точную очередь URL; расширение возвращает только публичные данные. Незавершённый проход можно продолжить, CAPTCHA проходит пользователь.</p>
++  <section class="assistant-prompt" aria-labelledby="assistant-prompt-title">
++    <h2 id="assistant-prompt-title">Промпт для ассистента</h2>
++    <p class="hint">Текст можно отредактировать. Кнопка копирует текущую версию промпта в буфер обмена.</p>
++    <textarea id="assistant-prompt" spellcheck="false" aria-label="Промпт для ассистента">Прими этот регламент как обязательное правило работы с Avito Finder:
++https://github.com/MaksimUnimax/AVITO/blob/main/AVITO_FINDER_OPERATOR_PROTOCOL_AND_ASSISTANT_PROMPT_v1.0.md
++
++Порядок работы:
++1. Перейди по ссылке и прочитай документ полностью.
++2. Прими документ как обязательный рабочий контракт для этого чата.
++3. До начала поиска подробно перескажи в чат своими словами: роли ассистента и расширения, разрешённые и запрещённые действия, порядок поиска, правила выбора карточек, CAPTCHA-границу и требования к итоговому отчёту.
++4. После пересказа напиши: «Правила приняты. Готов к работе с Avito Finder. Опиши, что нужно найти: товар, город, бюджет, обязательные и нежелательные параметры, допустимость доставки и критерии сравнения. После согласования напиши «Ищи».»
++5. Не начинай поиск, не выдавай AVITO_UI writing blocks и не управляй расширением до моей точной команды «Ищи».
++
++Соблюдай регламент в дальнейшем: расширение только исполняет ограниченные публичные UI-действия и возвращает сырые данные; ты управляешь поиском, сам выбираешь URL для подробного чтения, анализируешь данные и выдаёшь развёрнутый отчёт с минимум пятью кандидатами, если столько реально найдено.</textarea>
++    <button id="copy-assistant-prompt">Скопировать промпт</button>
++  </section>
+   <div id="status">IDLE</div><div id="detail"></div>
+   <div class="actions"><button id="start">Начать</button><button id="continue" disabled>Продолжить отчёт</button><button id="stop">Стоп</button></div>
+   <h2>Живой журнал</h2><pre id="logs"></pre>
+
+--- v1.0.0/popup.js
++++ v1.0.1/popup.js
+@@ -1,5 +1,5 @@
+ "use strict";
+-const status=document.querySelector("#status"),detail=document.querySelector("#detail"),logs=document.querySelector("#logs"),report=document.querySelector("#report"),start=document.querySelector("#start"),resume=document.querySelector("#continue"),stop=document.querySelector("#stop"),copy=document.querySelector("#copy");
++const status=document.querySelector("#status"),detail=document.querySelector("#detail"),logs=document.querySelector("#logs"),report=document.querySelector("#report"),start=document.querySelector("#start"),resume=document.querySelector("#continue"),stop=document.querySelector("#stop"),copy=document.querySelector("#copy"),assistantPrompt=document.querySelector("#assistant-prompt"),copyAssistantPrompt=document.querySelector("#copy-assistant-prompt");
+ const send=(message)=>new Promise((resolve)=>chrome.runtime.sendMessage(message,resolve));
+ let refreshTimer=null;
+ function compact(value){const text=typeof value==="string"?value:JSON.stringify(value);return text.length>380?`${text.slice(0,377)}…`:text;}
+@@ -9,4 +9,5 @@
+ resume.addEventListener("click",async()=>{resume.disabled=true;try{await send({type:"AF_CONTINUE_REPORT"});}finally{await refresh();}});
+ stop.addEventListener("click",async()=>{await send({type:"AF_STOP"});await refresh();});
+ copy.addEventListener("click",async()=>{if(!report.value)return;try{await navigator.clipboard.writeText(report.value);copy.textContent="Скопировано";setTimeout(()=>copy.textContent="Скопировать отчёт",1200);}catch(_){report.focus();report.select();document.execCommand("copy");}});
++copyAssistantPrompt.addEventListener("click",async()=>{if(!assistantPrompt.value)return;try{await navigator.clipboard.writeText(assistantPrompt.value);copyAssistantPrompt.textContent="Скопировано";setTimeout(()=>copyAssistantPrompt.textContent="Скопировать промпт",1200);}catch(_){assistantPrompt.focus();assistantPrompt.select();document.execCommand("copy");}});
+ chrome.storage.onChanged.addListener((_changes,area)=>{if(area==="local")refresh();});refresh();refreshTimer=setInterval(refresh,1000);window.addEventListener("unload",()=>{if(refreshTimer)clearInterval(refreshTimer);});
+

@@ -1,0 +1,238 @@
+--- v0.9.5/avito_content.js
++++ v0.9.6/avito_content.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.1 — working-baseline visible UI and public listing passports. */
++/* Avito Finder v0.9.6 — visible UI, public listing passports, fixed command timing profiles. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+@@ -16,6 +16,8 @@
+   const UI_PLAN_MAX_STEPS = 12;
+   const UI_PLAN_PRE_ACTION_DELAY_MS = Number.isFinite(Number(globalThis.__AF_TEST_UI_DELAY_MS)) ? Number(globalThis.__AF_TEST_UI_DELAY_MS) : 1500;
+   const UI_PLAN_POST_ACTION_DELAY_MS = Number.isFinite(Number(globalThis.__AF_TEST_UI_DELAY_MS)) ? Number(globalThis.__AF_TEST_UI_DELAY_MS) : 2000;
++  const TIMING_PROFILE_CONTROL_VISIBLE = "CONTROL_VISIBLE";
++  const TIMING_PROFILE_COLLECTION_FAST = "COLLECTION_FAST";
+   const DEBUGGER_TYPE_TIMEOUT_MS = Number.isFinite(Number(globalThis.__AF_TEST_DEBUGGER_TYPE_TIMEOUT_MS)) ? Number(globalThis.__AF_TEST_DEBUGGER_TYPE_TIMEOUT_MS) : 10000;
+   const UI_CLICK_DISPATCH_TIMEOUT_MS = Number.isFinite(Number(globalThis.__AF_TEST_CLICK_DISPATCH_TIMEOUT_MS)) ? Number(globalThis.__AF_TEST_CLICK_DISPATCH_TIMEOUT_MS) : 2200;
+   const MENU_CAPTURE_MAX_MS = 5000;
+@@ -371,6 +373,37 @@
+     return snapshot;
+   }
+   function uiDelay(ms) { return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0))); }
++  function timingProfileForPlan(plan) {
++    return String(plan?.timing_profile || TIMING_PROFILE_CONTROL_VISIBLE).toUpperCase() === TIMING_PROFILE_COLLECTION_FAST
++      ? TIMING_PROFILE_COLLECTION_FAST
++      : TIMING_PROFILE_CONTROL_VISIBLE;
++  }
++  function isCollectionStep(step) {
++    const type = String(step?.type || "").toUpperCase();
++    return type === "COLLECT_LISTINGS" || type === "COLLECT_LISTING_DETAILS";
++  }
++  function nextPlanStep(steps, offset) {
++    for (let index = Number(offset) + 1; index < steps.length; index += 1) {
++      const step = steps[index] || {};
++      if (String(step.type || "").toUpperCase() !== "WAIT") return step;
++    }
++    return null;
++  }
++  function stepPreActionDelay(plan, steps, offset) {
++    const current = steps[offset] || {};
++    const next = nextPlanStep(steps, offset);
++    // A listing-detail pass is the collection phase. Skip only the artificial
++    // pause immediately before opening a card; page-readiness remains mandatory.
++    if (timingProfileForPlan(plan) === TIMING_PROFILE_COLLECTION_FAST && String(current.type || "").toUpperCase() === "CLICK" && isCollectionStep(next)) return 0;
++    return UI_PLAN_PRE_ACTION_DELAY_MS;
++  }
++  function stepPostActionDelay(plan, steps, offset) {
++    const next = nextPlanStep(steps, offset);
++    // Do not delay between a completed visible control and an immediate read-only
++    // collector. This does not bypass DOM/menu/page readiness checks.
++    if (timingProfileForPlan(plan) === TIMING_PROFILE_COLLECTION_FAST && isCollectionStep(next)) return 0;
++    return UI_PLAN_POST_ACTION_DELAY_MS;
++  }
+   function normalizedMatch(value) { return Core.normalizeText(value).toLocaleLowerCase("ru-RU"); }
+   function actionElements(kind) {
+     const selector = kind === "TYPE"
+@@ -1084,7 +1117,7 @@
+     return { title, price, location, seller, seller_rating: sellerRating, seller_badges: sellerBadges(), delivery: deliveryLabels(), image_count: imageCount, condition, specifications, description, missing_fields: listingMissingFields(description, specifications), source: "visible_public_listing_dom", blocked_reason: null };
+   }
+   async function executeUiActionPlan(plan) {
+-    const result = { ok: true, url: location.href, plan_fingerprint: String(plan?.plan_fingerprint || ""), steps: [], listings: [], listing_details: null, navigation_handoff: null, blocked_reason: null };
++    const result = { ok: true, url: location.href, plan_fingerprint: String(plan?.plan_fingerprint || ""), timing_profile: timingProfileForPlan(plan), steps: [], listings: [], listing_details: null, navigation_handoff: null, blocked_reason: null };
+     if (!Core.isAvitoUrl(location.href)) return { ...result, ok: false, blocked_reason: "UI_TARGET_NOT_AVITO" };
+     const steps = Array.isArray(plan?.steps) ? plan.steps.slice(0, UI_PLAN_MAX_STEPS) : [];
+     const stepIndexOffset = Math.max(0, Math.floor(Number(plan?.step_index_offset || 0)));
+@@ -1124,7 +1157,7 @@
+       if (step.type === "SELECT_OPTION" && latestTypeContext) await waitForVisibleMenu(latestTypeContext, 3400);
+       const resolved = step.type === "SELECT_OPTION" ? dialogScopedOptionCandidates(step.text, latestTypeContext) : resolveVisibleActionTarget(step);
+       if (!resolved.ok) { result.ok = false; result.blocked_reason = resolved.blocked_reason; if (resolved.menu) result.menu = publicMenuModel(resolved.menu); result.steps.push({ index, type: step.type, status: "blocked", blocked_reason: resolved.blocked_reason, candidates: resolved.candidates }); break; }
+-      await uiDelay(UI_PLAN_PRE_ACTION_DELAY_MS);
++      await uiDelay(stepPreActionDelay(plan, steps, offset));
+       resolved.target.element.scrollIntoView({ block: "center", inline: "nearest" });
+       let applied = false;
+       let typeResult = null;
+@@ -1169,7 +1202,7 @@
+       }
+       const nextType = String(steps[offset + 1] && steps[offset + 1].type || "").toUpperCase();
+       const followupMenuStep = step.type === "TYPE" && (nextType === "COLLECT_MENU" || nextType === "SELECT_OPTION");
+-      await uiDelay(followupMenuStep ? Math.min(120, UI_PLAN_POST_ACTION_DELAY_MS) : UI_PLAN_POST_ACTION_DELAY_MS);
++      await uiDelay(followupMenuStep ? Math.min(120, UI_PLAN_POST_ACTION_DELAY_MS) : stepPostActionDelay(plan, steps, offset));
+       if (step.type === "SELECT_OPTION" && resolved.menu) result.menu = publicMenuModel(resolved.menu);
+       result.steps.push({ index, type: step.type, status: "completed", target_description: resolved.target.description, text: step.type === "TYPE" ? "введено" : (step.type === "SELECT_OPTION" ? String(step.text || "") : (clickDispatch?.dispatch_id ? `dispatch_id=${clickDispatch.dispatch_id}` : "")), input_strategy: step.type === "TYPE" ? typeResult.strategy : "", selection_strategy: step.type === "SELECT_OPTION" ? selectResult.strategy : "", click_strategy: step.type === "CLICK" ? clickResult.strategy : "", dispatch_id: clickDispatch?.dispatch_id || null });
+     }
+
+--- v0.9.5/core.js
++++ v0.9.6/core.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.1 — working-baseline current-context core. */
++/* Avito Finder v0.9.6 — command timing profiles; current-context core. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+   const STORAGE = Object.freeze({
+@@ -16,6 +16,9 @@
+   const UI_PLAN_MAX_STEPS = 12;
+   const UI_PLAN_MAX_TYPED_TEXT = 160;
+   const UI_PLAN_MAX_LISTINGS = 30;
++  // Command timing is deliberately a fixed allowlist, not arbitrary milliseconds.
++  // Omitted profile preserves the prior visible-control behavior.
++  const UI_TIMING_PROFILES = new Set(["CONTROL_VISIBLE", "COLLECTION_FAST"]);
+   const DIAGNOSTIC_ACTIONS = new Set(["", "OPEN_LOCATION_DIALOG"]);
+   const DIAGNOSTIC_SCOPES = new Set([
+     "PAGE_MAIN_VISIBLE",
+@@ -269,8 +272,12 @@
+     const raw = normalizeText(text);
+     const pageUrl = directiveValue(String(fields["Действия"] || fields["Шаги"] || ""), "Страница") || directiveValue(raw, "Страница") || firstAvitoUrl(raw);
+     const reuseExistingAvito = !pageUrl && requestsExistingAvitoContext(raw);
++    const timingProfileRaw = String(fields["Темп"] || directiveValue(raw, "Темп") || "").trim().toUpperCase().replace(/[.:;]+$/u, "");
++    const timingProfile = timingProfileRaw || "CONTROL_VISIBLE";
++    const timingProfileSource = timingProfileRaw ? "explicit_field" : "default_control_visible";
+     const parsed = [];
+     const errors = [];
++    if (!UI_TIMING_PROFILES.has(timingProfile)) errors.push("UI_PLAN_TIMING_PROFILE_NOT_ALLOWED");
+     for (const line of genericActionLines(raw, fields)) {
+       const step = parseGenericStep(line);
+       if (!step) continue;
+@@ -289,8 +296,10 @@
+       page_url: pageUrl,
+       page_source: pageUrl ? "explicit_url" : (reuseExistingAvito ? "explicit_existing_avito_context" : "missing"),
+       reuse_existing_avito: reuseExistingAvito,
++      timing_profile: timingProfile,
++      timing_profile_source: timingProfileSource,
+       steps: parsed.slice(0, UI_PLAN_MAX_STEPS),
+-      plan_fingerprint: fingerprint(parsed.map((step) => step.source_line).join("\n"))
++      plan_fingerprint: fingerprint([timingProfile, ...parsed.map((step) => step.source_line)].join("\n"))
+     };
+   }
+   function parseCommandForm(text) {
+
+--- v0.9.5/manifest.json
++++ v0.9.6/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.9.5",
+-  "version_name": "0.9.5-restore-public-root-bootstrap-route-ledger-test-candidate",
+-  "description": "Отдельный Avito Finder: visible-UI с обычным login-диалогом без ложной CAPTCHA-блокировки. На явный «Ищи» переиспользует видимую Avito-вкладку в том же окне либо, когда такой вкладки нет, открывает ровно одну активную публичную https://www.avito.ru/ только для нового run. Внутри run переиспользует тот же tabId и не восстанавливает старую страницу. Без сообщений, телефона, покупки, Runtime, Network, cookies или скрытых API.",
++  "version": "0.9.6",
++  "version_name": "0.9.6-command-timing-profiles-tab-lifecycle-locked-test-candidate",
++  "description": "Отдельный Avito Finder: visible-UI с фиксированными профилями темпа CONTROL_VISIBLE и COLLECTION_FAST. На явный «Ищи» переиспользует видимую Avito-вкладку в том же окне либо, когда такой вкладки нет, открывает ровно одну активную публичную https://www.avito.ru/ только для нового run. Внутри run переиспользует тот же tabId и не восстанавливает старую страницу. Без сообщений, телефона, покупки, Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.9.5/service_worker.js
++++ v0.9.6/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.5 — restore fresh-run public-root bootstrap and retain ordinary-login classifier correction. */
++/* Avito Finder v0.9.6 — fixed command timing profiles; fresh-run public-root lifecycle preserved byte-for-byte. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -342,6 +342,54 @@
+   if (latest.search_id !== state.search_id || latest.status === "CANCELLED_BY_USER") throw new Error("AVITO_VISIBLE_DELAY_CANCELLED");
+   await log("AVITO_VISIBLE_DELAY_COMPLETED", { search_id: state.search_id, stage, duration_ms: durationMs, avito_tab_id: state.avito_tab_id });
+ }
++function uiTimingProfile(plan) {
++  return String(plan?.timing_profile || "CONTROL_VISIBLE").toUpperCase() === "COLLECTION_FAST" ? "COLLECTION_FAST" : "CONTROL_VISIBLE";
++}
++function collectionStep(step) {
++  const type = String(step?.type || "").toUpperCase();
++  return type === "COLLECT_LISTINGS" || type === "COLLECT_LISTING_DETAILS";
++}
++function firstNonWaitStep(steps) {
++  for (const step of Array.isArray(steps) ? steps : []) if (String(step?.type || "").toUpperCase() !== "WAIT") return step || null;
++  return null;
++}
++function nextNonWaitStep(steps, startIndex) {
++  const list = Array.isArray(steps) ? steps : [];
++  for (let index = Math.max(0, Number(startIndex) || 0); index < list.length; index += 1) {
++    if (String(list[index]?.type || "").toUpperCase() !== "WAIT") return list[index] || null;
++  }
++  return null;
++}
++function planStartsCollection(plan, steps = null) {
++  if (uiTimingProfile(plan) !== "COLLECTION_FAST") return false;
++  const list = Array.isArray(steps) ? steps : (Array.isArray(plan?.steps) ? plan.steps : []);
++  const firstIndex = list.findIndex((step) => String(step?.type || "").toUpperCase() !== "WAIT");
++  if (firstIndex < 0) return false;
++  const first = list[firstIndex] || null;
++  if (collectionStep(first)) return true;
++  // A card click followed immediately by public detail capture is already the
++  // collection phase. A Find click followed by COLLECT_LISTINGS is deliberately
++  // not included, because the user asked to keep that control visible.
++  const second = nextNonWaitStep(list, firstIndex + 1);
++  return String(first?.type || "").toUpperCase() === "CLICK" && String(second?.type || "").toUpperCase() === "COLLECT_LISTING_DETAILS";
++}
++function uiPlanStartDelayMs(plan) {
++  // Keep the visible pause before a user-observable city/filter/search control.
++  // Skip it only when this plan begins with read-only collection or with opening
++  // one public card immediately followed by its read-only detail capture.
++  return planStartsCollection(plan) ? 0 : AVITO_VISIBLE_PRE_ACTION_DELAY_MS;
++}
++function uiPlanCompletionDelayMs(plan, result) {
++  // A completed collection returns without an artificial pause; the report itself
++  // is still returned through the normal pinned-chat path.
++  if (uiTimingProfile(plan) === "COLLECTION_FAST" && (Array.isArray(result?.listings) && result.listings.length || result?.listing_details)) return 0;
++  return AVITO_VISIBLE_POST_ACTION_DELAY_MS;
++}
++function uiClickReconcileCollectionDelayMs(plan, remainingSteps) {
++  // After a visible navigation arrives at a listing or results surface, collect
++  // immediately in COLLECTION_FAST. Tab/page readiness is still verified first.
++  return planStartsCollection(plan, remainingSteps) ? 0 : AVITO_VISIBLE_POST_ACTION_DELAY_MS;
++}
+ async function requireReadyAvitoTarget(tabId, windowId) {
+   const target = await getTab(tabId); if (!isAvitoPageReady(target, windowId)) throw new Error(`AVITO_PAGE_NOT_READY:${tabId}`); return target;
+ }
+@@ -518,10 +566,10 @@
+   const active = await activate(readyTab, "avito_ui_post_click_reconciliation");
+   const verified = await requireReadyAvitoTarget(active.id, state.current_window_id);
+   let working = await saveState({ ...state, status: "AVITO_TAB_ACTIVE", phase: "AVITO_UI_POST_CLICK_RECONCILIATION", avito_tab_id: verified.id, blocked_reason: null, pending_ui_click: { ...pending, reconciliation: "resuming" } });
+-  await visibleAvitoDelay(working, "after_dispatched_click_before_reconciliation_capture", AVITO_VISIBLE_POST_ACTION_DELAY_MS);
+   const plan = working.ui_action_plan || { steps: [] };
+   const clickIndex = Number(pending.step_index || 0);
+   const remainingSteps = Array.isArray(plan.steps) ? plan.steps.slice(Math.max(0, clickIndex)) : [];
++  await visibleAvitoDelay(working, "after_dispatched_click_before_reconciliation_capture", uiClickReconcileCollectionDelayMs(plan, remainingSteps));
+   let resumed = null;
+   let blockedReason = null;
+   if (remainingSteps.some((step) => String(step?.type || "").toUpperCase() === "CLICK")) {
+@@ -616,8 +664,8 @@
+     return;
+   }
+   if (working.command_mode === "AVITO_UI") {
+-    await visibleAvitoDelay(working, "before_generic_ui_action_plan", AVITO_VISIBLE_PRE_ACTION_DELAY_MS);
+     const plan = working.ui_action_plan || { steps: [] };
++    await visibleAvitoDelay(working, "before_generic_ui_action_plan", uiPlanStartDelayMs(plan));
+     await log("AVITO_UI_PLAN_REQUESTED", { search_id: working.search_id, tab_id: verified.id, plan_fingerprint: plan.plan_fingerprint || null, step_count: Array.isArray(plan.steps) ? plan.steps.length : 0 });
+     let result;
+     try {
+@@ -634,7 +682,7 @@
+     for (const step of Array.isArray(result.steps) ? result.steps : []) {
+       await log("AVITO_UI_PLAN_STEP_RESULT", { search_id: working.search_id, tab_id: verified.id, index: step.index ?? null, type: step.type || null, status: step.status || null, blocked_reason: step.blocked_reason || null, target_description: step.target_description || null });
+     }
+-    await visibleAvitoDelay(working, "after_generic_ui_action_plan_before_chatgpt_return", AVITO_VISIBLE_POST_ACTION_DELAY_MS);
++    await visibleAvitoDelay(working, "after_generic_ui_action_plan_before_chatgpt_return", uiPlanCompletionDelayMs(plan, result));
+     working = await rememberRouteContext(working, await captureRouteContext(verified.id, working.current_window_id), "ui_plan_completed");
+     const actionPlan = { search_id: working.search_id, mode: "AVITO_UI", captured_at: new Date().toISOString(), avito: result };
+     const report = Core.formatUiActionPlanReport(actionPlan);
+

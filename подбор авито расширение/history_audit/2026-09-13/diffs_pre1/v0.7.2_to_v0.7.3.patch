@@ -1,0 +1,213 @@
+--- v0.7.2/avito_content.js
++++ v0.7.3/avito_content.js
+@@ -1,9 +1,9 @@
+-/* Avito Finder v0.7.2 — bounded public diagnostics, trusted visible input and temporal menu evidence. */
++/* Avito Finder v0.7.3 — bounded public diagnostics, trusted visible input and query-correlated temporal menu evidence. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+-  if (globalThis.__avitoFinderAvitoContentV072) return;
+-  globalThis.__avitoFinderAvitoContentV072 = true;
++  if (globalThis.__avitoFinderAvitoContentV073) return;
++  globalThis.__avitoFinderAvitoContentV073 = true;
+ 
+   const Core = AvitoFinderCore;
+   const MAX_TREE_NODES = 160;
+@@ -20,6 +20,7 @@
+   const MENU_CAPTURE_MAX_MS = 5000;
+   const MENU_CAPTURE_POLL_MS = 80;
+   const MENU_MAX_OPTIONS = 12;
++  const MENU_QUERY_MIN_CHARS = 2;
+   const debuggerTypeTokens = new Map();
+   const debuggerClickTokens = new Map();
+   const SAFE_ATTRIBUTES = new Set(["id", "class", "role", "aria-label", "aria-expanded", "aria-controls", "placeholder", "name", "type", "title", "data-marker", "href", "disabled", "checked", "label"]);
+@@ -292,31 +293,6 @@
+       aria: node.getAttribute("aria-label") || "",
+       title: node.getAttribute("title") || ""
+     };
+-  }
+-  function targetForbidden(node) {
+-    const own = [
+-      textOf(node, 280), node.getAttribute("data-marker") || "", node.getAttribute("aria-label") || "", node.getAttribute("title") || "", safeHref(node)
+-    ].join(" ");
+-    const nearby = textOf(node.closest("[role='dialog'],form,article,section,div") || node, 450);
+-    return /(?:написать|сообщени|чат\b|продавц|позвон|звонок|купить|оплат|заказ|корзин|оформить\s+достав|брон)/iu.test(`${own} ${nearby}`);
+-  }
+-  function pointerReachable(element) {
+-    if (!visible(element)) return false;
+-    const rect = element.getBoundingClientRect();
+-    const x = Math.max(0, Math.min(window.innerWidth - 1, rect.left + rect.width / 2));
+-    const y = Math.max(0, Math.min(window.innerHeight - 1, rect.top + rect.height / 2));
+-    const stack = typeof document.elementsFromPoint === "function" ? document.elementsFromPoint(x, y) : [];
+-    // At least one topmost paint target must be the candidate itself, a child, or
+-    // one of its first few structural ancestors. Do not accept body/document-wide
+-    // ancestors: otherwise covered page text would incorrectly look reachable.
+-    return stack.some((node) => {
+-      if (node === element || element.contains(node)) return true;
+-      let current = element.parentElement;
+-      for (let depth = 0; current && current !== document.body && depth < 4; depth += 1, current = current.parentElement) {
+-        if (node === current) return true;
+-      }
+-      return false;
+-    });
+   }
+   function selectionInputContext(dialog, remembered) {
+     const rememberedElement = remembered?.element;
+@@ -523,39 +499,67 @@
+     candidates.sort((left, right) => right.count - left.count || left.depth - right.depth);
+     return candidates[0]?.element || rows[0].element.parentElement || null;
+   }
+-  function modelVisibleMenu(input, capture) {
+-    if (!(input instanceof Element) || !input.isConnected || !visible(input)) return { blocked_reason: "UI_MENU_INPUT_UNAVAILABLE", options: [] };
+-    const targets = rawMenuOptionCandidates(input, capture);
++  function queryKey(value) {
++    return menuLabelKey(value);
++  }
++  function queryRelatedToOption(labelKey, expectedQueryKey) {
++    if (!expectedQueryKey || Array.from(expectedQueryKey).length < MENU_QUERY_MIN_CHARS) return true;
++    return String(labelKey || "").includes(expectedQueryKey);
++  }
++  function menuPublicRow(item, expectedQueryKey) {
++    return {
++      label: item.label,
++      tag: item.tag,
++      role: item.role,
++      source: item.source,
++      description: item.description,
++      bounds: item.bounds,
++      query_related: queryRelatedToOption(item.label_key, expectedQueryKey)
++    };
++  }
++  function modelVisibleMenu(input, capture, expectedQuery = "") {
++    if (!(input instanceof Element) || !input.isConnected || !visible(input)) return { blocked_reason: "UI_MENU_INPUT_UNAVAILABLE", options: [], _targets: [] };
++    const observedTargets = rawMenuOptionCandidates(input, capture);
++    const expectedQueryKey = queryKey(expectedQuery);
++    const targets = observedTargets.filter((item) => queryRelatedToOption(item.label_key, expectedQueryKey));
+     const inputState = targets.length ? "" : fieldStateMessage(input);
+-    const container = menuContainerFor(targets, input);
+-    const optionRows = targets.map((item) => ({ label: item.label, tag: item.tag, role: item.role, source: item.source, description: item.description, bounds: item.bounds }));
++    const container = menuContainerFor(observedTargets, input);
++    const optionRows = observedTargets.map((item) => menuPublicRow(item, expectedQueryKey));
+     const contract = {
+       anchor: elementSignature(input),
+       container: elementSignature(container),
+-      options: optionRows.map((item) => [menuLabelKey(item.label), item.tag, item.role])
++      expected_query: expectedQueryKey,
++      options: optionRows.map((item) => [menuLabelKey(item.label), item.tag, item.role, item.query_related])
+     };
+     const contractFingerprint = Core.fingerprint(JSON.stringify(contract));
++    const blockedReason = targets.length ? null : (inputState ? "UI_MENU_INPUT_REJECTED" : (observedTargets.length ? "UI_MENU_QUERY_UNMATCHED" : "UI_MENU_NOT_OBSERVED"));
+     return {
+       menu_id: targets.length ? `af-menu-${contractFingerprint}` : "",
+       contract_fingerprint: contractFingerprint,
+       anchor_description: `${elementSignature(input)} placeholder=${input.getAttribute("placeholder") || ""}`.slice(0, 360),
+       container_description: container ? elementSignature(container) : "",
+       captured_at: new Date().toISOString(),
+-      blocked_reason: targets.length ? null : (inputState ? "UI_MENU_INPUT_REJECTED" : "UI_MENU_NOT_OBSERVED"),
++      expected_query: Core.normalizeText(expectedQuery).slice(0, 180),
++      blocked_reason: blockedReason,
+       input_state: inputState,
+       options: optionRows,
+       _targets: targets,
++      _observed_targets: observedTargets,
+       _input: input
+     };
+   }
+   async function waitForVisibleMenu(context, timeoutMs = 2600) {
+     const input = context?.element;
+     const capture = context?.menu_capture || startVisibleMenuCapture(input);
++    const expectedQuery = String(context?.expected_query || "");
+     const deadline = Date.now() + Math.max(0, Math.min(Number(timeoutMs) || 0, MENU_CAPTURE_MAX_MS));
+-    let model = modelVisibleMenu(input, capture);
+-    while (!model.options.length && !model.input_state && Date.now() < deadline) {
++    let model = modelVisibleMenu(input, capture, expectedQuery);
++    // A focus/clear action can briefly reveal stale default rows. Do not accept
++    // them as the result for the just-typed query; wait for one related row,
++    // a field rejection, or the bounded deadline.
++    while (!model._targets.length && !model.input_state && Date.now() < deadline) {
+       await uiDelay(MENU_CAPTURE_POLL_MS);
+-      model = modelVisibleMenu(input, capture);
++      model = modelVisibleMenu(input, capture, expectedQuery);
+     }
+     context.menu_capture = capture;
+     context.menu_model = model;
+@@ -569,14 +573,15 @@
+       anchor_description: model.anchor_description || "",
+       container_description: model.container_description || "",
+       captured_at: model.captured_at || "",
++      expected_query: model.expected_query || "",
+       blocked_reason: model.blocked_reason || null,
+       input_state: model.input_state || "",
+-      options: Array.isArray(model.options) ? model.options.map((item) => ({ label: item.label || "", tag: item.tag || "", role: item.role || "", source: item.source || "", description: item.description || "", bounds: item.bounds || null })) : []
++      options: Array.isArray(model.options) ? model.options.map((item) => ({ label: item.label || "", tag: item.tag || "", role: item.role || "", source: item.source || "", description: item.description || "", bounds: item.bounds || null, query_related: item.query_related === true })) : []
+     };
+   }
+   function adaptiveOptionCandidates(text, rememberedContext) {
+     const wanted = menuLabelKey(text);
+-    const model = rememberedContext?.menu_model || modelVisibleMenu(rememberedContext?.element, rememberedContext?.menu_capture);
++    const model = rememberedContext?.menu_model || modelVisibleMenu(rememberedContext?.element, rememberedContext?.menu_capture, rememberedContext?.expected_query || "");
+     if (!wanted) return { ok: false, blocked_reason: "UI_OPTION_TEXT_EMPTY", candidates: [], menu: model };
+     const candidates = Array.isArray(model?._targets) ? model._targets : [];
+     const exact = candidates.filter((item) => item.label_key === wanted);
+@@ -594,7 +599,7 @@
+         context.element = candidates.length === 1 ? candidates[0] : null;
+       }
+     }
+-    const model = context.menu_model || modelVisibleMenu(context.element, context.menu_capture);
++    const model = context.menu_model || modelVisibleMenu(context.element, context.menu_capture, context.expected_query || "");
+     return adaptiveOptionCandidates(text, { ...context, menu_model: model });
+   }
+   function resolveVisibleActionTarget(step) {
+@@ -827,7 +832,7 @@
+         const listings = collectPublicListings(Math.max(1, Math.min(Number(step.limit || 10), 30))); result.listings = listings; result.steps.push({ index, type: "COLLECT_LISTINGS", status: "completed", count: listings.length }); continue;
+       }
+       if (step.type === "COLLECT_MENU") {
+-        const context = latestTypeContext || { element: document.activeElement instanceof Element ? document.activeElement : null, menu_capture: null };
++        const context = latestTypeContext || { element: document.activeElement instanceof Element ? document.activeElement : null, expected_query: "", menu_capture: null };
+         const menu = await waitForVisibleMenu(context, 2600);
+         result.menu = publicMenuModel(menu);
+         if (menu.blocked_reason) { result.ok = false; result.blocked_reason = menu.blocked_reason; result.steps.push({ index, type: "COLLECT_MENU", status: "blocked", blocked_reason: menu.blocked_reason }); break; }
+@@ -851,7 +856,7 @@
+         const menuCapture = startVisibleMenuCapture(resolved.target.element);
+         typeResult = await setVisibleControlValue(resolved.target.element, String(step.text || ""));
+         applied = Boolean(typeResult?.ok);
+-        if (applied) latestTypeContext = { element: resolved.target.element, captured_at: Date.now(), menu_capture: menuCapture, menu_model: null };
++        if (applied) latestTypeContext = { element: resolved.target.element, captured_at: Date.now(), expected_query: String(step.text || ""), menu_capture: menuCapture, menu_model: null };
+         else stopVisibleMenuCapture(menuCapture);
+       }
+       if (!applied) {
+@@ -893,7 +898,7 @@
+     const links = Array.from(document.querySelectorAll("a[href*='/item/'],a[data-marker*='item']")).filter(visible);
+     return { url: location.href, title: document.title, captured_at: new Date().toISOString(), blocked_reason: detectBlock(), input_count: inputs.length, button_count: buttons.length, listing_link_count: links.length, actions_performed: "none_read_only" };
+   }
+-  if (globalThis.__AF_TEST_EXPORTS) globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, adaptiveOptionCandidates, startVisibleMenuCapture, waitForVisibleMenu, modelVisibleMenu, publicMenuModel, menuLabelKey, pointerReachable, candidateInMenuBand, fieldStateMessage };
++  if (globalThis.__AF_TEST_EXPORTS) globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, adaptiveOptionCandidates, startVisibleMenuCapture, waitForVisibleMenu, modelVisibleMenu, publicMenuModel, menuLabelKey, pointerReachable, candidateInMenuBand, fieldStateMessage, queryKey, queryRelatedToOption };
+   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+     try {
+       if (message?.type === "AF_INSPECT_AVITO_DOM") { sendResponse({ ok: true, snapshot: inspect() }); return; }
+
+--- v0.7.2/manifest.json
++++ v0.7.3/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.7.2",
+-  "version_name": "0.7.2-temporal-menu-core-cleanup-test-candidate",
+-  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; выбор возможен только по точному тексту уже наблюдённого временного выпадающего списка, через ограниченную временную модель видимого меню, связанную с активным полем, без Runtime, Network, cookies или скрытых API.",
++  "version": "0.7.3",
++  "version_name": "0.7.3-query-correlated-temporal-menu-test-candidate",
++  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; выбор возможен только по точному тексту уже наблюдённого временного выпадающего списка, через ограниченную временную модель видимого меню, связанную с активным полем и введённым запросом, без Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.7.2/service_worker.js
++++ v0.7.3/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.7.2 — bounded Avito visible input and temporal menu actions. */
++/* Avito Finder v0.7.3 — bounded Avito visible input and query-correlated temporal menu actions. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+

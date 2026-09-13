@@ -1,0 +1,46 @@
+--- v0.6.2/core.js
++++ v0.6.3/core.js
+@@ -377,6 +377,20 @@
+       return `${step.index}. ${step.type || "?"}: ${step.status || "?"}${detail ? ` — ${detail}` : ""}`;
+     }).join("\n") : "";
+     const listings = Array.isArray(plan.listings) ? plan.listings.map((item, index) => `${index + 1}. ${item.title || "без названия"}${item.price ? ` — ${item.price}` : ""}${item.location ? ` — ${item.location}` : ""}${item.href ? ` — ${item.href}` : ""}`).join("\n") : "";
++    const snapshot = plan.snapshot || null;
++    const controls = Array.isArray(snapshot?.controls) ? snapshot.controls.map((item, index) =>
++      `${index + 1}. ${item.tag}${item.role ? ` role=${item.role}` : ""}${item.type ? ` type=${item.type}` : ""}${item.text ? ` — ${item.text}` : ""}${item.aria_label ? ` [${item.aria_label}]` : ""}`).join("\n") : "";
++    const snapshotSection = snapshot ? [
++      "", "Диагностический снимок UI-плана:",
++      `Область: ${snapshot.scope || "?"}`,
++      `Статус: ${snapshot.blocked_reason || "DOM доступен"}`,
++      `Корень: ${snapshot.root_description || "не найден"}`,
++      `Снимок: ${snapshot.snapshot_fingerprint || "?"}`,
++      `Ограничения: ${snapshot.truncated ? "снимок ограничен по размеру" : "нет"}`,
++      "", "DOM-дерево:", snapshot.tree_text || "нет данных",
++      "", "Видимые элементы управления:", controls || "нет данных",
++      "", "Ограниченный HTML-снимок:", snapshot.bounded_html || "нет данных"
++    ] : ["", "Диагностический снимок UI-плана: не запрашивался"];
+     return [
+       "Avito Finder: выполнен ограниченный UI-план", "",
+       `Задача: ${result?.search_id || "?"}`,
+@@ -385,6 +399,7 @@
+       `План: ${plan.plan_fingerprint || "?"}`,
+       "", "Шаги:", steps || "нет данных",
+       "", "Карточки:", listings || "не собирались",
++      ...snapshotSection,
+       "", "Ограничения: применялись только видимые элементы Avito. Сообщения продавцам, звонки, сделки, оплата, скрытые API и произвольный JavaScript не использовались."
+     ].join("\n").slice(0, 24000);
+   }
+
+--- v0.6.2/manifest.json
++++ v0.6.3/manifest.json
+@@ -2,8 +2,8 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.6.2",
+-  "version_name": "0.6.2-continuation-anchor-generation-fence-test-candidate",
++  "version": "0.6.3",
++  "version_name": "0.6.3-ui-plan-snapshot-report-test-candidate",
+   "description": "Отдельный Avito Finder: безопасный локальный разбор полного Copy, anchor-fenced continuous dialogue и generic local visible-UI action plans, bounded public DOM diagnostics and same-chat continuity.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+

@@ -1,0 +1,397 @@
+--- v0.2.0/chatgpt_content.js
++++ v0.2.1/chatgpt_content.js
+@@ -2,6 +2,7 @@
+ (function chatGPTContent() {
+   "use strict";
+   const Core = AvitoFinderCore;
++  const confirmedCopyButtons = new WeakSet();
+ 
+   function visible(element) {
+     if (!element) return false;
+@@ -32,23 +33,124 @@
+     }));
+   }
+ 
+-  function turnIdOf(node, index, text) {
+-    return node.getAttribute("data-message-id") || node.getAttribute("data-testid") || node.id || `af-chat-turn-${index}-${Core.stableShortHash(text)}`;
++  function buttonSnapshot(button) {
++    const svgUse = button && button.querySelector && button.querySelector("svg use");
++    return {
++      testid: button && button.getAttribute("data-testid") || "",
++      aria: button && button.getAttribute("aria-label") || "",
++      title: button && button.getAttribute("title") || "",
++      text: textOf(button, 120),
++      svg: svgUse && (svgUse.getAttribute("href") || svgUse.getAttribute("xlink:href")) || "",
++      enabled: Boolean(button && !(button instanceof HTMLButtonElement && button.disabled) && button.getAttribute("aria-disabled") !== "true")
++    };
++  }
++
++  function buttonToken(snapshot) {
++    return [snapshot.testid, snapshot.aria, snapshot.title, snapshot.text].join(" ").toLowerCase();
++  }
++
++  function isWritingBlockEditButton(button) {
++    const snapshot = buttonSnapshot(button);
++    return snapshot.testid === "writing-block-header-magic-edit-button" ||
++      /(?:^|\s)(?:редактировать|edit)(?:\s|$)/u.test(buttonToken(snapshot));
++  }
++
++  function isWritingBlockLocalCopyButton(button) {
++    const snapshot = buttonSnapshot(button);
++    if (snapshot.testid === "copy-turn-action-button" || /копировать\s+ответ|copy\s+response/u.test(buttonToken(snapshot))) return false;
++    return snapshot.aria === "Копировать" ||
++      /(?:^|\s)(?:копировать|copy)(?:\s|$)/u.test(buttonToken(snapshot));
++  }
++
++  function cleanWritingBlockText(root) {
++    if (!(root instanceof Element)) return "";
++    const clone = root.cloneNode(true);
++    clone.querySelectorAll("button, [role=button], svg, script, style").forEach((node) => node.remove());
++    return Core.normalizeText(clone.innerText || clone.textContent || "");
++  }
++
++  function legacyWritingBlockBinding(section) {
++    const root = section && section.querySelector && section.querySelector("[data-writing-block], [data-writing-block-id], #code-block-viewer");
++    if (!(root instanceof Element)) return null;
++    const copy = Array.from(root.querySelectorAll("button")).find(isWritingBlockLocalCopyButton) || null;
++    return {root, copy_button: copy, source: "legacy_explicit_root"};
++  }
++
++  function currentWritingBlockBinding(section) {
++    if (!(section instanceof Element)) return null;
++    const buttons = Array.from(section.querySelectorAll("button"));
++    const edits = buttons.filter(isWritingBlockEditButton);
++    const copies = buttons.filter(isWritingBlockLocalCopyButton);
++    for (const editButton of edits) {
++      for (const copyButton of copies) {
++        let root = copyButton.parentElement;
++        while (root && root !== section) {
++          if (root.contains(editButton) && root.contains(copyButton)) {
++            const body = cleanWritingBlockText(root);
++            if (body) return {root, copy_button: copyButton, source: "current_local_toolbar"};
++          }
++          root = root.parentElement;
++        }
++      }
++    }
++    return null;
++  }
++
++  function resolveWritingBlockBinding(section) {
++    return legacyWritingBlockBinding(section) || currentWritingBlockBinding(section);
++  }
++
++  function sectionRole(section) {
++    const own = String(section.getAttribute("data-turn") || section.getAttribute("data-message-author-role") || "").toLowerCase();
++    if (own === "assistant" || own === "user") return own;
++    const child = section.querySelector && section.querySelector("[data-message-author-role]");
++    const role = child && String(child.getAttribute("data-message-author-role") || "").toLowerCase();
++    return role === "assistant" || role === "user" ? role : "unknown";
++  }
++
++  function sectionTurnId(section, index, text) {
++    return section.getAttribute("data-turn-id") ||
++      section.getAttribute("data-message-id") ||
++      section.getAttribute("data-testid") ||
++      section.id ||
++      `af-chat-turn-${index}-${Core.stableShortHash(text)}`;
++  }
++
++  function collectTurnSections() {
++    const seen = new Set();
++    const rows = [];
++    for (const selector of ["section[data-turn]", "[data-message-author-role]"]) {
++      for (const node of Array.from(document.querySelectorAll(selector)).filter(visible)) {
++        const section = node.matches("section[data-turn]") ? node :
++          (node.closest("section[data-turn]") || node);
++        if (seen.has(section)) continue;
++        seen.add(section);
++        rows.push(section);
++      }
++    }
++    return rows;
+   }
+ 
+   function collectMessages() {
+-    return Array.from(document.querySelectorAll("[data-message-author-role]")).filter(visible).map((node, index) => {
+-      const text = textOf(node);
++    return collectTurnSections().map((section, index) => {
++      const role = sectionRole(section);
++      const binding = role === "assistant" ? resolveWritingBlockBinding(section) : null;
++      const text = binding ? cleanWritingBlockText(binding.root) : textOf(section);
+       return {
+-        role: node.getAttribute("data-message-author-role") || "unknown",
+-        turnId: turnIdOf(node, index, text),
+-        text
++        role,
++        turnId: sectionTurnId(section, index, text),
++        text,
++        writing_block: Boolean(binding),
++        copy_ready: Boolean(binding && binding.copy_button && buttonSnapshot(binding.copy_button).enabled),
++        copy_source: binding && binding.source || null,
++        _section: section,
++        _binding: binding
+       };
+     });
+   }
+ 
+   function inspect() {
+-    const messageSelectors = ["[data-message-author-role]", "article", "main [role='article']"];
++    const messageSelectors = ["section[data-turn]", "[data-message-author-role]", "article", "main [role='article']"];
+     const composerSelectors = ["textarea", "[contenteditable='true']", "[role='textbox']"];
+     const sendSelectors = ["button[aria-label*='Send' i]", "button[aria-label*='Отправ' i]", "button[data-testid*='send' i]"];
+     const buttons = Array.from(document.querySelectorAll("button")).filter(visible).slice(0, 50).map((button) => ({
+@@ -59,6 +161,7 @@
+     return {
+       url: location.href, title: document.title, captured_at: new Date().toISOString(),
+       message_container_count: messages.length, message_roles: roles,
++      writing_block_count: messages.filter((message) => message.writing_block).length,
+       composer_count: composerSelectors.reduce((total, selector) => total + elementEvidence(selector).length, 0),
+       send_button_count: sendSelectors.reduce((total, selector) => total + elementEvidence(selector).length, 0),
+       selector_summaries: messageSelectors.concat(composerSelectors, sendSelectors).map(selectorSummary),
+@@ -69,16 +172,41 @@
+     };
+   }
+ 
++  function confirmLocalCopy(binding) {
++    if (!binding || !(binding.root instanceof Element)) return {ok: false, error: "WRITING_BLOCK_NOT_FOUND"};
++    const text = cleanWritingBlockText(binding.root);
++    if (!text) return {ok: false, error: "WRITING_BLOCK_BODY_UNAVAILABLE"};
++    if (binding.source === "current_local_toolbar") {
++      const button = binding.copy_button;
++      if (!(button instanceof HTMLElement) || !buttonSnapshot(button).enabled) return {ok: false, error: "WRITING_BLOCK_COPY_CONTROL_UNAVAILABLE"};
++      if (!confirmedCopyButtons.has(button)) {
++        button.click();
++        confirmedCopyButtons.add(button);
++      }
++    }
++    return {ok: true, text, copy_source: binding.source};
++  }
++
+   function captureCommand(baselineTurnId) {
+-    const command = Core.selectLatestCommand(collectMessages(), baselineTurnId || null);
+-    if (!command) return {ok: false, error: "NO_NEW_VALID_COMMAND"};
++    const messages = collectMessages();
++    const selected = Core.selectLatestCommand(messages, baselineTurnId || null);
++    if (!selected) return {ok: false, error: "NO_NEW_VALID_WRITING_BLOCK_COMMAND"};
++    const source = messages.find((message) => message.turnId === selected.turnId);
++    if (!source || !source.writing_block) return {ok: false, error: "LATEST_COMMAND_IS_NOT_WRITING_BLOCK"};
++    const copied = confirmLocalCopy(source._binding);
++    if (!copied.ok) return {ok: false, error: copied.error};
++    const parsed = Core.parseCommandForm(copied.text);
++    if (!parsed.valid) return {ok: false, error: `WRITING_BLOCK_COMMAND_INVALID:${parsed.errors.join(",")}`};
+     return {
+       ok: true,
+       command: {
+-        turnId: command.turnId,
+-        messageIndex: command.messageIndex,
+-        parsed: command.parsed,
+-        raw: command.raw
++        turnId: selected.turnId,
++        messageIndex: selected.messageIndex,
++        parsed,
++        raw: copied.text,
++        writing_block: true,
++        copy_confirmed: true,
++        copy_source: copied.copy_source
+       }
+     };
+   }
+
+--- v0.2.0/core.js
++++ v0.2.1/core.js
+@@ -12,20 +12,14 @@
+   const CHATGPT_HOSTS = new Set(["chatgpt.com", "chat.openai.com"]);
+   const AVITO_HOSTS = new Set(["www.avito.ru", "avito.ru"]);
+   const MAX_LOGS = 200;
+-  const VALID_MODES = new Set(["INSPECT_FILTERS", "SEARCH"]);
++  const VALID_MODES = new Set(["INSPECT_FILTERS"]);
++  // Visible ChatGPT command form: exactly the same four ordinary human
++  // sections used by the proven Bridge writing-block workflow.
+   const REQUIRED_COMMAND_LABELS = Object.freeze([
+     "Цель",
+-    "Режим",
+-    "Категория",
+-    "Город",
+-    "Доставка",
+-    "Поисковый запрос",
+-    "Цена",
+-    "Обязательные условия",
+-    "Желательные условия",
+-    "Исключить",
+-    "Количество кандидатов",
+-    "Действие"
++    "Рабочая область",
++    "Изменения",
++    "Проверка"
+   ]);
+ 
+   function safeUrl(value) {
+@@ -99,22 +93,27 @@
+   function parseCommandForm(text) {
+     const sections = parseLabeledSections(text);
+     const missing = REQUIRED_COMMAND_LABELS.filter((label) => !(label in sections));
+-    const mode = String(sections["Режим"] || "").trim().toUpperCase();
+-    const count = Number.parseInt(String(sections["Количество кандидатов"] || ""), 10);
++    const normalized = normalizeText(text);
++    const lower = normalized.toLowerCase();
+     const errors = [];
+ 
+     if (missing.length) errors.push(`MISSING_LABELS:${missing.join(",")}`);
+-    if (!VALID_MODES.has(mode)) errors.push("INVALID_MODE");
+-    if (!Number.isInteger(count) || count < 1 || count > 30) errors.push("INVALID_CANDIDATE_COUNT");
+-    if (mode === "SEARCH" && !String(sections["Город"] || "").trim()) errors.push("CITY_REQUIRED_FOR_SEARCH");
+-    if (/\b(BBI_REQUEST|BBI_RESULT)\b|\{\s*"/u.test(normalizeText(text))) errors.push("FORBIDDEN_PROTOCOL_MARKER");
++    if (/\b(BBI_REQUEST|BBI_RESULT)\b|\{\s*"/u.test(normalized)) errors.push("FORBIDDEN_PROTOCOL_MARKER");
++
++    // v0.2.x is intentionally limited to one read-only command. The command
++    // is expressed in normal prose inside the four visible sections, not in a
++    // private protocol or a twelve-label hidden schema.
++    const asksFilterInspection = /фильтр/u.test(lower) && /(?:обслед|прочит|снят|поверхност)/u.test(lower);
++    const readonlyDeclaration = /не\s+ввод\S*[\s\S]{0,100}не\s+меня\S*[\s\S]{0,100}не\s+запуска\S*[\s\S]{0,100}не\s+открыва\S*[\s\S]{0,100}не\s+отправ\S*/u.test(lower);
++    if (!asksFilterInspection) errors.push("UNSUPPORTED_READONLY_INTENT");
++    if (!readonlyDeclaration) errors.push("READONLY_DECLARATION_REQUIRED");
+ 
+     return {
+       valid: errors.length === 0,
+       errors,
+-      raw: normalizeText(text),
+-      mode,
+-      candidateCount: Number.isInteger(count) ? count : null,
++      raw: normalized,
++      mode: asksFilterInspection && readonlyDeclaration ? "INSPECT_FILTERS" : null,
++      candidateCount: null,
+       fields: sections
+     };
+   }
+@@ -153,11 +152,10 @@
+     const fields = parsed && parsed.fields ? parsed.fields : {};
+     return {
+       mode: parsed && parsed.mode || null,
+-      category: fields["Категория"] || "",
+-      city: fields["Город"] || "",
+-      query: fields["Поисковый запрос"] || "",
+-      price: fields["Цена"] || "",
+-      candidate_count: parsed && parsed.candidateCount || null
++      goal: fields["Цель"] || "",
++      work_area: fields["Рабочая область"] || "",
++      changes: fields["Изменения"] || "",
++      verification: fields["Проверка"] || ""
+     };
+   }
+ 
+@@ -225,16 +223,13 @@
+     const summary = summarizeCommand(command);
+     const filterSurface = payload && payload.filterSurface ? payload.filterSurface : {};
+     const lines = [
+-      "Avito Finder: команда прочитана, фильтры обследованы",
++      "Avito Finder: writing-block команда прочитана, фильтры обследованы",
+       "",
+       `Задача: ${payload && payload.search_id ? payload.search_id : "неизвестно"}`,
+-      `Команда ChatGPT: ${command.turnId || "не найдена"}`,
++      `Writing-block ChatGPT: ${command.turnId || "не найден"}`,
+       `Режим: ${summary.mode || "неизвестно"}`,
+-      `Категория: ${summary.category || "не указана"}`,
+-      `Город: ${summary.city || "не указан"}`,
+-      `Поисковый запрос: ${summary.query || "не указан"}`,
+-      `Цена: ${summary.price || "не указана"}`,
+-      `Количество кандидатов: ${summary.candidate_count || "не указано"}`,
++      `Цель: ${summary.goal || "не указана"}`,
++      `Рабочая область: ${summary.work_area || "не указана"}`,
+       "",
+       "Поверхность фильтров Avito (только чтение):",
+       `- адрес: ${filterSurface.url || "не определён"}`,
+
+--- v0.2.0/manifest.json
++++ v0.2.1/manifest.json
+@@ -2,28 +2,49 @@
+   "manifest_version": 3,
+   "name": "Avito Finder — Command & Filter Inspector",
+   "short_name": "Avito Finder",
+-  "version": "0.2.0",
+-  "version_name": "0.2.0-command-capture-filter-surface-readonly",
+-  "description": "Отдельное расширение для чтения последней команды Avito Finder из ChatGPT и read-only обследования доступных фильтров Avito.",
++  "version": "0.2.1",
++  "version_name": "0.2.1-writing-block-copy-command-recovery",
++  "description": "Avito Finder: отдельный read-only захват writing-block команды и обследование фильтров Avito.",
+   "minimum_chrome_version": "109",
+-  "permissions": ["tabs", "storage", "scripting"],
++  "permissions": [
++    "tabs",
++    "storage",
++    "scripting"
++  ],
+   "host_permissions": [
+     "https://chatgpt.com/*",
+     "https://chat.openai.com/*",
+     "https://www.avito.ru/*",
+     "https://avito.ru/*"
+   ],
+-  "background": {"service_worker": "service_worker.js"},
+-  "action": {"default_title": "Avito Finder", "default_popup": "popup.html"},
++  "background": {
++    "service_worker": "service_worker.js"
++  },
++  "action": {
++    "default_title": "Avito Finder",
++    "default_popup": "popup.html"
++  },
+   "content_scripts": [
+     {
+-      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+-      "js": ["core.js", "chatgpt_content.js"],
++      "matches": [
++        "https://chatgpt.com/*",
++        "https://chat.openai.com/*"
++      ],
++      "js": [
++        "core.js",
++        "chatgpt_content.js"
++      ],
+       "run_at": "document_idle"
+     },
+     {
+-      "matches": ["https://www.avito.ru/*", "https://avito.ru/*"],
+-      "js": ["core.js", "avito_content.js"],
++      "matches": [
++        "https://www.avito.ru/*",
++        "https://avito.ru/*"
++      ],
++      "js": [
++        "core.js",
++        "avito_content.js"
++      ],
+       "run_at": "document_idle"
+     }
+   ]
+
+--- v0.2.0/popup.html
++++ v0.2.1/popup.html
+@@ -9,10 +9,10 @@
+ <body>
+   <main>
+     <h1>Avito Finder</h1>
+-    <p class="sub">Этап 2: read-only команда из ChatGPT и обследование доступной поверхности фильтров Avito.</p>
++    <p class="sub">Этап 2: только новая assistant writing-block форма из ChatGPT и read-only обследование доступной поверхности фильтров Avito.</p>
+     <section class="status" aria-live="polite"><strong id="status">Загрузка…</strong><span id="detail"></span></section>
+     <div class="actions"><button id="inspect" type="button">Обследовать DOM</button><button id="command-filter" type="button">Прочитать команду и фильтры</button><button id="stop" type="button" class="secondary">Стоп</button></div>
+-    <p class="hint">Команда читается только из последней новой assistant-формы после твоего user-сообщения. На этом этапе расширение не вводит текст, не меняет фильтры, не запускает поиск и не отправляет сообщения.</p>
++    <p class="hint">Команда читается только из последнего нового assistant writing block после твоего user-сообщения: Цель / Рабочая область / Изменения / Проверка. На этом этапе расширение не вводит текст, не меняет фильтры, не запускает поиск и не отправляет сообщения.</p>
+     <label for="report">Последний отчёт</label><textarea id="report" readonly rows="14" spellcheck="false"></textarea><button id="copy" type="button" class="secondary">Скопировать отчёт</button>
+     <label for="logs">Последние события</label><pre id="logs"></pre>
+   </main>
+
+--- v0.2.0/service_worker.js
++++ v0.2.1/service_worker.js
+@@ -66,8 +66,8 @@
+   await log("COMMAND_FILTER_INSPECTION_STARTED", {search_id: searchId, window_id: windowId});
+   try {
+     const chatTab = await findTabInWindow("chatgpt", windowId); if (!chatTab) throw new Error("CHATGPT_TAB_NOT_FOUND_CURRENT_WINDOW"); const activeChat = await activateTab(chatTab, "chatgpt_command"); state = await setState(Object.assign({}, state, {status: "CHATGPT_TAB_ACTIVE", chatgpt_tab_id: activeChat.id}));
+-    let command; try { command = await captureCommand(activeChat.id, state.processed_command_turn_id); } catch (error) { if (String(error.message) === "NO_NEW_VALID_COMMAND") { state = await setState(Object.assign({}, state, {status: "WAITING_FOR_COMMAND", phase: "COMMAND_MISSING", blocked_reason: "NO_NEW_VALID_COMMAND"})); await log("COMMAND_NOT_FOUND", {search_id: searchId, baseline_turn_id: state.processed_command_turn_id || null}); return {ok: false, state, error: "NO_NEW_VALID_COMMAND"}; } throw error; }
+-    state = await setState(Object.assign({}, state, {status: "COMMAND_CAPTURED", phase: "COMMAND_CAPTURED", processed_command_turn_id: command.turnId, blocked_reason: null})); await storageSet({[COMMAND_KEY]: command}); await log("COMMAND_CAPTURED", {search_id: searchId, turn_id: command.turnId, mode: command.parsed.mode, candidate_count: command.parsed.candidateCount});
++    let command; try { command = await captureCommand(activeChat.id, state.processed_command_turn_id); } catch (error) { const reason = String(error.message || error); if (/^(NO_NEW_VALID_WRITING_BLOCK_COMMAND|LATEST_COMMAND_IS_NOT_WRITING_BLOCK|WRITING_BLOCK_)/.test(reason)) { state = await setState(Object.assign({}, state, {status: "WAITING_FOR_COMMAND", phase: "COMMAND_MISSING", blocked_reason: reason})); await log("COMMAND_NOT_FOUND_OR_REJECTED", {search_id: searchId, baseline_turn_id: state.processed_command_turn_id || null, reason}); return {ok: false, state, error: reason}; } throw error; }
++    state = await setState(Object.assign({}, state, {status: "COMMAND_CAPTURED", phase: "COMMAND_CAPTURED", processed_command_turn_id: command.turnId, blocked_reason: null})); await storageSet({[COMMAND_KEY]: command}); await log("WRITING_BLOCK_COMMAND_CAPTURED", {search_id: searchId, turn_id: command.turnId, mode: command.parsed.mode, copy_confirmed: command.copy_confirmed === true, copy_source: command.copy_source || null});
+     const avito = await ensureAvitoTab(windowId, true); const activeAvito = await activateTab(avito.tab, "avito_filter_scan"); state = await setState(Object.assign({}, state, {status: "AVITO_TAB_ACTIVE", avito_tab_id: activeAvito.id, phase: "INSPECTING_FILTERS"})); const filterSurface = await inspectFilterSurface(activeAvito.id); await log("AVITO_FILTER_SURFACE_CAPTURED", {search_id: searchId, tab_id: activeAvito.id, filter_control_count: filterSurface.filter_control_count, created: avito.created});
+     const returnedChat = await activateTab(activeChat, "chatgpt_return"); const report = Core.formatCommandFilterReport({search_id: searchId, command, filterSurface}); const inspection = {version: 2, search_id: searchId, captured_at: new Date().toISOString(), mode: "COMMAND_AND_FILTER_SURFACE_READ_ONLY", command, filterSurface, report}; state = await setState(Object.assign({}, state, {status: "COMMAND_AND_FILTER_SURFACE_COMPLETE", phase: "READONLY_COMPLETE", chatgpt_tab_id: returnedChat.id, report, blocked_reason: filterSurface.blocked_reason || null})); await storageSet({[INSPECTION_KEY]: inspection}); await log("COMMAND_FILTER_INSPECTION_COMPLETE", {search_id: searchId, status: state.status}); return {ok: true, state, inspection};
+   } catch (error) { const reason = error && error.message ? error.message : "UNKNOWN_ERROR"; const blocked = reason.startsWith("BLOCKED_TAB_ACTIVATION") ? "BLOCKED_TAB_ACTIVATION" : reason; state = await setState(Object.assign({}, state, {status: blocked, phase: "COMMAND_FILTER_INSPECTION_BLOCKED", blocked_reason: blocked})); await log("COMMAND_FILTER_INSPECTION_BLOCKED", {search_id: searchId, reason: blocked}); return {ok: false, state, error: blocked}; }
+

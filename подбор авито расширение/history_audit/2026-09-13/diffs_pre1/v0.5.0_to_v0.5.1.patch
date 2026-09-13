@@ -1,0 +1,235 @@
+--- v0.5.0/chatgpt_content.js
++++ v0.5.1/chatgpt_content.js
+@@ -7,7 +7,7 @@
+   // runtime context. A version guard that simply returns would then prevent a
+   // fresh adapter from being injected into the same tab. New injection must
+   // supersede, dispose and replace the previous adapter instead.
+-  const CONTENT_SCRIPT_VERSION = "0.5.0";
++  const CONTENT_SCRIPT_VERSION = "0.5.1";
+   const CONTENT_SCRIPT_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+   const CONTENT_RUNTIME_KEY = "__AVITO_FINDER_BRIDGE_EXACT_CAPTURE_RUNTIME__";
+   const CONTENT_RUNTIME_ID = `0.4.3:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+
+--- v0.5.0/core.js
++++ v0.5.1/core.js
+@@ -72,7 +72,7 @@
+     for (const raw of normalizeText(text).split("\n")) {
+       const line = raw.trim();
+       const m = line.match(/^([^:]{2,80}):\s*(.*)$/u);
+-      if (m && REQUIRED_COMMAND_LABELS.includes(m[1].trim())) { current = m[1].trim(); out[current] = m[2].trim(); continue; }
++      if (m) { current = m[1].trim(); out[current] = m[2].trim(); continue; }
+       if (current && line) out[current] = `${out[current]}\n${line}`.trim();
+     }
+     return out;
+@@ -81,42 +81,78 @@
+     const match = normalizeText(text).match(new RegExp(`(?:^|\\n)\\s*${label}\\s*:\\s*([^\\n]+)`, "iu"));
+     return match ? match[1].trim() : "";
+   }
+-  function parseDiagnosticDirective(fields) {
+-    const action = String(fields["Действие"] || "");
+-    const pageUrl = directiveValue(action, "Страница");
+-    const scope = directiveValue(action, "Область").toUpperCase();
++  function firstAvitoUrl(text) {
++    const matches = normalizeText(text).match(/https:\/\/(?:www\.)?avito\.ru(?:\/[^\s)\]}>]*)?/iu);
++    return matches ? matches[0] : "";
++  }
++  function firstScope(text) {
++    const raw = normalizeText(text).toUpperCase();
++    for (const scope of DIAGNOSTIC_SCOPES) if (raw.includes(scope)) return scope;
++    if (/\bотзыв|\breview/i.test(raw)) return "REVIEWS_VISIBLE";
++    if (/карточк|объявлен/i.test(raw)) return "LISTING_CARD_VISIBLE";
++    if (/диалог|модальн|попап/i.test(raw)) return "DIALOG_VISIBLE";
++    if (/поиск|search/i.test(raw)) return "SEARCH_SURFACE_VISIBLE";
++    return "PAGE_MAIN_VISIBLE";
++  }
++  function inferMode(text, fields) {
++    const raw = normalizeText(text);
++    const explicit = String(fields["Режим"] || directiveValue(raw, "Режим") || "").trim().toUpperCase();
++    if (VALID_MODES.has(explicit)) return { mode: explicit, source: "explicit_field" };
++    for (const mode of VALID_MODES) if (new RegExp(`\\b${mode}\\b`, "iu").test(raw)) return { mode, source: "mode_token" };
++    if (/\bdom\b|\bhtml\b|сним(?:ок|ка)|разметк|диагност|отзыв/i.test(raw)) return { mode: "DIAGNOSE_DOM", source: "local_text_inference" };
++    if (/фильтр|обследован|поверхност/i.test(raw)) return { mode: "INSPECT_FILTERS", source: "local_text_inference" };
++    if (/\bsearch\b|\bпоиск\b|\bнайти\b|\bподобрать\b/i.test(raw)) return { mode: "SEARCH", source: "local_text_inference" };
++    return { mode: "", source: "unresolved" };
++  }
++  function parseCandidateLimit(text, fields) {
++    const explicit = String(fields["Количество кандидатов"] || directiveValue(text, "Количество кандидатов") || "").trim();
++    const fallback = normalizeText(text).match(/(?:кандидат(?:ов|ы)?|объявлен(?:ий|ия))\s*(?:до|не более|<=|:)?\s*(\d{1,3})/iu);
++    const value = explicit || (fallback ? fallback[1] : "");
++    return value ? Number.parseInt(value, 10) : null;
++  }
++  function parseDiagnosticDirective(text, fields) {
++    const raw = normalizeText(text);
++    const pageUrl = directiveValue(String(fields["Действие"] || ""), "Страница") || directiveValue(raw, "Страница") || firstAvitoUrl(raw);
++    const explicitScope = directiveValue(String(fields["Действие"] || ""), "Область") || directiveValue(raw, "Область");
++    const scope = (explicitScope || firstScope(raw)).toUpperCase();
+     const errors = [];
+     if (!pageUrl) errors.push("DIAGNOSTIC_PAGE_REQUIRED");
+     else if (!isAvitoUrl(pageUrl)) errors.push("DIAGNOSTIC_PAGE_NOT_ALLOWED");
+-    if (!scope) errors.push("DIAGNOSTIC_SCOPE_REQUIRED");
+-    else if (!DIAGNOSTIC_SCOPES.has(scope)) errors.push("DIAGNOSTIC_SCOPE_NOT_ALLOWED");
+-    return { valid: errors.length === 0, errors, page_url: pageUrl, scope };
++    if (!DIAGNOSTIC_SCOPES.has(scope)) errors.push("DIAGNOSTIC_SCOPE_NOT_ALLOWED");
++    return { valid: errors.length === 0, errors, page_url: pageUrl, scope, scope_source: explicitScope ? "explicit_text" : "local_inference_or_default" };
+   }
+   function parseCommandForm(text) {
+-    const fields = parseLabeledSections(text);
+-    const missing = REQUIRED_COMMAND_LABELS.filter((key) => !(key in fields));
+-    const mode = String(fields["Режим"] || "").trim().toUpperCase();
+-    const count = Number.parseInt(String(fields["Количество кандидатов"] || ""), 10);
++    const raw = normalizeText(text);
++    const fields = parseLabeledSections(raw);
++    const detected = inferMode(raw, fields);
++    const mode = detected.mode;
+     const errors = [];
+-    if (missing.length) errors.push(`MISSING_LABELS:${missing.join(",")}`);
+-    if (!VALID_MODES.has(mode)) errors.push("INVALID_MODE");
+-    if (!Number.isInteger(count) || count < 1 || count > 30) errors.push("INVALID_CANDIDATE_COUNT");
+-    if (mode === "SEARCH" && !String(fields["Город"] || "").trim()) errors.push("CITY_REQUIRED_FOR_SEARCH");
++    if (!mode) errors.push("MODE_UNRESOLVED");
++    const candidateCount = parseCandidateLimit(raw, fields);
++    let candidateLimit = null;
++    let candidateLimitSource = "not_used";
++    if (mode === "SEARCH") {
++      candidateLimit = Number.isInteger(candidateCount) ? candidateCount : 10;
++      candidateLimitSource = Number.isInteger(candidateCount) ? "captured_text" : "default_10";
++      if (candidateLimit < 1 || candidateLimit > 30) errors.push("SEARCH_CANDIDATE_LIMIT_OUT_OF_RANGE");
++      const city = String(fields["Город"] || directiveValue(raw, "Город") || "").trim();
++      if (!city) errors.push("CITY_REQUIRED_FOR_SEARCH");
++    }
+     let diagnostic = null;
+     if (mode === "DIAGNOSE_DOM") {
+-      diagnostic = parseDiagnosticDirective(fields);
++      diagnostic = parseDiagnosticDirective(raw, fields);
+       errors.push(...diagnostic.errors);
+     }
+-    return { valid: errors.length === 0, errors, mode, candidate_count: Number.isInteger(count) ? count : null, fields, diagnostic, raw: normalizeText(text) };
++    return { valid: errors.length === 0, errors, mode, mode_source: detected.source, candidate_count: candidateLimit, candidate_count_source: candidateLimitSource, fields, diagnostic, raw };
+   }
+   function makeState(overrides) {
+     return Object.assign({
+-      version: 7, search_id: null, status: "IDLE", phase: "IDLE", started_at: null,
++      version: 8, search_id: null, status: "IDLE", phase: "IDLE", started_at: null,
+       updated_at: new Date().toISOString(), current_window_id: null, chatgpt_tab_id: null,
+       chatgpt_window_id: null, chat_origin: null, chat_path: null, avito_tab_id: null,
+       conversation_id: null, anchor_turn_id: null, assistant_turn_id: null, blocked_reason: null,
+       user_started: false, inspection_only: true, report: null, command_mode: null,
+-      diagnostic_request: null, report_delivery_id: null
++      diagnostic_request: null, report_delivery_id: null, report_kind: null
+     }, overrides || {});
+   }
+   function appendLog(existing, type, fields) {
+
+--- v0.5.0/manifest.json
++++ v0.5.1/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.5.0",
+-  "version_name": "0.5.0-diagnostic-dom-dialog-test-candidate",
+-  "description": "Отдельный Avito Finder: точный ChatGPT capture-контур, строго привязанный диалог и bounded DOM-диагностика публичных Avito-областей.",
++  "version": "0.5.1",
++  "version_name": "0.5.1-local-validator-error-return-test-candidate",
++  "description": "Отдельный Avito Finder: полный текст writing block, локальный свободный валидатор и возврат ошибок только в закреплённый чат.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.5.0/service_worker.js
++++ v0.5.1/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.5.0 — isolated diagnostic dialogue; no Business Bridge runtime. */
++/* Avito Finder v0.5.1 — isolated diagnostic dialogue; no Business Bridge runtime. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -6,7 +6,7 @@
+ const LOG_KEY = Core.STORAGE.logs;
+ const INSPECTION_KEY = Core.STORAGE.lastInspection;
+ const CAPTURE_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+-const CAPTURE_VERSION = "0.5.0";
++const CAPTURE_VERSION = "0.5.1";
+ const AVITO_READY_TIMEOUT_MS = 30000;
+ const avitoReadyTimers = new Map();
+ const ensureLocks = new Map();
+@@ -154,7 +154,7 @@
+   const latest = await getState();
+   if (latest.search_id !== state.search_id || latest.status === "CANCELLED_BY_USER") return latest;
+   const deliveryId = latest.report_delivery_id || `${latest.search_id}:${reportKind}`;
+-  const staged = await saveState({ ...latest, status: "REPORT_DELIVERY_IN_PROGRESS", phase: "CHATGPT_REPORT_DELIVERY", report, report_delivery_id: deliveryId, blocked_reason: null });
++  const staged = await saveState({ ...latest, status: "REPORT_DELIVERY_IN_PROGRESS", phase: "CHATGPT_REPORT_DELIVERY", report, report_kind: reportKind, report_delivery_id: deliveryId, blocked_reason: null });
+   let pinned;
+   try { pinned = await assertPinnedChatContext(staged, `chatgpt_return_after_${reportKind}`, { activateTab: true }); } catch (_) { return await getState(); }
+   await log("REPORT_DELIVERY_REQUESTED", { search_id: staged.search_id, report_kind: reportKind, tab_id: pinned.tab.id, report_fingerprint: Core.fingerprint(report) });
+@@ -166,12 +166,14 @@
+     const reason = response?.error || "REPORT_DELIVERY_CONTEXT_UNCONFIRMED";
+     const pause = /PRIMARY_COMPOSER_OCCUPIED|composer.*другой|неотправленный текст/i.test(reason);
+     const current = await getState();
+-    const next = await saveState({ ...current, status: pause ? "PAUSED_USER_COMPOSER_OCCUPIED" : "REPORT_DELIVERY_BLOCKED", phase: "CHATGPT_REPORT_DELIVERY", blocked_reason: reason, report, report_delivery_id: deliveryId });
++    const next = await saveState({ ...current, status: pause ? "PAUSED_USER_COMPOSER_OCCUPIED" : "REPORT_DELIVERY_BLOCKED", phase: "CHATGPT_REPORT_DELIVERY", blocked_reason: reason, report, report_kind: reportKind, report_delivery_id: deliveryId });
+     await log(pause ? "REPORT_DELIVERY_PAUSED_USER_COMPOSER_OCCUPIED" : "REPORT_DELIVERY_BLOCKED", { search_id: next.search_id, report_kind: reportKind, reason });
+     return next;
+   }
+-  const final = await saveState({ ...staged, status: "REPORT_SENT_CONFIRMED", phase: reportKind === "diagnostic" ? "DIAGNOSTIC_COMPLETE" : "READONLY_INSPECTION_COMPLETE", report, blocked_reason: null });
+-  await log("REPORT_SENT_CONFIRMED", { search_id: final.search_id, report_kind: reportKind, user_turn_id: response.anchor_turn_id || null, chatgpt_tab_id: pinned.tab.id });
++  const finalStatus = reportKind === "validation_error" ? "VALIDATION_ERROR_REPORTED" : "REPORT_SENT_CONFIRMED";
++  const finalPhase = reportKind === "diagnostic" ? "DIAGNOSTIC_COMPLETE" : reportKind === "validation_error" ? "VALIDATION_ERROR_REPORTED" : "READONLY_INSPECTION_COMPLETE";
++  const final = await saveState({ ...staged, status: finalStatus, phase: finalPhase, report, report_kind: reportKind, blocked_reason: null });
++  await log(reportKind === "validation_error" ? "VALIDATION_ERROR_REPORTED_TO_CHAT" : "REPORT_SENT_CONFIRMED", { search_id: final.search_id, report_kind: reportKind, user_turn_id: response.anchor_turn_id || null, chatgpt_tab_id: pinned.tab.id });
+   return final;
+ }
+ 
+@@ -253,6 +255,29 @@
+   if (!poll?.ok) { const reason = poll?.error || "PROMPT_POLL_START_FAILED"; state = await saveState({ ...state, status: "PROMPT_POLL_START_FAILED", phase: "CHATGPT_CAPTURE", blocked_reason: reason }); await log("PROMPT_POLL_START_FAILED", { search_id: searchId, reason }); return { ok: false, state, error: reason }; }
+   await log("BRIDGE_EXACT_PROMPT_POLL_STARTED", { search_id: searchId, anchor_turn_id: startResult.anchor_turn_id, conversation_id: state.conversation_id }); return { ok: true, state };
+ }
++function validationErrorReport(state, parsed, text) {
++  const mode = parsed.mode || "не определён";
++  const errors = Array.isArray(parsed.errors) && parsed.errors.length ? parsed.errors.join("; ") : "LOCAL_VALIDATOR_UNSPECIFIED";
++  return [
++    "Avito Finder: локальный валидатор не смог подготовить действие.",
++    "",
++    `Задача: ${state.search_id || "?"}`,
++    `Текст writing block получен полностью: ${Core.fingerprint(text)}`,
++    `Определённый режим: ${mode}`,
++    `Причины: ${errors}`,
++    "",
++    "На Avito ничего не открывалось и не изменялось.",
++    "Расширение вернуло ошибку в этот же чат. Следующая команда может быть обычным текстом: фиксированный шаблон не требуется."
++  ].join("\n");
++}
++async function returnValidationErrorToPinnedChat(state, parsed, text) {
++  const report = validationErrorReport(state, parsed, text);
++  const staged = await saveState({ ...state, status: "VALIDATION_ERROR_REPORT_READY", phase: "LOCAL_EXTENSION_VALIDATION", command_mode: parsed.mode || null, diagnostic_request: null, blocked_reason: (parsed.errors || []).join("; "), report, report_kind: "validation_error" });
++  await log("LOCAL_COMMAND_VALIDATION_FAILED", { search_id: staged.search_id, errors: parsed.errors || [], mode: parsed.mode || null, mode_source: parsed.mode_source || null, text_fingerprint: Core.fingerprint(text) });
++  await log("VALIDATION_ERROR_REPORT_READY", { search_id: staged.search_id, report_fingerprint: Core.fingerprint(report), report_kind: "validation_error" });
++  return deliverReportToPinnedChat(staged, report, "validation_error");
++}
++
+ async function handleFullText(message, sender) {
+   let state = await getState(); const candidate = message.candidate && typeof message.candidate === "object" ? message.candidate : {};
+   if (!state.search_id || candidate.run_id !== state.search_id) return { ok: true, data: { ignored: true, reason: "SEARCH_ID_MISMATCH" } };
+@@ -261,9 +286,9 @@
+   if (!Core.samePinnedChatContext(expected, actual) || candidate.anchor_turn_id !== state.anchor_turn_id) { const next = await blockConversationContext(state, "FULL_TEXT_CONTEXT_OR_ANCHOR_MISMATCH", { actual_conversation_id: actual.conversation_id, actual_chat_path: actual.chat_path, actual_tab: shortTab(sender?.tab) }); return { ok: true, data: { ignored: true, reason: next.blocked_reason } }; }
+   const text = String(candidate.prompt_text || ""); await log("FULL_WRITING_BLOCK_TEXT_RECEIVED", { search_id: state.search_id, anchor_turn_id: state.anchor_turn_id, assistant_turn_id: candidate.assistant_turn_id || null, payload_bytes: Number(candidate.payload_bytes || 0), payload_extracted: candidate.payload_extracted === true, text_fingerprint: Core.fingerprint(text) });
+   state = await saveState({ ...state, status: "FORM_TEXT_CAPTURED_UNVALIDATED", phase: "LOCAL_EXTENSION_VALIDATION", assistant_turn_id: candidate.assistant_turn_id || null, blocked_reason: null });
+-  const parsed = Core.parseCommandForm(text); await log("LOCAL_COMMAND_VALIDATION_COMPLETED", { search_id: state.search_id, valid: parsed.valid, errors: parsed.errors, mode: parsed.mode, candidate_count: parsed.candidate_count, text_fingerprint: Core.fingerprint(text) });
+-  if (!parsed.valid) { await saveState({ ...state, status: "COMMAND_INVALID_AFTER_FULL_COPY", phase: "LOCAL_EXTENSION_VALIDATION", blocked_reason: parsed.errors.join("; "), report: `Avito Finder: полный текст writing block получен через local Copy, но локальная проверка не пройдена.\nПричины: ${parsed.errors.join("; ")}` }); return { ok: true, data: { paused: true, reason: "COMMAND_INVALID_AFTER_FULL_COPY" } }; }
+-  if (parsed.mode === "SEARCH") { await saveState({ ...state, status: "COMMAND_CAPTURED_SEARCH_NOT_IMPLEMENTED", phase: "COMMAND_CAPTURED", blocked_reason: "SEARCH_NOT_IMPLEMENTED", report: "Команда SEARCH получена после local Copy. Этап 5 ТЗ ещё не реализован; Avito не изменялся." }); return { ok: true, data: { paused: true, reason: "SEARCH_NOT_IMPLEMENTED" } }; }
++  const parsed = Core.parseCommandForm(text); await log("LOCAL_COMMAND_VALIDATION_COMPLETED", { search_id: state.search_id, valid: parsed.valid, errors: parsed.errors, mode: parsed.mode, mode_source: parsed.mode_source, candidate_count: parsed.candidate_count, candidate_count_source: parsed.candidate_count_source, text_fingerprint: Core.fingerprint(text) });
++  if (!parsed.valid) { const delivered = await returnValidationErrorToPinnedChat(state, parsed, text); return { ok: true, data: { accepted: true, validation_error_reported: delivered.status === "VALIDATION_ERROR_REPORTED", reason: "COMMAND_INVALID_AFTER_FULL_COPY" } }; }
++  if (parsed.mode === "SEARCH") { const report = "Avito Finder: локальный валидатор получил команду SEARCH, но этап 5 ТЗ ещё не реализован. Avito не изменялся."; const staged = await saveState({ ...state, status: "SEARCH_NOT_IMPLEMENTED_REPORT_READY", phase: "COMMAND_CAPTURED", command_mode: "SEARCH", blocked_reason: "SEARCH_NOT_IMPLEMENTED", report, report_kind: "validation_error" }); await deliverReportToPinnedChat(staged, report, "validation_error"); return { ok: true, data: { accepted: true, validation_error_reported: true, reason: "SEARCH_NOT_IMPLEMENTED" } }; }
+   state = await saveState({ ...state, status: "COMMAND_CAPTURED", phase: "COMMAND_CAPTURED", command_mode: parsed.mode, diagnostic_request: parsed.diagnostic || null, blocked_reason: null });
+   queueAvitoTask(state, parsed).catch(async (error) => { const reason = String(error?.message || error); const latest = await getState(); if (latest.search_id !== state.search_id || latest.status === "CANCELLED_BY_USER") return; const pageReadyFailure = /^AVITO_(?:PAGE_READY_TIMEOUT|PAGE_NOT_READY|TAB_MISSING|TAB_CLOSED|TAB_WINDOW_MISMATCH|TAB_READ_FAILED)/.test(reason); await saveState({ ...latest, status: pageReadyFailure ? "BLOCKED_AVITO_PAGE_READY" : "FAILED_WITH_EVIDENCE", phase: latest.phase || "AVITO_TASK", blocked_reason: reason }); await log(pageReadyFailure ? "AVITO_PAGE_READY_BLOCKED" : "AVITO_TASK_BLOCKED", { search_id: state.search_id, reason }); });
+   return { ok: true, data: { accepted: true } };
+@@ -271,7 +296,7 @@
+ async function continueReport() {
+   const state = await getState();
+   if (!["PAUSED_USER_COMPOSER_OCCUPIED", "REPORT_DELIVERY_BLOCKED"].includes(state.status) || !state.report) return { ok: false, error: "NO_PENDING_REPORT" };
+-  const result = await deliverReportToPinnedChat(state, state.report, state.command_mode === "DIAGNOSE_DOM" ? "diagnostic" : "inspection");
++  const result = await deliverReportToPinnedChat(state, state.report, state.report_kind || (state.command_mode === "DIAGNOSE_DOM" ? "diagnostic" : "inspection"));
+   return { ok: true, state: result };
+ }
+ async function stop() {
+

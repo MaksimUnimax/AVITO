@@ -1,0 +1,324 @@
+--- v0.7.5/avito_content.js
++++ v0.7.6/avito_content.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.7.5 — bounded public diagnostics, trusted visible input and click-stage evidence. */
++/* Avito Finder v0.7.6 — bounded public diagnostics, trusted visible input and click-stage evidence. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+@@ -17,6 +17,7 @@
+   const UI_PLAN_PRE_ACTION_DELAY_MS = Number.isFinite(Number(globalThis.__AF_TEST_UI_DELAY_MS)) ? Number(globalThis.__AF_TEST_UI_DELAY_MS) : 1500;
+   const UI_PLAN_POST_ACTION_DELAY_MS = Number.isFinite(Number(globalThis.__AF_TEST_UI_DELAY_MS)) ? Number(globalThis.__AF_TEST_UI_DELAY_MS) : 2000;
+   const DEBUGGER_TYPE_TIMEOUT_MS = Number.isFinite(Number(globalThis.__AF_TEST_DEBUGGER_TYPE_TIMEOUT_MS)) ? Number(globalThis.__AF_TEST_DEBUGGER_TYPE_TIMEOUT_MS) : 10000;
++  const UI_CLICK_DISPATCH_TIMEOUT_MS = Number.isFinite(Number(globalThis.__AF_TEST_CLICK_DISPATCH_TIMEOUT_MS)) ? Number(globalThis.__AF_TEST_CLICK_DISPATCH_TIMEOUT_MS) : 2200;
+   const MENU_CAPTURE_MAX_MS = 5000;
+   const MENU_CAPTURE_POLL_MS = 80;
+   const MENU_MAX_OPTIONS = 12;
+@@ -805,6 +806,38 @@
+       debuggerTypeTokens.delete(token);
+     }
+   }
++  function normalizedClickDispatchTarget(target) {
++    return String(target?.description || "").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 220);
++  }
++  function recordUiClickDispatch(plan, step, index, target) {
++    const dispatch = {
++      plan_fingerprint: String(plan?.plan_fingerprint || "").slice(0, 160),
++      step_index: Number(index),
++      step_type: "CLICK",
++      target_description: normalizedClickDispatchTarget(target),
++      page_url: location.href
++    };
++    return new Promise((resolve) => {
++      let finished = false;
++      const finish = (value) => {
++        if (finished) return;
++        finished = true;
++        clearTimeout(timer);
++        resolve(value);
++      };
++      const timer = setTimeout(() => finish({ ok: false, reason: "UI_CLICK_DISPATCH_ACK_TIMEOUT" }), UI_CLICK_DISPATCH_TIMEOUT_MS);
++      try {
++        chrome.runtime.sendMessage({ type: "AF_UI_CLICK_DISPATCHED", dispatch }, (response) => {
++          const runtimeError = chrome.runtime?.lastError?.message || "";
++          if (runtimeError) { finish({ ok: false, reason: "UI_CLICK_DISPATCH_RECORD_UNAVAILABLE" }); return; }
++          if (!response?.ok || !response?.data?.dispatch_id) { finish({ ok: false, reason: "UI_CLICK_DISPATCH_RECORD_UNAVAILABLE" }); return; }
++          finish({ ok: true, dispatch_id: String(response.data.dispatch_id) });
++        });
++      } catch (_) {
++        finish({ ok: false, reason: "UI_CLICK_DISPATCH_RECORD_UNAVAILABLE" });
++      }
++    });
++  }
+   function collectPublicListings(limit) {
+     const records = []; const seen = new Set();
+     const anchors = Array.from(document.querySelectorAll("a[href]")).filter(visible);
+@@ -862,7 +895,18 @@
+       let applied = false;
+       let typeResult = null;
+       let selectResult = null;
+-      if (step.type === "CLICK") { resolved.target.element.click(); applied = true; }
++      let clickDispatch = null;
++      if (step.type === "CLICK") {
++        clickDispatch = await recordUiClickDispatch(plan, step, index, resolved.target);
++        if (!clickDispatch.ok) {
++          result.ok = false;
++          result.blocked_reason = clickDispatch.reason || "UI_CLICK_DISPATCH_RECORD_UNAVAILABLE";
++          result.steps.push({ index, type: step.type, status: "blocked", blocked_reason: result.blocked_reason, target_description: resolved.target.description });
++          break;
++        }
++        resolved.target.element.click();
++        applied = true;
++      }
+       if (step.type === "SELECT_OPTION") {
+         selectResult = await clickVisibleOptionWithDebugger(resolved.target.element, String(step.text || ""));
+         applied = Boolean(selectResult?.ok);
+@@ -886,7 +930,7 @@
+       const followupMenuStep = step.type === "TYPE" && (nextType === "COLLECT_MENU" || nextType === "SELECT_OPTION");
+       await uiDelay(followupMenuStep ? Math.min(120, UI_PLAN_POST_ACTION_DELAY_MS) : UI_PLAN_POST_ACTION_DELAY_MS);
+       if (step.type === "SELECT_OPTION" && resolved.menu) result.menu = publicMenuModel(resolved.menu);
+-      result.steps.push({ index, type: step.type, status: "completed", target_description: resolved.target.description, text: step.type === "TYPE" ? "введено" : (step.type === "SELECT_OPTION" ? String(step.text || "") : ""), input_strategy: step.type === "TYPE" ? typeResult.strategy : "", selection_strategy: step.type === "SELECT_OPTION" ? selectResult.strategy : "" });
++      result.steps.push({ index, type: step.type, status: "completed", target_description: resolved.target.description, text: step.type === "TYPE" ? "введено" : (step.type === "SELECT_OPTION" ? String(step.text || "") : (clickDispatch?.dispatch_id ? `dispatch_id=${clickDispatch.dispatch_id}` : "")), input_strategy: step.type === "TYPE" ? typeResult.strategy : "", selection_strategy: step.type === "SELECT_OPTION" ? selectResult.strategy : "", dispatch_id: clickDispatch?.dispatch_id || null });
+     }
+     if (latestTypeContext?.menu_capture) stopVisibleMenuCapture(latestTypeContext.menu_capture);
+     return result;
+@@ -914,7 +958,10 @@
+     const links = Array.from(document.querySelectorAll("a[href*='/item/'],a[data-marker*='item']")).filter(visible);
+     return { url: location.href, title: document.title, captured_at: new Date().toISOString(), blocked_reason: detectBlock(), input_count: inputs.length, button_count: buttons.length, listing_link_count: links.length, actions_performed: "none_read_only" };
+   }
+-  if (globalThis.__AF_TEST_EXPORTS) globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, adaptiveOptionCandidates, startVisibleMenuCapture, waitForVisibleMenu, modelVisibleMenu, publicMenuModel, menuLabelKey, pointerReachable, candidateInMenuBand, fieldStateMessage, queryKey, queryRelatedToOption, inputStateIsSettled };
++  if (globalThis.__AF_TEST_EXPORTS) {
++    globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, adaptiveOptionCandidates, startVisibleMenuCapture, waitForVisibleMenu, modelVisibleMenu, publicMenuModel, menuLabelKey, pointerReachable, candidateInMenuBand, fieldStateMessage, queryKey, queryRelatedToOption, inputStateIsSettled };
++    globalThis.__AF_TEST_EXPORTS.uiPlan = { executeUiActionPlan, recordUiClickDispatch };
++  }
+   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+     try {
+       if (message?.type === "AF_INSPECT_AVITO_DOM") { sendResponse({ ok: true, snapshot: inspect() }); return; }
+
+--- v0.7.5/core.js
++++ v0.7.6/core.js
+@@ -326,7 +326,7 @@
+       chatgpt_window_id: null, chat_origin: null, chat_path: null, avito_tab_id: null,
+       conversation_id: null, anchor_turn_id: null, assistant_turn_id: null, blocked_reason: null,
+       user_started: false, inspection_only: true, report: null, command_mode: null,
+-      diagnostic_request: null, ui_action_plan: null, report_delivery_id: null, report_kind: null
++      diagnostic_request: null, ui_action_plan: null, pending_ui_click: null, ui_click_reconcile_deadline_at: null, report_delivery_id: null, report_kind: null
+     }, overrides || {});
+   }
+   function appendLog(existing, type, fields) {
+
+--- v0.7.5/manifest.json
++++ v0.7.6/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.7.5",
+-  "version_name": "0.7.5-option-click-stage-evidence-test-candidate",
+-  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; выбор возможен только по точному тексту уже наблюдённого временного выпадающего списка, через ограниченную временную модель видимого меню, связанную с активным полем и введённым запросом; временная ошибка поля становится отказом только после ограниченного тихого окна ответа, без Runtime, Network, cookies или скрытых API.",
++  "version": "0.7.6",
++  "version_name": "0.7.6-navigation-safe-ui-handoff-test-candidate",
++  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; перед любым обычным CLICK расширение фиксирует отправку действия в Worker и при выгрузке страницы переходит к отдельной проверке результата без повторного клика. Без Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.7.5/service_worker.js
++++ v0.7.6/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.7.5 — bounded visible input, query-correlated menus and click-stage evidence. */
++/* Avito Finder v0.7.6 — bounded visible input, query-correlated menus and click-stage evidence. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -8,6 +8,8 @@
+ const CAPTURE_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+ const CAPTURE_VERSION = "0.6.8";
+ const AVITO_READY_TIMEOUT_MS = 30000;
++const UI_CLICK_RECONCILE_TIMEOUT_MS = 16000;
++const UI_CLICK_RECONCILE_DELAY_MS = 900;
+ // Default production pauses are deliberately visible: the user can observe an
+ // Avito tab activation, bounded snapshot moment and return transition.
+ const AVITO_VISIBLE_ACTIVATION_DELAY_MS = Number.isFinite(Number(globalThis.__AF_TEST_VISIBLE_DELAY_MS)) ? Number(globalThis.__AF_TEST_VISIBLE_DELAY_MS) : 2500;
+@@ -15,6 +17,7 @@
+ const AVITO_VISIBLE_PRE_ACTION_DELAY_MS = Number.isFinite(Number(globalThis.__AF_TEST_VISIBLE_DELAY_MS)) ? Number(globalThis.__AF_TEST_VISIBLE_DELAY_MS) : 1500;
+ const AVITO_VISIBLE_POST_ACTION_DELAY_MS = Number.isFinite(Number(globalThis.__AF_TEST_VISIBLE_DELAY_MS)) ? Number(globalThis.__AF_TEST_VISIBLE_DELAY_MS) : 2500;
+ const avitoReadyTimers = new Map();
++const uiClickReconcileTimers = new Map();
+ const ensureLocks = new Map();
+ const DEBUGGER_PROTOCOL_VERSION = "1.3";
+ const DEBUGGER_MAX_TYPED_GRAPHEMES = 160;
+@@ -34,6 +37,8 @@
+ 
+ function shortTab(tab) { return { id: tab?.id ?? null, windowId: tab?.windowId ?? null, active: Boolean(tab?.active), url: tab?.url || null, title: tab?.title || null, status: tab?.status || null }; }
+ function noReceiver(error) { return /Receiving end does not exist|Could not establish connection|message port closed|Extension context invalidated/i.test(String(error?.message || error || "")); }
++function asyncResponseChannelClosed(error) { return /A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received|message channel closed/i.test(String(error?.message || error || "")); }
++function safeDispatchText(value) { return String(value || "").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 220); }
+ function contextFromState(state) { return { tab_id: state?.chatgpt_tab_id, window_id: state?.chatgpt_window_id, origin: state?.chat_origin, chat_path: state?.chat_path, conversation_id: state?.conversation_id }; }
+ function contextForTab(tab, identity) { return { tab_id: tab?.id ?? null, window_id: tab?.windowId ?? null, origin: identity?.origin || null, chat_path: identity?.chat_path || null, conversation_id: identity?.conversation_id || null }; }
+ 
+@@ -342,6 +347,28 @@
+     return tabsSend(tabId, message);
+   }
+ }
++async function recordUiClickDispatched(message, sender) {
++  const state = await getState();
++  const dispatch = message?.dispatch || {};
++  const tab = sender?.tab;
++  const plan = state.ui_action_plan || {};
++  const stepIndex = Number(dispatch.step_index || 0);
++  const expectedStep = Array.isArray(plan.steps) ? plan.steps[stepIndex - 1] : null;
++  if (!state.search_id || state.command_mode !== "AVITO_UI" || state.status !== "AVITO_TAB_ACTIVE") throw new Error("UI_CLICK_DISPATCH_STATE_NOT_ACTIVE");
++  if (!tab?.id || tab.id !== state.avito_tab_id || tab.windowId !== state.current_window_id) throw new Error("UI_CLICK_DISPATCH_SENDER_TAB_MISMATCH");
++  const current = await getTab(tab.id);
++  if (!isAvitoPageReady(current, state.current_window_id)) throw new Error("UI_CLICK_DISPATCH_AVITO_NOT_READY");
++  if (String(dispatch.step_type || "") !== "CLICK" || expectedStep?.type !== "CLICK") throw new Error("UI_CLICK_DISPATCH_STEP_MISMATCH");
++  if (!plan.plan_fingerprint || String(dispatch.plan_fingerprint || "") !== String(plan.plan_fingerprint)) throw new Error("UI_CLICK_DISPATCH_PLAN_MISMATCH");
++  if (!Core.isAvitoUrl(dispatch.page_url || "") || new URL(dispatch.page_url).origin !== new URL(current.url).origin) throw new Error("UI_CLICK_DISPATCH_PAGE_MISMATCH");
++  const targetDescription = safeDispatchText(dispatch.target_description);
++  if (!targetDescription) throw new Error("UI_CLICK_DISPATCH_TARGET_REQUIRED");
++  const dispatchId = `${state.search_id}:click:${stepIndex}:${Date.now().toString(36)}`;
++  const pending = { dispatch_id: dispatchId, step_index: stepIndex, target_description: targetDescription, tab_id: tab.id, page_url: String(dispatch.page_url).slice(0, 500), dispatched_at: new Date().toISOString() };
++  const next = await saveState({ ...state, pending_ui_click: pending, blocked_reason: null });
++  await log("AVITO_UI_CLICK_DISPATCH_RECORDED", { search_id: next.search_id, tab_id: tab.id, dispatch_id: dispatchId, step_index: stepIndex, target_description: targetDescription });
++  return { ok: true, data: { dispatch_id: dispatchId } };
++}
+ async function inspectAvito(tabId, windowId) { const response = await sendAvito(tabId, windowId, { type: "AF_INSPECT_AVITO_DOM" }); if (!response?.ok) throw new Error(`AVITO_DOM_UNAVAILABLE:${response?.error || "unknown"}`); return response.snapshot; }
+ async function diagnoseAvito(tabId, windowId, request) { const response = await sendAvito(tabId, windowId, { type: "AF_DIAGNOSE_AVITO_DOM", request }); if (!response?.ok) throw new Error(`AVITO_DIAGNOSTIC_UNAVAILABLE:${response?.error || "unknown"}`); return response.snapshot; }
+ async function performDiagnosticAction(tabId, windowId, request) { const response = await sendAvito(tabId, windowId, { type: "AF_PERFORM_DIAGNOSTIC_ACTION", request }); if (!response?.ok) throw new Error(`AVITO_DIAGNOSTIC_ACTION_UNAVAILABLE:${response?.error || "unknown"}`); if (!response.result?.ok) throw new Error(`AVITO_DIAGNOSTIC_ACTION_BLOCKED:${response.result?.blocked_reason || "unknown"}`); return response.result; }
+@@ -422,6 +449,71 @@
+   return final;
+ }
+ 
++function clearUiClickReconcileDeadline(searchId) {
++  const timer = uiClickReconcileTimers.get(searchId);
++  if (timer) clearTimeout(timer);
++  uiClickReconcileTimers.delete(searchId);
++}
++function scheduleUiClickReconcile(state, delayMs = UI_CLICK_RECONCILE_DELAY_MS) {
++  clearUiClickReconcileDeadline(state.search_id);
++  const timer = setTimeout(() => { reconcilePendingUiClickHandoff().catch(async (error) => {
++    const current = await getState();
++    if (current.search_id === state.search_id && current.status === "WAITING_FOR_UI_CLICK_RECONCILIATION") await finishUiClickReconciliationFailure(current, `UI_CLICK_RECONCILIATION_FAILED:${String(error?.message || error)}`);
++  }); }, Math.max(0, Number(delayMs) || 0));
++  uiClickReconcileTimers.set(state.search_id, timer);
++}
++function pendingUiClickMatches(state, tabId) {
++  const pending = state?.pending_ui_click || null;
++  return Boolean(pending && pending.tab_id === tabId && Number.isInteger(Number(pending.step_index)) && pending.dispatch_id);
++}
++async function finishUiClickReconciliationFailure(state, reason) {
++  clearUiClickReconcileDeadline(state.search_id);
++  const terminal = await saveState({ ...state, status: "UI_CLICK_RECONCILIATION_REPORT_READY", phase: "AVITO_UI_CLICK_HANDOFF", blocked_reason: reason, pending_ui_click: { ...(state.pending_ui_click || {}), reconciliation: "unconfirmed" } });
++  const plan = terminal.ui_action_plan || {};
++  const pending = terminal.pending_ui_click || {};
++  const result = { ok: false, url: pending.page_url || null, plan_fingerprint: plan.plan_fingerprint || "", steps: [{ index: pending.step_index || null, type: "CLICK", status: "dispatched_unconfirmed", target_description: pending.target_description || null, blocked_reason: reason, text: pending.dispatch_id ? `dispatch_id=${pending.dispatch_id}` : "" }], listings: [], blocked_reason: reason };
++  const report = Core.formatUiActionPlanReport({ search_id: terminal.search_id, mode: "AVITO_UI", captured_at: new Date().toISOString(), avito: result });
++  const ready = await saveState({ ...terminal, status: "REPORT_READY_FOR_DELIVERY", phase: "AVITO_UI_CLICK_HANDOFF_REPORT_READY", report, report_kind: "ui_action_plan" });
++  await log("AVITO_UI_CLICK_RECONCILIATION_UNCONFIRMED", { search_id: ready.search_id, dispatch_id: pending.dispatch_id || null, reason });
++  await deliverReportToPinnedChat(ready, report, "ui_action_plan");
++}
++async function completeUiClickReconciliation(state, readyTab, source) {
++  if (state.status !== "WAITING_FOR_UI_CLICK_RECONCILIATION" || !pendingUiClickMatches(state, readyTab.id)) return;
++  clearUiClickReconcileDeadline(state.search_id);
++  const active = await activate(readyTab, "avito_ui_post_click_reconciliation");
++  const verified = await requireReadyAvitoTarget(active.id, state.current_window_id);
++  const working = await saveState({ ...state, status: "AVITO_TAB_ACTIVE", phase: "AVITO_UI_POST_CLICK_RECONCILIATION", avito_tab_id: verified.id, blocked_reason: null, pending_ui_click: { ...state.pending_ui_click, reconciliation: "capturing" } });
++  await visibleAvitoDelay(working, "after_dispatched_click_before_reconciliation_capture", AVITO_VISIBLE_POST_ACTION_DELAY_MS);
++  const snapshot = await diagnoseAvito(verified.id, working.current_window_id, { scope: "PAGE_MAIN_VISIBLE" });
++  const pending = working.pending_ui_click || {};
++  const result = { ok: !snapshot.blocked_reason, url: snapshot.url || verified.url || pending.page_url || null, plan_fingerprint: working.ui_action_plan?.plan_fingerprint || "", steps: [{ index: pending.step_index || null, type: "CLICK", status: "dispatched_reconciled", target_description: pending.target_description || null, text: pending.dispatch_id ? `dispatch_id=${pending.dispatch_id}` : "" }], listings: [], snapshot, blocked_reason: snapshot.blocked_reason || null };
++  const actionPlan = { search_id: working.search_id, mode: "AVITO_UI", captured_at: new Date().toISOString(), avito: result };
++  const report = Core.formatUiActionPlanReport(actionPlan);
++  await storageSet({ [INSPECTION_KEY]: actionPlan });
++  const ready = await saveState({ ...working, status: "REPORT_READY_FOR_DELIVERY", phase: "AVITO_UI_CLICK_HANDOFF_REPORT_READY", report, report_kind: "ui_action_plan", blocked_reason: result.blocked_reason, pending_ui_click: { ...pending, reconciliation: "completed" } });
++  await log("AVITO_UI_CLICK_RECONCILIATION_CAPTURED", { search_id: ready.search_id, tab_id: verified.id, dispatch_id: pending.dispatch_id || null, source, snapshot_fingerprint: snapshot.snapshot_fingerprint || null, blocked_reason: snapshot.blocked_reason || null });
++  await deliverReportToPinnedChat(ready, report, "ui_action_plan");
++}
++async function startUiClickReconciliation(state, tabId, error) {
++  const latest = await getState();
++  if (latest.search_id !== state.search_id || !pendingUiClickMatches(latest, tabId)) return false;
++  const deadline = new Date(Date.now() + UI_CLICK_RECONCILE_TIMEOUT_MS).toISOString();
++  const waiting = await saveState({ ...latest, status: "WAITING_FOR_UI_CLICK_RECONCILIATION", phase: "AVITO_UI_CLICK_HANDOFF", blocked_reason: null, ui_click_reconcile_deadline_at: deadline, pending_ui_click: { ...latest.pending_ui_click, reconciliation: "waiting" } });
++  await log("AVITO_UI_CHANNEL_CLOSED_AFTER_CLICK_DISPATCH", { search_id: waiting.search_id, tab_id: tabId, dispatch_id: waiting.pending_ui_click?.dispatch_id || null, step_index: waiting.pending_ui_click?.step_index || null, reason: String(error?.message || error).slice(0, 220), deadline_at: deadline });
++  scheduleUiClickReconcile(waiting);
++  return true;
++}
++async function reconcilePendingUiClickHandoff() {
++  const state = await getState();
++  if (state.status !== "WAITING_FOR_UI_CLICK_RECONCILIATION" || !state.avito_tab_id || !pendingUiClickMatches(state, state.avito_tab_id)) return;
++  const deadline = Date.parse(state.ui_click_reconcile_deadline_at || "");
++  const tab = await getTab(state.avito_tab_id);
++  if (!tab) { await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_TAB_MISSING:${state.avito_tab_id}`); return; }
++  if (tab.windowId !== state.current_window_id) { await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_TAB_WINDOW_MISMATCH:${state.avito_tab_id}`); return; }
++  if (isAvitoPageReady(tab, state.current_window_id)) { await completeUiClickReconciliation(state, tab, "reconcile"); return; }
++  if (Number.isFinite(deadline) && Date.now() >= deadline) { await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_TIMEOUT:${state.avito_tab_id}`); return; }
++  scheduleUiClickReconcile(state);
++}
+ async function completeAvitoTask(queuedState, readyTab, source) {
+   const state = await getState();
+   if (state.search_id !== queuedState.search_id || state.status !== "WAITING_FOR_AVITO_PAGE_READY" || state.avito_tab_id !== readyTab.id) return;
+@@ -460,7 +552,13 @@
+     await visibleAvitoDelay(working, "before_generic_ui_action_plan", AVITO_VISIBLE_PRE_ACTION_DELAY_MS);
+     const plan = working.ui_action_plan || { steps: [] };
+     await log("AVITO_UI_PLAN_REQUESTED", { search_id: working.search_id, tab_id: verified.id, plan_fingerprint: plan.plan_fingerprint || null, step_count: Array.isArray(plan.steps) ? plan.steps.length : 0 });
+-    const result = await executeAvitoUiActionPlan(verified.id, working.current_window_id, plan);
++    let result;
++    try {
++      result = await executeAvitoUiActionPlan(verified.id, working.current_window_id, plan);
++    } catch (error) {
++      if (asyncResponseChannelClosed(error) && await startUiClickReconciliation(working, verified.id, error)) return;
++      throw error;
++    }
+     for (const step of Array.isArray(result.steps) ? result.steps : []) {
+       await log("AVITO_UI_PLAN_STEP_RESULT", { search_id: working.search_id, tab_id: verified.id, index: step.index ?? null, type: step.type || null, status: step.status || null, blocked_reason: step.blocked_reason || null, target_description: step.target_description || null });
+     }
+@@ -493,7 +591,7 @@
+     : {};
+   const avito = await ensureAvitoTarget(initialState, requestedUrl, purpose, targetPolicy);
+   const deadline = new Date(Date.now() + AVITO_READY_TIMEOUT_MS).toISOString();
+-  const state = await saveState({ ...initialState, status: "WAITING_FOR_AVITO_PAGE_READY", phase: "AVITO_NAVIGATION", avito_tab_id: avito.tab.id, avito_tab_created: avito.created, command_mode: parsed.mode, diagnostic_request: request, ui_action_plan: uiPlan, avito_ready_deadline_at: deadline, blocked_reason: null });
++  const state = await saveState({ ...initialState, status: "WAITING_FOR_AVITO_PAGE_READY", phase: "AVITO_NAVIGATION", avito_tab_id: avito.tab.id, avito_tab_created: avito.created, command_mode: parsed.mode, diagnostic_request: request, ui_action_plan: uiPlan, avito_ready_deadline_at: deadline, ui_click_reconcile_deadline_at: null, pending_ui_click: null, blocked_reason: null });
+   const current = await getTab(avito.tab.id);
+   if (!current) { await blockAvitoPageReady(state, `AVITO_TAB_MISSING:${avito.tab.id}`); return; }
+   if (current.windowId !== state.current_window_id) { await blockAvitoPageReady(state, `AVITO_TAB_WINDOW_MISMATCH:${avito.tab.id}`, { actual_tab: shortTab(current) }); return; }
+@@ -665,11 +763,11 @@
+   return { ok: true, state: result };
+ }
+ async function stop() {
+-  const old = await getState(); clearAvitoReadyDeadline(old.search_id);
++  const old = await getState(); clearAvitoReadyDeadline(old.search_id); clearUiClickReconcileDeadline(old.search_id);
+   if (old.chatgpt_tab_id && old.conversation_id) { try { const pinned = await assertPinnedChatContext(old, "chatgpt_stop"); await sendChat(pinned.tab.id, { type: "AF_CAPTURE_STOP", expected_identity: pinned.context }); } catch (error) { await log("CAPTURE_STOP_CONTEXT_BLOCKED", { search_id: old.search_id, reason: String(error?.message || error) }); } }
+   const state = await saveState({ ...old, status: "CANCELLED_BY_USER", phase: "STOPPED", blocked_reason: "CANCELLED_BY_USER", user_started: false }); await log("STOPPED_BY_USER", { search_id: state.search_id }); return state;
+ }
+-async function view() { await reconcilePendingAvitoReadiness(); const raw = await storageGet([STATE_KEY, LOG_KEY, INSPECTION_KEY]); return { ok: true, state: Core.makeState(raw[STATE_KEY] || {}), logs: raw[LOG_KEY] || [], inspection: raw[INSPECTION_KEY] || null }; }
++async function view() { await reconcilePendingAvitoReadiness(); await reconcilePendingUiClickHandoff(); const raw = await storageGet([STATE_KEY, LOG_KEY, INSPECTION_KEY]); return { ok: true, state: Core.makeState(raw[STATE_KEY] || {}), logs: raw[LOG_KEY] || [], inspection: raw[INSPECTION_KEY] || null }; }
+ async function recoverContinuousPromptPoll(message, sender) {
+   const state = await getState();
+   if (state.status !== "WAITING_FOR_NEXT_ASSISTANT_FORM" || !state.search_id || !state.anchor_turn_id) return { ok: true, data: { resume: false } };
+@@ -684,10 +782,13 @@
+ }
+ async function contextBlockedFromContent(message, sender) { const state = await getState(); if (!state.search_id || message.search_id !== state.search_id || sender?.tab?.id !== state.chatgpt_tab_id) return { ok: true, data: { ignored: true } }; const next = await blockConversationContext(state, message.reason || "CONTENT_CONTEXT_CHANGED", { actual_conversation_id: message.actual_identity?.conversation_id || null, actual_chat_path: message.actual_identity?.chat_path || null, actual_tab: shortTab(sender?.tab) }); return { ok: true, data: { blocked: true, state: next } }; }
+ 
+-if (globalThis.__AF_TEST_EXPORTS) globalThis.__AF_TEST_EXPORTS.debuggerInput = { DEBUGGER_ALLOWED_METHODS, validDebuggerBounds, validDebuggerText, validDebuggerOptionText, debuggerSend, inputMouseFocus, inputClearExistingValue, typeVisibleAvitoTargetWithDebugger, clickVisibleOptionWithDebugger };
++if (globalThis.__AF_TEST_EXPORTS) {
++  globalThis.__AF_TEST_EXPORTS.debuggerInput = { DEBUGGER_ALLOWED_METHODS, validDebuggerBounds, validDebuggerText, validDebuggerOptionText, debuggerSend, inputMouseFocus, inputClearExistingValue, typeVisibleAvitoTargetWithDebugger, clickVisibleOptionWithDebugger };
++  globalThis.__AF_TEST_EXPORTS.uiClickHandoff = { asyncResponseChannelClosed, pendingUiClickMatches };
++}
+ chrome.runtime.onInstalled.addListener(async () => { const current = await getState(); await saveState(current); await log("EXTENSION_INSTALLED_OR_UPDATED", { version: chrome.runtime.getManifest().version }); });
+-chrome.tabs.onUpdated.addListener(() => { reconcilePendingAvitoReadiness().catch(async (error) => { const state = await getState(); if (state.status === "WAITING_FOR_AVITO_PAGE_READY") await blockAvitoPageReady(state, `AVITO_READY_EVENT_FAILED:${String(error?.message || error)}`); }); });
+-chrome.tabs.onRemoved.addListener((tabId) => { (async () => { const state = await getState(); if (state.status === "WAITING_FOR_AVITO_PAGE_READY" && state.avito_tab_id === tabId) await blockAvitoPageReady(state, `AVITO_TAB_CLOSED:${tabId}`, { source: "tabs.onRemoved" }); })().catch(() => {}); });
++chrome.tabs.onUpdated.addListener(() => { reconcilePendingAvitoReadiness().catch(async (error) => { const state = await getState(); if (state.status === "WAITING_FOR_AVITO_PAGE_READY") await blockAvitoPageReady(state, `AVITO_READY_EVENT_FAILED:${String(error?.message || error)}`); }); reconcilePendingUiClickHandoff().catch(async (error) => { const state = await getState(); if (state.status === "WAITING_FOR_UI_CLICK_RECONCILIATION") await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_EVENT_FAILED:${String(error?.message || error)}`); }); });
++chrome.tabs.onRemoved.addListener((tabId) => { (async () => { const state = await getState(); if (state.status === "WAITING_FOR_AVITO_PAGE_READY" && state.avito_tab_id === tabId) await blockAvitoPageReady(state, `AVITO_TAB_CLOSED:${tabId}`, { source: "tabs.onRemoved" }); if (state.status === "WAITING_FOR_UI_CLICK_RECONCILIATION" && state.avito_tab_id === tabId) await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_TAB_CLOSED:${tabId}`); })().catch(() => {}); });
+ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => { (async () => { try {
+   switch (message?.type) {
+     case "AF_START": sendResponse(await begin()); return;
+@@ -702,6 +803,7 @@
+     case "AF_CAPTURE_FULL_TEXT": sendResponse(await handleFullText(message, sender)); return;
+     case "AF_DEBUGGER_TYPE_VISIBLE_TARGET": sendResponse(await typeVisibleAvitoTargetWithDebugger(message, sender)); return;
+     case "AF_DEBUGGER_CLICK_VISIBLE_OPTION": sendResponse(await clickVisibleOptionWithDebugger(message, sender)); return;
++    case "AF_UI_CLICK_DISPATCHED": sendResponse(await recordUiClickDispatched(message, sender)); return;
+     case "AF_CAPTURE_RECOVER_CONTINUOUS": sendResponse(await recoverContinuousPromptPoll(message, sender)); return;
+     default: sendResponse({ ok: false, error: "UNKNOWN_MESSAGE" }); return;
+   }
+

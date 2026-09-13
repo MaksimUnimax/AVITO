@@ -1,0 +1,500 @@
+--- v0.5.6/avito_content.js
++++ v0.6.0/avito_content.js
+@@ -1,9 +1,9 @@
+-/* Avito Finder v0.5.6 — bounded public DOM diagnostics with one allowlisted public dialog opener. */
++/* Avito Finder v0.6.0 — bounded public diagnostics plus generic visible-UI action plans. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+-  if (globalThis.__avitoFinderAvitoContentV056) return;
+-  globalThis.__avitoFinderAvitoContentV056 = true;
++  if (globalThis.__avitoFinderAvitoContentV060) return;
++  globalThis.__avitoFinderAvitoContentV060 = true;
+ 
+   const Core = AvitoFinderCore;
+   const MAX_TREE_NODES = 160;
+@@ -13,6 +13,9 @@
+   const MAX_HTML = 7600;
+   const MAX_CONTROLS = 48;
+   const MAX_PARENT_DEPTH = 16;
++  const UI_PLAN_MAX_STEPS = 12;
++  const UI_PLAN_PRE_ACTION_DELAY_MS = Number.isFinite(Number(globalThis.__AF_TEST_UI_DELAY_MS)) ? Number(globalThis.__AF_TEST_UI_DELAY_MS) : 1500;
++  const UI_PLAN_POST_ACTION_DELAY_MS = Number.isFinite(Number(globalThis.__AF_TEST_UI_DELAY_MS)) ? Number(globalThis.__AF_TEST_UI_DELAY_MS) : 2000;
+   const SAFE_ATTRIBUTES = new Set(["id", "class", "role", "aria-label", "aria-expanded", "aria-controls", "placeholder", "name", "type", "title", "data-marker", "href", "disabled", "checked"]);
+ 
+   function visible(element) {
+@@ -262,6 +265,126 @@
+     snapshot.snapshot_fingerprint = Core.fingerprint(JSON.stringify({ scope: snapshot.scope, root: snapshot.root_description, tree: snapshot.tree_text, html: snapshot.bounded_html }));
+     return snapshot;
+   }
++  function uiDelay(ms) { return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0))); }
++  function normalizedMatch(value) { return Core.normalizeText(value).toLocaleLowerCase("ru-RU"); }
++  function actionElements(kind) {
++    const selector = kind === "TYPE"
++      ? "input,textarea,[contenteditable='true']"
++      : "button,a,[role='button'],[role='combobox'],label";
++    return Array.from(document.querySelectorAll(selector)).filter(visible);
++  }
++  function actionCandidate(node) {
++    return {
++      element: node,
++      description: `${node.tagName.toLowerCase()}${node.getAttribute("data-marker") ? ` data-marker=${node.getAttribute("data-marker")}` : ""}${node.getAttribute("placeholder") ? ` placeholder=${node.getAttribute("placeholder")}` : ""}${textOf(node, 120) ? ` text=${textOf(node, 120)}` : ""}`.slice(0, 360),
++      text: textOf(node, 180),
++      marker: node.getAttribute("data-marker") || "",
++      placeholder: node.getAttribute("placeholder") || "",
++      aria: node.getAttribute("aria-label") || "",
++      title: node.getAttribute("title") || ""
++    };
++  }
++  function targetForbidden(node) {
++    const own = [
++      textOf(node, 280), node.getAttribute("data-marker") || "", node.getAttribute("aria-label") || "", node.getAttribute("title") || "", safeHref(node)
++    ].join(" ");
++    const nearby = textOf(node.closest("[role='dialog'],form,article,section,div") || node, 450);
++    return /(?:написать|сообщени|чат\b|продавц|позвон|звонок|купить|оплат|заказ|корзин|оформить\s+достав|брон)/iu.test(`${own} ${nearby}`);
++  }
++  function resolveVisibleActionTarget(step) {
++    const target = step?.target || {};
++    const wanted = normalizedMatch(target.value || "");
++    if (!wanted) return { ok: false, blocked_reason: "UI_TARGET_EMPTY", candidates: [] };
++    const candidates = [];
++    for (const node of actionElements(step.type)) {
++      const info = actionCandidate(node);
++      let score = 0;
++      if (target.by === "marker" && info.marker === target.value) score = 100;
++      if (target.by === "placeholder" && normalizedMatch(info.placeholder) === wanted) score = 100;
++      if (target.by === "text") {
++        const values = [info.text, info.aria, info.title].map(normalizedMatch).filter(Boolean);
++        if (values.some((value) => value === wanted)) score = 90;
++        else if (values.some((value) => value.includes(wanted))) score = 25;
++      }
++      if (score) candidates.push({ ...info, score });
++    }
++    const max = candidates.reduce((value, item) => Math.max(value, item.score), 0);
++    const winners = candidates.filter((item) => item.score === max);
++    const evidence = candidates.slice(0, 8).map((item) => ({ description: item.description, score: item.score }));
++    if (!winners.length) return { ok: false, blocked_reason: "UI_TARGET_NOT_FOUND", candidates: evidence };
++    if (winners.length !== 1) return { ok: false, blocked_reason: "UI_TARGET_AMBIGUOUS", candidates: evidence };
++    if (targetForbidden(winners[0].element)) return { ok: false, blocked_reason: "UI_TARGET_FORBIDDEN", candidates: evidence };
++    if (winners[0].element.disabled || winners[0].element.getAttribute("aria-disabled") === "true") return { ok: false, blocked_reason: "UI_TARGET_DISABLED", candidates: evidence };
++    return { ok: true, target: winners[0], candidates: evidence };
++  }
++  function setVisibleControlValue(element, value) {
++    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
++      const proto = element instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
++      const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
++      if (setter) setter.call(element, value); else element.value = value;
++    } else if (element.getAttribute("contenteditable") === "true") {
++      element.textContent = value;
++    } else {
++      return false;
++    }
++    element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }));
++    element.dispatchEvent(new Event("change", { bubbles: true }));
++    return true;
++  }
++  function collectPublicListings(limit) {
++    const records = []; const seen = new Set();
++    const anchors = Array.from(document.querySelectorAll("a[href]")).filter(visible);
++    for (const anchor of anchors) {
++      const href = safeHref(anchor);
++      if (!href || seen.has(href)) continue;
++      const card = anchor.closest("[data-marker*='item'],[data-marker*='catalog'],article,li");
++      if (!card || !visible(card)) continue;
++      const title = textOf(anchor, 240) || textOf(card, 240);
++      if (!title || /(?:продать|разместить|войти|сообщени|продавц)/iu.test(title)) continue;
++      const body = textOf(card, 900);
++      const price = (body.match(/(?:\d[\d\s]{1,12})\s*₽/u) || [""])[0].replace(/\s+/g, " ");
++      records.push({ title, price, location: "", href }); seen.add(href);
++      if (records.length >= limit) break;
++    }
++    return records;
++  }
++  async function executeUiActionPlan(plan) {
++    const result = { ok: true, url: location.href, plan_fingerprint: String(plan?.plan_fingerprint || ""), steps: [], listings: [], blocked_reason: null };
++    if (!Core.isAvitoUrl(location.href)) return { ...result, ok: false, blocked_reason: "UI_TARGET_NOT_AVITO" };
++    const steps = Array.isArray(plan?.steps) ? plan.steps.slice(0, UI_PLAN_MAX_STEPS) : [];
++    if (!steps.length) return { ...result, ok: false, blocked_reason: "UI_PLAN_STEP_REQUIRED" };
++    for (let offset = 0; offset < steps.length; offset += 1) {
++      const step = steps[offset] || {}; const index = offset + 1;
++      if (detectBlock()) { result.ok = false; result.blocked_reason = detectBlock(); result.steps.push({ index, type: step.type || "?", status: "blocked", blocked_reason: result.blocked_reason }); break; }
++      if (step.type === "WAIT") {
++        await uiDelay(Math.min(Number(step.duration_ms || 0), 5000)); result.steps.push({ index, type: "WAIT", status: "completed", duration_ms: Math.min(Number(step.duration_ms || 0), 5000) }); continue;
++      }
++      if (step.type === "WAIT_FOR") {
++        const deadline = Date.now() + Math.min(Number(step.timeout_ms || 5000), 5000); let resolved = resolveVisibleActionTarget({ ...step, type: "CLICK" });
++        while (!resolved.ok && Date.now() < deadline) { await uiDelay(100); resolved = resolveVisibleActionTarget({ ...step, type: "CLICK" }); }
++        if (!resolved.ok) { result.ok = false; result.blocked_reason = resolved.blocked_reason; result.steps.push({ index, type: "WAIT_FOR", status: "blocked", blocked_reason: resolved.blocked_reason, candidates: resolved.candidates }); break; }
++        result.steps.push({ index, type: "WAIT_FOR", status: "completed", target_description: resolved.target.description }); continue;
++      }
++      if (step.type === "SNAPSHOT") {
++        const snapshot = diagnose({ scope: step.scope || "PAGE_MAIN_VISIBLE" }); result.snapshot = snapshot; result.steps.push({ index, type: "SNAPSHOT", status: snapshot.blocked_reason ? "blocked" : "completed", blocked_reason: snapshot.blocked_reason || null, snapshot_fingerprint: snapshot.snapshot_fingerprint || null }); if (snapshot.blocked_reason) { result.ok = false; result.blocked_reason = snapshot.blocked_reason; break; } continue;
++      }
++      if (step.type === "COLLECT_LISTINGS") {
++        const listings = collectPublicListings(Math.max(1, Math.min(Number(step.limit || 10), 30))); result.listings = listings; result.steps.push({ index, type: "COLLECT_LISTINGS", status: "completed", count: listings.length }); continue;
++      }
++      if (!["CLICK", "TYPE"].includes(step.type)) { result.ok = false; result.blocked_reason = "UI_PLAN_ACTION_NOT_ALLOWED"; result.steps.push({ index, type: step.type || "?", status: "blocked", blocked_reason: result.blocked_reason }); break; }
++      const resolved = resolveVisibleActionTarget(step);
++      if (!resolved.ok) { result.ok = false; result.blocked_reason = resolved.blocked_reason; result.steps.push({ index, type: step.type, status: "blocked", blocked_reason: resolved.blocked_reason, candidates: resolved.candidates }); break; }
++      await uiDelay(UI_PLAN_PRE_ACTION_DELAY_MS);
++      resolved.target.element.scrollIntoView({ block: "center", inline: "nearest" });
++      let applied = false;
++      if (step.type === "CLICK") { resolved.target.element.click(); applied = true; }
++      if (step.type === "TYPE") { applied = setVisibleControlValue(resolved.target.element, String(step.text || "")); }
++      if (!applied) { result.ok = false; result.blocked_reason = "UI_ACTION_APPLY_FAILED"; result.steps.push({ index, type: step.type, status: "blocked", blocked_reason: result.blocked_reason, target_description: resolved.target.description }); break; }
++      await uiDelay(UI_PLAN_POST_ACTION_DELAY_MS);
++      result.steps.push({ index, type: step.type, status: "completed", target_description: resolved.target.description, text: step.type === "TYPE" ? "введено" : "" });
++    }
++    return result;
++  }
+   function performDiagnosticAction(request) {
+     const action = String(request?.action || "").toUpperCase();
+     if (!Core.isAvitoUrl(location.href)) return { ok: false, action, blocked_reason: "DIAGNOSTIC_TARGET_NOT_AVITO" };
+@@ -290,6 +413,7 @@
+       if (message?.type === "AF_INSPECT_AVITO_DOM") { sendResponse({ ok: true, snapshot: inspect() }); return; }
+       if (message?.type === "AF_PERFORM_DIAGNOSTIC_ACTION") { sendResponse({ ok: true, result: performDiagnosticAction(message.request || {}) }); return; }
+       if (message?.type === "AF_DIAGNOSE_AVITO_DOM") { sendResponse({ ok: true, snapshot: diagnose(message.request || {}) }); return; }
++      if (message?.type === "AF_EXECUTE_AVITO_UI_PLAN") { executeUiActionPlan(message.plan || {}).then((result) => sendResponse({ ok: true, result })).catch((error) => sendResponse({ ok: false, error: error?.message || "AVITO_UI_PLAN_FAILED" })); return true; }
+       sendResponse({ ok: false, error: "UNKNOWN_MESSAGE" });
+     } catch (error) { sendResponse({ ok: false, error: error?.message || "AVITO_DIAGNOSTIC_FAILED" }); }
+   });
+
+--- v0.5.6/chatgpt_content.js
++++ v0.6.0/chatgpt_content.js
+@@ -7,10 +7,10 @@
+   // runtime context. A version guard that simply returns would then prevent a
+   // fresh adapter from being injected into the same tab. New injection must
+   // supersede, dispose and replace the previous adapter instead.
+-  const CONTENT_SCRIPT_VERSION = "0.5.6";
++  const CONTENT_SCRIPT_VERSION = "0.6.0";
+   const CONTENT_SCRIPT_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+   const CONTENT_RUNTIME_KEY = "__AVITO_FINDER_BRIDGE_EXACT_CAPTURE_RUNTIME__";
+-  const CONTENT_RUNTIME_ID = `0.5.6:${Date.now()}:${Math.random().toString(36).slice(2)}`;
++  const CONTENT_RUNTIME_ID = `0.6.0:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+   const priorRuntime = globalThis[CONTENT_RUNTIME_KEY];
+   if (priorRuntime && typeof priorRuntime.dispose === "function") {
+     try { priorRuntime.dispose("superseded_by_fresh_content_adapter"); } catch (_) {}
+
+--- v0.5.6/core.js
++++ v0.6.0/core.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.5.6 isolated shared pure logic. */
++/* Avito Finder v0.6.0 isolated shared pure logic with a generic visible-UI action plan. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+   const STORAGE = Object.freeze({
+@@ -9,7 +9,13 @@
+   const CHATGPT_HOSTS = new Set(["chatgpt.com", "chat.openai.com"]);
+   const AVITO_HOSTS = new Set(["www.avito.ru", "avito.ru"]);
+   const MAX_LOGS = 250;
+-  const VALID_MODES = new Set(["INSPECT_FILTERS", "SEARCH", "DIAGNOSE_DOM"]);
++  const VALID_MODES = new Set(["INSPECT_FILTERS", "SEARCH", "DIAGNOSE_DOM", "AVITO_UI"]);
++  // These are generic action verbs, not per-element features. Targets remain
++  // visible public controls resolved locally by marker/label/placeholder.
++  const UI_ACTION_TYPES = new Set(["CLICK", "TYPE", "WAIT", "WAIT_FOR", "SNAPSHOT", "COLLECT_LISTINGS"]);
++  const UI_PLAN_MAX_STEPS = 12;
++  const UI_PLAN_MAX_TYPED_TEXT = 160;
++  const UI_PLAN_MAX_LISTINGS = 30;
+   const DIAGNOSTIC_ACTIONS = new Set(["", "OPEN_LOCATION_DIALOG"]);
+   const DIAGNOSTIC_SCOPES = new Set([
+     "PAGE_MAIN_VISIBLE",
+@@ -123,9 +129,9 @@
+     for (const line of firstInstructionLines(raw)) {
+       const direct = exactModeToken(line);
+       if (direct) return { mode: direct, source: "first_instruction_line" };
+-      const barePrefix = line.match(/^(INSPECT_FILTERS|DIAGNOSE_DOM|SEARCH)(?:$|[\s.:;])/iu);
++      const barePrefix = line.match(/^(INSPECT_FILTERS|DIAGNOSE_DOM|SEARCH|AVITO_UI)(?:$|[\s.:;])/iu);
+       if (barePrefix) return { mode: barePrefix[1].toUpperCase(), source: "first_instruction_prefix" };
+-      const labeled = line.match(/^режим\s*:\s*(INSPECT_FILTERS|SEARCH|DIAGNOSE_DOM)\s*$/iu);
++      const labeled = line.match(/^режим\s*:\s*(INSPECT_FILTERS|SEARCH|DIAGNOSE_DOM|AVITO_UI)\s*$/iu);
+       if (labeled) return { mode: labeled[1].toUpperCase(), source: "first_instruction_line" };
+     }
+ 
+@@ -134,6 +140,10 @@
+     // chat instead of guessing a mutating action.
+     if (/\bdom\b|\bhtml\b|сним(?:ок|ка)|разметк|диагност|отзыв/i.test(raw)) return { mode: "DIAGNOSE_DOM", source: "safe_diagnostic_inference" };
+     if (/фильтр|обследован|поверхност/i.test(raw)) return { mode: "INSPECT_FILTERS", source: "safe_diagnostic_inference" };
++    // Ordinary UI plans can omit a rigid template, but they must have an
++    // explicit action section. We do not infer mutating UI work from a casual
++    // shopping request alone.
++    if (/(?:^|\n)\s*(?:шаги|действия)\s*:/iu.test(raw) && /(?:нажми|выбери|открой|раскрой|введи|напиши|укажи|собери|дождись|подожди)/iu.test(raw)) return { mode: "AVITO_UI", source: "explicit_action_section" };
+     return { mode: "", source: "unresolved" };
+   }
+   function parseCandidateLimit(text, fields) {
+@@ -144,7 +154,7 @@
+   }
+   function requestsExistingAvitoContext(text) {
+     const raw = normalizeText(text);
+-    return /(?:на|во)\s+(?:уже\s+)?(?:открыт\w*|текущ\w*|привязанн\w*)[^\n]{0,80}(?:авито|avito)|(?:уже\s+открыт\w*|текущ\w*)[^\n]{0,80}(?:вкладк\w*|страниц\w*)[^\n]{0,80}(?:авито|avito)/iu.test(raw);
++    return /(?:на|во)\s+(?:уже\s+)?(?:открыт\w*|текущ\w*|привязанн\w*|закрепл\w*)[^\n]{0,80}(?:авито|avito)|(?:уже\s+открыт\w*|текущ\w*|закрепл\w*)[^\n]{0,80}(?:вкладк\w*|страниц\w*)[^\n]{0,80}(?:авито|avito)/iu.test(raw);
+   }
+   function parseDiagnosticParentDepth(text, fields) {
+     const raw = normalizeText(text);
+@@ -198,6 +208,82 @@
+       action_source: action.source
+     };
+   }
++  function quotedValues(line) {
++    const values = [];
++    const re = /[«"]([^»"\n]{1,220})[»"]/gu;
++    let match;
++    while ((match = re.exec(String(line || "")))) values.push(match[1].trim());
++    return values;
++  }
++  function markerValue(line) {
++    const match = String(line || "").match(/data-marker\s*=\s*["']([^"']{1,180})["']/iu);
++    return match ? match[1].trim() : "";
++  }
++  function targetFromText(value, preferred) {
++    const text = String(value || "").trim();
++    if (!text) return null;
++    const marker = markerValue(text);
++    if (marker) return { by: "marker", value: marker };
++    return { by: preferred || "text", value: text.slice(0, 180) };
++  }
++  function genericActionLines(raw, fields) {
++    const section = String(fields["Шаги"] || fields["Действия"] || directiveValue(raw, "Шаги") || directiveValue(raw, "Действия") || "").trim();
++    const source = section || normalizeText(raw);
++    return source.split("\n").map((line) => line.replace(/^\s*(?:\d+[.)]|[-•])\s*/u, "").trim()).filter(Boolean);
++  }
++  function planLineForbidden(line) {
++    return /(?:написать|сообщени|чат\b|продавц|позвон|звонок|купить|оплат|заказ|корзин|оформить\s+достав|брон)/iu.test(String(line || ""));
++  }
++  function parseGenericStep(line) {
++    const clean = String(line || "").trim();
++    if (!clean || /^(?:режим|страница|цель|шаги|действия)\s*:/iu.test(clean)) return null;
++    const quoted = quotedValues(clean);
++    const marker = markerValue(clean);
++    const wait = clean.match(/^(?:подожди|жди)\s+(\d{1,2})\s*(?:с|сек|секунд)/iu);
++    if (wait) return { type: "WAIT", duration_ms: Math.min(Number(wait[1]) * 1000, 5000), source_line: clean };
++    const waitFor = clean.match(/^(?:дождись|жди\s+появлен)/iu);
++    if (waitFor && (quoted[0] || marker)) return { type: "WAIT_FOR", target: marker ? { by: "marker", value: marker } : targetFromText(quoted[0]), timeout_ms: 5000, source_line: clean };
++    const typeMatch = clean.match(/^(?:введи|напиши|укажи)\s+/iu);
++    if (typeMatch) {
++      if (quoted.length >= 2) return { type: "TYPE", text: quoted[0].slice(0, UI_PLAN_MAX_TYPED_TEXT), target: targetFromText(quoted[1], "placeholder"), source_line: clean };
++      if (marker && quoted.length >= 1) return { type: "TYPE", text: quoted[0].slice(0, UI_PLAN_MAX_TYPED_TEXT), target: { by: "marker", value: marker }, source_line: clean };
++      return { type: "INVALID", error: "UI_PLAN_TYPE_TARGET_OR_TEXT_REQUIRED", source_line: clean };
++    }
++    const collect = clean.match(/^(?:собери|верни)\s+(?:первые\s+|до\s+)?(\d{1,2})?\s*(?:объявлен|карточк|вариант)/iu);
++    if (collect) return { type: "COLLECT_LISTINGS", limit: Math.max(1, Math.min(Number(collect[1] || 10), UI_PLAN_MAX_LISTINGS)), source_line: clean };
++    if (/^(?:сними|верни|покажи)(?=\s|$|[.:;]).*(?:dom|html|сним|разметк)/iu.test(clean)) return { type: "SNAPSHOT", scope: firstScope(clean), source_line: clean };
++    const click = clean.match(/^(?:нажми|выбери|открой|раскрой)(?=\s|$|[.:;])/iu);
++    if (click && (quoted[0] || marker)) return { type: "CLICK", target: marker ? { by: "marker", value: marker } : targetFromText(quoted[0]), source_line: clean };
++    return null;
++  }
++  function parseUiActionPlan(text, fields) {
++    const raw = normalizeText(text);
++    const pageUrl = directiveValue(String(fields["Действия"] || fields["Шаги"] || ""), "Страница") || directiveValue(raw, "Страница") || firstAvitoUrl(raw);
++    const reuseExistingAvito = !pageUrl && requestsExistingAvitoContext(raw);
++    const parsed = [];
++    const errors = [];
++    for (const line of genericActionLines(raw, fields)) {
++      const step = parseGenericStep(line);
++      if (!step) continue;
++      if (step.type === "INVALID") { errors.push(step.error); continue; }
++      if (planLineForbidden(line)) { errors.push("UI_PLAN_FORBIDDEN_ACTION"); continue; }
++      parsed.push(step);
++    }
++    if (!pageUrl && !reuseExistingAvito) errors.push("UI_PLAN_PAGE_REQUIRED");
++    else if (pageUrl && !isAvitoUrl(pageUrl)) errors.push("UI_PLAN_PAGE_NOT_ALLOWED");
++    if (!parsed.length) errors.push("UI_PLAN_STEP_REQUIRED");
++    if (parsed.length > UI_PLAN_MAX_STEPS) errors.push("UI_PLAN_TOO_MANY_STEPS");
++    for (const step of parsed) if (!UI_ACTION_TYPES.has(step.type)) errors.push("UI_PLAN_ACTION_NOT_ALLOWED");
++    return {
++      valid: errors.length === 0,
++      errors,
++      page_url: pageUrl,
++      page_source: pageUrl ? "explicit_url" : (reuseExistingAvito ? "explicit_existing_avito_context" : "missing"),
++      reuse_existing_avito: reuseExistingAvito,
++      steps: parsed.slice(0, UI_PLAN_MAX_STEPS),
++      plan_fingerprint: fingerprint(parsed.map((step) => step.source_line).join("\n"))
++    };
++  }
+   function parseCommandForm(text) {
+     const raw = normalizeText(text);
+     const fields = parseLabeledSections(raw);
+@@ -216,11 +302,16 @@
+       if (!city) errors.push("CITY_REQUIRED_FOR_SEARCH");
+     }
+     let diagnostic = null;
++    let ui_plan = null;
+     if (mode === "DIAGNOSE_DOM") {
+       diagnostic = parseDiagnosticDirective(raw, fields);
+       errors.push(...diagnostic.errors);
+     }
+-    return { valid: errors.length === 0, errors, mode, mode_source: detected.source, candidate_count: candidateLimit, candidate_count_source: candidateLimitSource, fields, diagnostic, raw };
++    if (mode === "AVITO_UI") {
++      ui_plan = parseUiActionPlan(raw, fields);
++      errors.push(...ui_plan.errors);
++    }
++    return { valid: errors.length === 0, errors, mode, mode_source: detected.source, candidate_count: candidateLimit, candidate_count_source: candidateLimitSource, fields, diagnostic, ui_plan, raw };
+   }
+   function makeState(overrides) {
+     return Object.assign({
+@@ -229,7 +320,7 @@
+       chatgpt_window_id: null, chat_origin: null, chat_path: null, avito_tab_id: null,
+       conversation_id: null, anchor_turn_id: null, assistant_turn_id: null, blocked_reason: null,
+       user_started: false, inspection_only: true, report: null, command_mode: null,
+-      diagnostic_request: null, report_delivery_id: null, report_kind: null
++      diagnostic_request: null, ui_action_plan: null, report_delivery_id: null, report_kind: null
+     }, overrides || {});
+   }
+   function appendLog(existing, type, fields) {
+@@ -279,11 +370,29 @@
+       "", "Никакие поля, фильтры, поиск, объявления, сообщения продавцам и скрытые API не использовались."
+     ].join("\n").slice(0, 24000);
+   }
++  function formatUiActionPlanReport(result) {
++    const plan = result?.avito || {};
++    const steps = Array.isArray(plan.steps) ? plan.steps.map((step) => {
++      const detail = [step.target_description || "", step.blocked_reason || "", step.text || "", step.count !== undefined ? `count=${step.count}` : ""].filter(Boolean).join("; ");
++      return `${step.index}. ${step.type || "?"}: ${step.status || "?"}${detail ? ` — ${detail}` : ""}`;
++    }).join("\n") : "";
++    const listings = Array.isArray(plan.listings) ? plan.listings.map((item, index) => `${index + 1}. ${item.title || "без названия"}${item.price ? ` — ${item.price}` : ""}${item.location ? ` — ${item.location}` : ""}${item.href ? ` — ${item.href}` : ""}`).join("\n") : "";
++    return [
++      "Avito Finder: выполнен ограниченный UI-план", "",
++      `Задача: ${result?.search_id || "?"}`,
++      `Страница: ${plan.url || "?"}`,
++      `Статус: ${plan.blocked_reason || (plan.ok === false ? "остановлен безопасно" : "выполнен")}`,
++      `План: ${plan.plan_fingerprint || "?"}`,
++      "", "Шаги:", steps || "нет данных",
++      "", "Карточки:", listings || "не собирались",
++      "", "Ограничения: применялись только видимые элементы Avito. Сообщения продавцам, звонки, сделки, оплата, скрытые API и произвольный JavaScript не использовались."
++    ].join("\n").slice(0, 24000);
++  }
+   root.AvitoFinderCore = Object.freeze({
+-    STORAGE, REQUIRED_COMMAND_LABELS, DIAGNOSTIC_SCOPES, DIAGNOSTIC_ACTIONS, isChatGPTUrl, isAvitoUrl,
++    STORAGE, REQUIRED_COMMAND_LABELS, DIAGNOSTIC_SCOPES, DIAGNOSTIC_ACTIONS, UI_ACTION_TYPES, isChatGPTUrl, isAvitoUrl,
+     conversationIdentityFromUrl, isConversationIdentity, sameConversationIdentity,
+     samePinnedChatContext, normalizeText, fingerprint, makeSearchId, parseCommandForm,
+-    makeState, appendLog, formatInspectionReport, formatDiagnosticReport
++    makeState, appendLog, formatInspectionReport, formatDiagnosticReport, formatUiActionPlanReport
+   });
+   if (typeof module !== "undefined" && module.exports) module.exports = root.AvitoFinderCore;
+ })(globalThis);
+
+--- v0.5.6/manifest.json
++++ v0.6.0/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.5.6",
+-  "version_name": "0.5.6-allowlisted-location-dialog-diagnostic-test-candidate",
+-  "description": "Отдельный Avito Finder: безопасный локальный разбор полного Copy, anchor-fenced continuous dialogue и bounded public DOM diagnostics and allowlisted public dialog inspection.",
++  "version": "0.6.0",
++  "version_name": "0.6.0-generic-visible-ui-action-engine-test-candidate",
++  "description": "Отдельный Avito Finder: безопасный локальный разбор полного Copy, anchor-fenced continuous dialogue и generic local visible-UI action plans, bounded public DOM diagnostics and same-chat continuity.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.5.6/service_worker.js
++++ v0.6.0/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.5.6 — isolated continuous diagnostic dialogue; allowlisted public dialog diagnostics. */
++/* Avito Finder v0.6.0 — isolated continuous dialogue with a generic visible-UI action engine. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -6,7 +6,7 @@
+ const LOG_KEY = Core.STORAGE.logs;
+ const INSPECTION_KEY = Core.STORAGE.lastInspection;
+ const CAPTURE_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+-const CAPTURE_VERSION = "0.5.6";
++const CAPTURE_VERSION = "0.6.0";
+ const AVITO_READY_TIMEOUT_MS = 30000;
+ // Default production pauses are deliberately visible: the user can observe an
+ // Avito tab activation, bounded snapshot moment and return transition.
+@@ -182,6 +182,14 @@
+ async function inspectAvito(tabId, windowId) { const response = await sendAvito(tabId, windowId, { type: "AF_INSPECT_AVITO_DOM" }); if (!response?.ok) throw new Error(`AVITO_DOM_UNAVAILABLE:${response?.error || "unknown"}`); return response.snapshot; }
+ async function diagnoseAvito(tabId, windowId, request) { const response = await sendAvito(tabId, windowId, { type: "AF_DIAGNOSE_AVITO_DOM", request }); if (!response?.ok) throw new Error(`AVITO_DIAGNOSTIC_UNAVAILABLE:${response?.error || "unknown"}`); return response.snapshot; }
+ async function performDiagnosticAction(tabId, windowId, request) { const response = await sendAvito(tabId, windowId, { type: "AF_PERFORM_DIAGNOSTIC_ACTION", request }); if (!response?.ok) throw new Error(`AVITO_DIAGNOSTIC_ACTION_UNAVAILABLE:${response?.error || "unknown"}`); if (!response.result?.ok) throw new Error(`AVITO_DIAGNOSTIC_ACTION_BLOCKED:${response.result?.blocked_reason || "unknown"}`); return response.result; }
++// Generic plan execution is isolated to the Avito content script. The worker
++// never receives selectors or JavaScript from the chat; it carries only the
++// locally parsed visible-control descriptors.
++async function executeAvitoUiActionPlan(tabId, windowId, plan) {
++  const response = await sendAvito(tabId, windowId, { type: "AF_EXECUTE_AVITO_UI_PLAN", plan });
++  if (!response?.ok) throw new Error(`AVITO_UI_PLAN_UNAVAILABLE:${response?.error || "unknown"}`);
++  return response.result || { ok: false, blocked_reason: "AVITO_UI_PLAN_EMPTY_RESULT", steps: [] };
++}
+ 
+ async function deliverReportToPinnedChat(state, report, reportKind) {
+   const latest = await getState();
+@@ -256,7 +264,7 @@
+   if (state.search_id !== queuedState.search_id || state.status !== "WAITING_FOR_AVITO_PAGE_READY" || state.avito_tab_id !== readyTab.id) return;
+   if (deadlineExpired(state)) { await blockAvitoPageReady(state, `AVITO_PAGE_READY_TIMEOUT:${readyTab.id}`, { source }); return; }
+   if (!isAvitoPageReady(readyTab, state.current_window_id)) return;
+-  const role = state.command_mode === "DIAGNOSE_DOM" ? "avito_diagnose_dom" : "avito_inspect_filters";
++  const role = state.command_mode === "DIAGNOSE_DOM" ? "avito_diagnose_dom" : (state.command_mode === "AVITO_UI" ? "avito_ui_action_plan" : "avito_inspect_filters");
+   const activeAvito = await activate(readyTab, role); const verified = await requireReadyAvitoTarget(activeAvito.id, state.current_window_id);
+   const latest = await getState(); if (latest.search_id !== state.search_id || latest.status !== "WAITING_FOR_AVITO_PAGE_READY") return;
+   clearAvitoReadyDeadline(state.search_id);
+@@ -285,6 +293,23 @@
+     await deliverReportToPinnedChat(readyForReport, report, "diagnostic");
+     return;
+   }
++  if (working.command_mode === "AVITO_UI") {
++    await visibleAvitoDelay(working, "before_generic_ui_action_plan", AVITO_VISIBLE_PRE_ACTION_DELAY_MS);
++    const plan = working.ui_action_plan || { steps: [] };
++    await log("AVITO_UI_PLAN_REQUESTED", { search_id: working.search_id, tab_id: verified.id, plan_fingerprint: plan.plan_fingerprint || null, step_count: Array.isArray(plan.steps) ? plan.steps.length : 0 });
++    const result = await executeAvitoUiActionPlan(verified.id, working.current_window_id, plan);
++    for (const step of Array.isArray(result.steps) ? result.steps : []) {
++      await log("AVITO_UI_PLAN_STEP_RESULT", { search_id: working.search_id, tab_id: verified.id, index: step.index ?? null, type: step.type || null, status: step.status || null, blocked_reason: step.blocked_reason || null, target_description: step.target_description || null });
++    }
++    await visibleAvitoDelay(working, "after_generic_ui_action_plan_before_chatgpt_return", AVITO_VISIBLE_POST_ACTION_DELAY_MS);
++    const actionPlan = { search_id: working.search_id, mode: "AVITO_UI", captured_at: new Date().toISOString(), avito: result };
++    const report = Core.formatUiActionPlanReport(actionPlan);
++    await storageSet({ [INSPECTION_KEY]: actionPlan });
++    const readyForReport = await saveState({ ...working, status: "REPORT_READY_FOR_DELIVERY", phase: "AVITO_UI_PLAN_REPORT_READY", report, blocked_reason: result.blocked_reason || null });
++    await log("AVITO_UI_PLAN_REPORT_READY", { search_id: readyForReport.search_id, report_fingerprint: Core.fingerprint(report), plan_fingerprint: result.plan_fingerprint || null, blocked_reason: result.blocked_reason || null });
++    await deliverReportToPinnedChat(readyForReport, report, "ui_action_plan");
++    return;
++  }
+   const snapshot = await inspectAvito(verified.id, working.current_window_id);
+   await log("AVITO_FILTER_SURFACE_CAPTURED", { search_id: working.search_id, tab_id: verified.id, blocked_reason: snapshot.blocked_reason || null });
+   const inspection = { search_id: working.search_id, mode: working.command_mode, captured_at: new Date().toISOString(), avito: snapshot };
+@@ -297,11 +322,12 @@
+ }
+ async function queueAvitoTask(initialState, parsed) {
+   const request = parsed.mode === "DIAGNOSE_DOM" ? parsed.diagnostic : null;
+-  const requestedUrl = parsed.mode === "DIAGNOSE_DOM" ? (request?.page_url || null) : "https://www.avito.ru/";
+-  const purpose = parsed.mode === "DIAGNOSE_DOM" ? "avito_diagnose_dom" : "avito_inspect_filters";
++  const uiPlan = parsed.mode === "AVITO_UI" ? parsed.ui_plan : null;
++  const requestedUrl = parsed.mode === "DIAGNOSE_DOM" ? (request?.page_url || null) : (parsed.mode === "AVITO_UI" ? (uiPlan?.page_url || null) : "https://www.avito.ru/");
++  const purpose = parsed.mode === "DIAGNOSE_DOM" ? "avito_diagnose_dom" : (parsed.mode === "AVITO_UI" ? "avito_ui_action_plan" : "avito_inspect_filters");
+   const avito = await ensureAvitoTarget(initialState, requestedUrl, purpose);
+   const deadline = new Date(Date.now() + AVITO_READY_TIMEOUT_MS).toISOString();
+-  const state = await saveState({ ...initialState, status: "WAITING_FOR_AVITO_PAGE_READY", phase: "AVITO_NAVIGATION", avito_tab_id: avito.tab.id, avito_tab_created: avito.created, command_mode: parsed.mode, diagnostic_request: request, avito_ready_deadline_at: deadline, blocked_reason: null });
++  const state = await saveState({ ...initialState, status: "WAITING_FOR_AVITO_PAGE_READY", phase: "AVITO_NAVIGATION", avito_tab_id: avito.tab.id, avito_tab_created: avito.created, command_mode: parsed.mode, diagnostic_request: request, ui_action_plan: uiPlan, avito_ready_deadline_at: deadline, blocked_reason: null });
+   const current = await getTab(avito.tab.id);
+   if (!current) { await blockAvitoPageReady(state, `AVITO_TAB_MISSING:${avito.tab.id}`); return; }
+   if (current.windowId !== state.current_window_id) { await blockAvitoPageReady(state, `AVITO_TAB_WINDOW_MISMATCH:${avito.tab.id}`, { actual_tab: shortTab(current) }); return; }
+@@ -359,7 +385,7 @@
+ }
+ async function returnValidationErrorToPinnedChat(state, parsed, text) {
+   const report = validationErrorReport(state, parsed, text);
+-  const staged = await saveState({ ...state, status: "VALIDATION_ERROR_REPORT_READY", phase: "LOCAL_EXTENSION_VALIDATION", command_mode: parsed.mode || null, diagnostic_request: null, blocked_reason: (parsed.errors || []).join("; "), report, report_kind: "validation_error" });
++  const staged = await saveState({ ...state, status: "VALIDATION_ERROR_REPORT_READY", phase: "LOCAL_EXTENSION_VALIDATION", command_mode: parsed.mode || null, diagnostic_request: null, ui_action_plan: null, blocked_reason: (parsed.errors || []).join("; "), report, report_kind: "validation_error" });
+   await log("LOCAL_COMMAND_VALIDATION_FAILED", { search_id: staged.search_id, errors: parsed.errors || [], mode: parsed.mode || null, mode_source: parsed.mode_source || null, text_fingerprint: Core.fingerprint(text) });
+   await log("VALIDATION_ERROR_REPORT_READY", { search_id: staged.search_id, report_fingerprint: Core.fingerprint(report), report_kind: "validation_error" });
+   return deliverReportToPinnedChat(staged, report, "validation_error");
+@@ -401,14 +427,15 @@
+     const delivered = await deliverReportToPinnedChat(staged, report, "validation_error");
+     return { ok: true, data: { accepted: true, disposition: "continuation_started", continuation_anchor_turn_id: delivered.anchor_turn_id || null, validation_error_reported: delivered.status === "WAITING_FOR_NEXT_ASSISTANT_FORM", reason: "SEARCH_NOT_IMPLEMENTED" } };
+   }
+-  state = await saveState({ ...state, status: "COMMAND_CAPTURED", phase: "COMMAND_CAPTURED", command_mode: parsed.mode, diagnostic_request: parsed.diagnostic || null, blocked_reason: null });
++  state = await saveState({ ...state, status: "COMMAND_CAPTURED", phase: "COMMAND_CAPTURED", command_mode: parsed.mode, diagnostic_request: parsed.diagnostic || null, ui_action_plan: parsed.ui_plan || null, blocked_reason: null });
+   queueAvitoTask(state, parsed).catch(async (error) => { const reason = String(error?.message || error); const latest = await getState(); if (latest.search_id !== state.search_id || latest.status === "CANCELLED_BY_USER") return; const pageReadyFailure = /^AVITO_(?:PAGE_READY_TIMEOUT|PAGE_NOT_READY|TAB_MISSING|TAB_CLOSED|TAB_WINDOW_MISMATCH|TAB_READ_FAILED)/.test(reason); await saveState({ ...latest, status: pageReadyFailure ? "BLOCKED_AVITO_PAGE_READY" : "FAILED_WITH_EVIDENCE", phase: latest.phase || "AVITO_TASK", blocked_reason: reason }); await log(pageReadyFailure ? "AVITO_PAGE_READY_BLOCKED" : "AVITO_TASK_BLOCKED", { search_id: state.search_id, reason }); });
+   return { ok: true, data: { accepted: true } };
+ }
+ async function continueReport() {
+   const state = await getState();
+   if (!["PAUSED_USER_COMPOSER_OCCUPIED", "REPORT_DELIVERY_BLOCKED"].includes(state.status) || !state.report) return { ok: false, error: "NO_PENDING_REPORT" };
+-  const result = await deliverReportToPinnedChat(state, state.report, state.report_kind || (state.command_mode === "DIAGNOSE_DOM" ? "diagnostic" : "inspection"));
++  const fallbackKind = state.command_mode === "DIAGNOSE_DOM" ? "diagnostic" : (state.command_mode === "AVITO_UI" ? "ui_action_plan" : "inspection");
++  const result = await deliverReportToPinnedChat(state, state.report, state.report_kind || fallbackKind);
+   return { ok: true, state: result };
+ }
+ async function stop() {
+

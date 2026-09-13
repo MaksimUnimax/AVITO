@@ -1,0 +1,117 @@
+--- v0.7.3/avito_content.js
++++ v0.7.4/avito_content.js
+@@ -1,9 +1,9 @@
+-/* Avito Finder v0.7.3 — bounded public diagnostics, trusted visible input and query-correlated temporal menu evidence. */
++/* Avito Finder v0.7.4 — bounded public diagnostics, trusted visible input and settled query-correlated temporal menu evidence. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+-  if (globalThis.__avitoFinderAvitoContentV073) return;
+-  globalThis.__avitoFinderAvitoContentV073 = true;
++  if (globalThis.__avitoFinderAvitoContentV074) return;
++  globalThis.__avitoFinderAvitoContentV074 = true;
+ 
+   const Core = AvitoFinderCore;
+   const MAX_TREE_NODES = 160;
+@@ -21,6 +21,11 @@
+   const MENU_CAPTURE_POLL_MS = 80;
+   const MENU_MAX_OPTIONS = 12;
+   const MENU_QUERY_MIN_CHARS = 2;
++  // A clear/focus can surface a stale list and a temporary field message before
++  // the page renders the response to the newly typed text. Keep one bounded,
++  // generic observation window instead of treating that first message as final.
++  const MENU_INPUT_ERROR_GRACE_MS = 1800;
++  const MENU_INPUT_ERROR_QUIET_MS = 240;
+   const debuggerTypeTokens = new Map();
+   const debuggerClickTokens = new Map();
+   const SAFE_ATTRIBUTES = new Set(["id", "class", "role", "aria-label", "aria-expanded", "aria-controls", "placeholder", "name", "type", "title", "data-marker", "href", "disabled", "checked", "label"]);
+@@ -390,6 +395,7 @@
+   function recordTemporalNode(capture, node, kind) {
+     const element = node instanceof Element ? node : node?.parentElement;
+     if (!element || isBroadPageContainer(element)) return;
++    capture.last_mutation_at = Date.now();
+     const bucket = kind === "added" ? capture.added : capture.changed;
+     if (bucket.size < 240) bucket.add(element);
+     const descendants = Array.from(element.querySelectorAll?.(menuDiscoverySelector()) || []).slice(0, 48);
+@@ -398,7 +404,8 @@
+     }
+   }
+   function startVisibleMenuCapture(input) {
+-    const capture = { input, started_at: Date.now(), added: new Set(), changed: new Set(), observer: null, stopped: false };
++    const startedAt = Date.now();
++    const capture = { input, started_at: startedAt, last_mutation_at: startedAt, added: new Set(), changed: new Set(), observer: null, stopped: false };
+     if (!(input instanceof Element)) return capture;
+     try {
+       capture.observer = new MutationObserver((records) => {
+@@ -548,16 +555,24 @@
+       _input: input
+     };
+   }
+-  async function waitForVisibleMenu(context, timeoutMs = 2600) {
++  function inputStateIsSettled(capture) {
++    const now = Date.now();
++    const startedAt = Number(capture?.started_at) || now;
++    const lastMutationAt = Number(capture?.last_mutation_at) || startedAt;
++    return now - startedAt >= MENU_INPUT_ERROR_GRACE_MS && now - lastMutationAt >= MENU_INPUT_ERROR_QUIET_MS;
++  }
++  async function waitForVisibleMenu(context, timeoutMs = 3400) {
+     const input = context?.element;
+     const capture = context?.menu_capture || startVisibleMenuCapture(input);
+     const expectedQuery = String(context?.expected_query || "");
+     const deadline = Date.now() + Math.max(0, Math.min(Number(timeoutMs) || 0, MENU_CAPTURE_MAX_MS));
+     let model = modelVisibleMenu(input, capture, expectedQuery);
+-    // A focus/clear action can briefly reveal stale default rows. Do not accept
+-    // them as the result for the just-typed query; wait for one related row,
+-    // a field rejection, or the bounded deadline.
+-    while (!model._targets.length && !model.input_state && Date.now() < deadline) {
++    // A clear/focus may briefly show unrelated defaults and a transient field
++    // message. The current query gets one bounded response window. A field
++    // rejection becomes terminal only after that window is quiet; a matching
++    // visible row always wins immediately.
++    while (!model._targets.length && Date.now() < deadline) {
++      if (model.input_state && inputStateIsSettled(capture)) break;
+       await uiDelay(MENU_CAPTURE_POLL_MS);
+       model = modelVisibleMenu(input, capture, expectedQuery);
+     }
+@@ -833,13 +848,13 @@
+       }
+       if (step.type === "COLLECT_MENU") {
+         const context = latestTypeContext || { element: document.activeElement instanceof Element ? document.activeElement : null, expected_query: "", menu_capture: null };
+-        const menu = await waitForVisibleMenu(context, 2600);
++        const menu = await waitForVisibleMenu(context, 3400);
+         result.menu = publicMenuModel(menu);
+         if (menu.blocked_reason) { result.ok = false; result.blocked_reason = menu.blocked_reason; result.steps.push({ index, type: "COLLECT_MENU", status: "blocked", blocked_reason: menu.blocked_reason }); break; }
+         result.steps.push({ index, type: "COLLECT_MENU", status: "completed", count: menu.options.length, menu_id: menu.menu_id }); continue;
+       }
+       if (!["CLICK", "TYPE", "SELECT_OPTION"].includes(step.type)) { result.ok = false; result.blocked_reason = "UI_PLAN_ACTION_NOT_ALLOWED"; result.steps.push({ index, type: step.type || "?", status: "blocked", blocked_reason: result.blocked_reason }); break; }
+-      if (step.type === "SELECT_OPTION" && latestTypeContext) await waitForVisibleMenu(latestTypeContext, 2600);
++      if (step.type === "SELECT_OPTION" && latestTypeContext) await waitForVisibleMenu(latestTypeContext, 3400);
+       const resolved = step.type === "SELECT_OPTION" ? dialogScopedOptionCandidates(step.text, latestTypeContext) : resolveVisibleActionTarget(step);
+       if (!resolved.ok) { result.ok = false; result.blocked_reason = resolved.blocked_reason; if (resolved.menu) result.menu = publicMenuModel(resolved.menu); result.steps.push({ index, type: step.type, status: "blocked", blocked_reason: resolved.blocked_reason, candidates: resolved.candidates }); break; }
+       await uiDelay(UI_PLAN_PRE_ACTION_DELAY_MS);
+@@ -898,7 +913,7 @@
+     const links = Array.from(document.querySelectorAll("a[href*='/item/'],a[data-marker*='item']")).filter(visible);
+     return { url: location.href, title: document.title, captured_at: new Date().toISOString(), blocked_reason: detectBlock(), input_count: inputs.length, button_count: buttons.length, listing_link_count: links.length, actions_performed: "none_read_only" };
+   }
+-  if (globalThis.__AF_TEST_EXPORTS) globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, adaptiveOptionCandidates, startVisibleMenuCapture, waitForVisibleMenu, modelVisibleMenu, publicMenuModel, menuLabelKey, pointerReachable, candidateInMenuBand, fieldStateMessage, queryKey, queryRelatedToOption };
++  if (globalThis.__AF_TEST_EXPORTS) globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, adaptiveOptionCandidates, startVisibleMenuCapture, waitForVisibleMenu, modelVisibleMenu, publicMenuModel, menuLabelKey, pointerReachable, candidateInMenuBand, fieldStateMessage, queryKey, queryRelatedToOption, inputStateIsSettled };
+   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+     try {
+       if (message?.type === "AF_INSPECT_AVITO_DOM") { sendResponse({ ok: true, snapshot: inspect() }); return; }
+
+--- v0.7.3/manifest.json
++++ v0.7.4/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.7.3",
+-  "version_name": "0.7.3-query-correlated-temporal-menu-test-candidate",
+-  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; выбор возможен только по точному тексту уже наблюдённого временного выпадающего списка, через ограниченную временную модель видимого меню, связанную с активным полем и введённым запросом, без Runtime, Network, cookies или скрытых API.",
++  "version": "0.7.4",
++  "version_name": "0.7.4-settled-query-menu-test-candidate",
++  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; выбор возможен только по точному тексту уже наблюдённого временного выпадающего списка, через ограниченную временную модель видимого меню, связанную с активным полем и введённым запросом; временная ошибка поля становится отказом только после ограниченного тихого окна ответа, без Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+

@@ -1,0 +1,80 @@
+--- v1.0.23/core.js
++++ v1.0.24/core.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.23 — assistant-directed visible-UI executor with recoverable pinned-chat context guard and verified proxy recovery integration. */
++/* Avito Finder v1.0.24 — assistant-directed visible-UI executor with recoverable pinned-chat context guard and verified proxy recovery integration. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+   const STORAGE = Object.freeze({
+
+--- v1.0.23/manifest.json
++++ v1.0.24/manifest.json
+@@ -2,8 +2,8 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "1.0.23",
+-  "version_name": "1.0.23-verified-egress-ip-block-recovery",
++  "version": "1.0.24",
++  "version_name": "1.0.24-ui-plan-ip-block-recovery",
+   "description": "Avito Finder: zero-media Traffic Lite, manual CAPTCHA media reload, verified Proxy.Market egress rotation before Avito IP-block reload, and recoverable pinned ChatGPT context.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+
+--- v1.0.23/proxy_manager.js
++++ v1.0.24/proxy_manager.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.23 — Proxy.Market recovery is evidence-driven: keep the selected every-request profile, force a fresh proxy transport epoch, verify real egress rotation, and only then reload Avito. */
++/* Avito Finder v1.0.24 — Proxy.Market recovery is evidence-driven: keep the selected every-request profile, force a fresh proxy transport epoch, verify real egress rotation, and only then reload Avito. */
+ "use strict";
+ (function(root, factory) {
+   const api = factory();
+
+--- v1.0.23/service_worker.js
++++ v1.0.24/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.23 — Traffic Lite and manual CAPTCHA behavior are preserved; Avito IP-block recovery now keeps the selected rotation mode, forces a fresh proxy transport epoch, verifies real proxy egress via tiny IP canaries, and reloads Avito only after verified recovery. */
++/* Avito Finder v1.0.24 — v1.0.23 verified-egress recovery is preserved and now also handles AVITO_IP_BLOCK discovered inside a collection-first UI plan, replaying the same safe plan after verified recovery without resetting the bounded recovery counter. */
+ "use strict";
+ importScripts("core.js", "proxy_manager.js");
+ const Core = AvitoFinderCore;
+@@ -2588,7 +2588,7 @@
+     const recovered = await recoverAvitoIpBlockAndReload(latest, verified, Number(interruption.time_origin || 0), "post_navigation_ip_block");
+     if (recovered) return;
+   }
+-  let working = await saveState({ ...latest, status: "AVITO_TAB_ACTIVE", phase: state.command_mode === "DIAGNOSE_DOM" ? "DIAGNOSING_DOM" : (state.command_mode === "AVITO_UI" ? "EXECUTING_AVITO_UI_PLAN" : "INSPECTING_FILTERS"), avito_tab_id: verified.id, avito_navigation_expected: false, avito_navigation_from_url: null, avito_requested_url: null, avito_reload_expected: false, avito_reload_previous_time_origin: null, avito_ip_block_reload_count: 0, blocked_reason: null });
++  let working = await saveState({ ...latest, status: "AVITO_TAB_ACTIVE", phase: state.command_mode === "DIAGNOSE_DOM" ? "DIAGNOSING_DOM" : (state.command_mode === "AVITO_UI" ? "EXECUTING_AVITO_UI_PLAN" : "INSPECTING_FILTERS"), avito_tab_id: verified.id, avito_navigation_expected: false, avito_navigation_from_url: null, avito_requested_url: null, avito_reload_expected: false, avito_reload_previous_time_origin: null, avito_ip_block_reload_count: Number(latest.avito_ip_block_reload_count || 0), blocked_reason: null });
+   const activationDelay = working.command_mode === "AVITO_UI" && planStartsCollection(working.ui_action_plan) ? 0 : AVITO_VISIBLE_ACTIVATION_DELAY_MS;
+   await visibleAvitoDelay(working, "after_avito_activation_before_readonly_capture", activationDelay);
+   // The snapshot is intentionally delayed only for visible control flow; it is not used as a source of hidden data.
+@@ -2655,6 +2655,29 @@
+     }
+     for (const step of Array.isArray(result.steps) ? result.steps : []) {
+       await log("AVITO_UI_PLAN_STEP_RESULT", { search_id: working.search_id, tab_id: verified.id, index: step.index ?? null, type: step.type || null, status: step.status || null, blocked_reason: step.blocked_reason || null, target_description: step.target_description || null });
++    }
++    const uiPlanIpBlocked = result?.blocked_reason === "AVITO_IP_BLOCK" || (Array.isArray(result?.steps) && result.steps.some((step) => step?.blocked_reason === "AVITO_IP_BLOCK"));
++    const safeCollectionReplay = uiPlanIpBlocked && planStartsCollection(plan);
++    if (safeCollectionReplay && Number(working.avito_ip_block_reload_count || 0) < AVITO_IP_BLOCK_AUTO_RECOVERY_MAX) {
++      await log("AVITO_UI_PLAN_IP_BLOCK_RECOVERY_STARTED", {
++        search_id: working.search_id,
++        tab_id: verified.id,
++        plan_fingerprint: plan.plan_fingerprint || null,
++        previous_attempts: Number(working.avito_ip_block_reload_count || 0),
++        source: "ui_plan_collection_ip_block"
++      });
++      const retryState = await saveState({
++        ...working,
++        status: "WAITING_FOR_AVITO_PAGE_READY",
++        phase: "AVITO_UI_PLAN_IP_BLOCK_RECOVERY_HANDOFF",
++        avito_tab_id: verified.id,
++        blocked_reason: null
++      });
++      const recovered = await recoverAvitoIpBlockAndReload(retryState, verified, 0, "ui_plan_collection_ip_block");
++      if (recovered?.status === "BLOCKED_AVITO_PAGE_READY") {
++        await returnAvitoRuntimeFailureToPinnedChat(recovered, recovered.blocked_reason || "PROXY_EGRESS_ROTATION_UNVERIFIED");
++      }
++      return;
+     }
+     await visibleAvitoDelay(working, "after_generic_ui_action_plan_before_chatgpt_return", uiPlanCompletionDelayMs(plan, result));
+     if (!Array.isArray(plan.steps) || !plan.steps.some((step) => ["COLLECT_EXPLICIT_LISTING_QUEUE", "RESUME_EXPLICIT_LISTING_QUEUE"].includes(String(step?.type || "")))) {
+

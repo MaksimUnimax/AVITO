@@ -1,0 +1,204 @@
+--- v1.0.34/chatgpt_content.js
++++ v1.0.35/chatgpt_content.js
+@@ -10,7 +10,7 @@
+   // runtime context. A version guard that simply returns would then prevent a
+   // fresh adapter from being injected into the same tab. New injection must
+   // supersede, dispose and replace the previous adapter instead.
+-  const CONTENT_SCRIPT_VERSION = "0.6.17";
++  const CONTENT_SCRIPT_VERSION = "0.6.18";
+   const CONTENT_SCRIPT_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+   const CONTENT_RUNTIME_KEY = "__AVITO_FINDER_BRIDGE_EXACT_CAPTURE_RUNTIME__";
+   const CONTENT_RUNTIME_ID = `${CONTENT_SCRIPT_VERSION}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+@@ -162,6 +162,7 @@
+     RECORD_DIAGNOSTIC: "AF_CAPTURE_DIAGNOSTIC",
+     AUTOMATION_PROMPT_ACTIVITY: "AF_CAPTURE_ACTIVITY",
+     AUTOMATION_PROMPT_CANDIDATE: "AF_CAPTURE_FULL_TEXT",
++    AUTOMATION_PROMPT_FORM_ERROR: "AF_CAPTURE_FORM_ERROR",
+     AF_CAPTURE_CONTEXT_BLOCKED: "AF_CAPTURE_CONTEXT_BLOCKED",
+     AF_CAPTURE_REPORT_SEND_INTENT: "AF_CAPTURE_REPORT_SEND_INTENT",
+     AF_CAPTURE_START_SEND_INTENT: "AF_CAPTURE_START_SEND_INTENT",
+@@ -2208,6 +2209,12 @@
+     }, ACTIVITY_REQUEST_TIMEOUT_MS);
+   }
+ 
++  function candidateHasReadyAssistantTurnCopy(candidate) {
++    return Array.isArray(candidate?.button_snapshot) && candidate.button_snapshot.some((snapshot) =>
++      snapshot?.testid === "copy-turn-action-button" && snapshot?.enabled === true
++    );
++  }
++
+   async function promptTick(forceStableCheck = false, generation = promptPollGeneration) {
+     if (!isCurrentPromptPollGeneration(generation) || !contentRuntimeIsCurrent() || !currentAnchorTurnId || promptTickInFlight) return;
+     // A report sender can record a newer user-turn before the Worker explicitly
+@@ -2269,11 +2276,57 @@
+       }
+ 
+       if (!candidate.writing_block) {
+-        await reportPromptActivity(candidate, "assistant_streaming");
+-        recordDiagnostic("PROMPT_WAIT_WRITING_BLOCK", candidate);
+-        candidateFirstSeen = null;
+-        showStatus("Avito Finder: assistant-ответ обнаружен; жду writing block и готовую Copy-кнопку. Содержимое не анализируется.", "warning");
+-        schedulePromptCheck(PROMPT_ACTIVE_RECHECK_MS, false, generation);
++        const assistantTurnFinal = candidateHasReadyAssistantTurnCopy(candidate);
++        await reportPromptActivity(candidate, assistantTurnFinal ? "assistant_ready_without_writing_block" : "assistant_streaming");
++        if (!assistantTurnFinal) {
++          recordDiagnostic("PROMPT_WAIT_WRITING_BLOCK", candidate);
++          candidateFirstSeen = null;
++          showStatus("Avito Finder: assistant-ответ обнаружен; жду Writing Block. Обычный Markdown/code block командой не является.", "warning");
++          schedulePromptCheck(PROMPT_ACTIVE_RECHECK_MS, false, generation);
++          return;
++        }
++
++        const structuralChanged = !candidateFirstSeen ||
++          candidateFirstSeen.structural_signature !== candidate.structural_signature;
++        if (structuralChanged) {
++          candidateFirstSeen = { structural_signature: candidate.structural_signature, first_seen_ms: Date.now() };
++          recordDiagnostic("PROMPT_NON_WRITING_BLOCK_FINALITY_STARTED", candidate);
++          showStatus("Avito Finder: assistant-turn завершён, но Writing Block отсутствует. Проверяю стабильность формы перед безопасным отказом.", "warning");
++          schedulePromptStabilityCheck(PROMPT_STABILITY_MS, generation);
++          return;
++        }
++        const stableForMs = Date.now() - candidateFirstSeen.first_seen_ms;
++        if (stableForMs < PROMPT_STABILITY_MS) {
++          schedulePromptStabilityCheck(PROMPT_STABILITY_MS - stableForMs, generation);
++          return;
++        }
++
++        candidate.assistant_finality_confirmed = true;
++        candidate.copy_gate_confirmed = true;
++        candidate.prompt_source = "anchored_completed_assistant_without_writing_block";
++        candidate.rejection_reason = "ASSISTANT_WRITING_BLOCK_REQUIRED";
++        candidate.poll_generation = generation;
++        recordDiagnostic("PROMPT_FINAL_ASSISTANT_WITHOUT_WRITING_BLOCK", candidate);
++        const response = await request("AUTOMATION_PROMPT_FORM_ERROR", { candidate });
++        if (!isCurrentPromptPollGeneration(generation)) return;
++        if (!response.ok) {
++          showStatus(`Avito Finder: ошибка возврата format-report — ${response.error}`, "error");
++          return;
++        }
++        if (response.data?.accepted && response.data?.disposition === "continuation_started" && response.data?.continuation_anchor_turn_id) {
++          const nextAnchor = String(response.data.continuation_anchor_turn_id);
++          recordDiagnostic("PROMPT_FORM_ERROR_CONTINUATION_HANDOFF", { ...candidate, next_anchor_turn_id: nextAnchor });
++          startPromptPolling(activeRunId, activeConversationId, nextAnchor, null);
++          return;
++        }
++        if (response.data?.ignored) {
++          candidate.rejection_reason = response.data?.reason || candidate.rejection_reason;
++          recordDiagnostic("PROMPT_FORM_ERROR_IGNORED", candidate);
++          schedulePromptCheck(PROMPT_ACTIVE_RECHECK_MS, false, generation);
++          return;
++        }
++        showStatus("Avito Finder: завершённый assistant-ответ не содержит Writing Block. На Avito ничего не выполнялось.", "error");
++        stopPromptPolling(generation);
+         return;
+       }
+ 
+
+--- v1.0.34/manifest.json
++++ v1.0.35/manifest.json
+@@ -2,8 +2,8 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "1.0.34",
+-  "version_name": "1.0.34-writing-block-body-stability",
++  "version": "1.0.35",
++  "version_name": "1.0.35-assistant-form-terminal-gate",
+   "description": "Avito Finder: bounded, cancellable visible-UI execution, same-chat reports, verified proxy configuration and fresh-document recovery; manual CAPTCHA.",
+   "minimum_chrome_version": "120",
+   "permissions": [
+
+--- v1.0.34/service_worker.js
++++ v1.0.35/service_worker.js
+@@ -18,7 +18,7 @@
+ const PROXY_DATA_SAVER_RESOURCE_TYPES = Object.freeze(["image", "media", "font", "object", "ping"]);
+ const PROXY_AUTH_MAX_ATTEMPTS_PER_REQUEST = 3;
+ const CAPTURE_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+-const CAPTURE_VERSION = "0.6.17";
++const CAPTURE_VERSION = "0.6.18";
+ const AVITO_READY_TIMEOUT_MS = 30000;
+ const AVITO_READY_POLL_MS = 750;
+ const AVITO_IP_BLOCK_AUTO_RECOVERY_MAX = 4;
+@@ -3382,7 +3382,7 @@
+     `Причины: ${errors}`,
+     "",
+     "На Avito ничего не открывалось и не изменялось.",
+-    "Расширение вернуло ошибку в этот же чат. Следующая команда может быть обычным текстом: фиксированный шаблон не требуется."
++    "Расширение вернуло ошибку в этот же чат. Следующее сообщение пользователя может быть обычным текстом. Исполняемый ответ ассистента Finder принимает только как Writing Block; обычный Markdown/code block командой не является."
+   ].join("\n");
+ }
+ async function returnValidationErrorToPinnedChat(state, parsed, text) {
+@@ -3423,6 +3423,55 @@
+   });
+   await log("AVITO_FAILURE_REPORT_READY", { search_id: staged.search_id, reason, report_fingerprint: Core.fingerprint(report) });
+   return deliverReportToPinnedChat(staged, report, "avito_failure");
++}
++
++function assistantFormErrorReport(state, candidate) {
++  return [
++    "Avito Finder: команда не запущена — исполняемый Writing Block отсутствует.",
++    "",
++    `Задача: ${state.search_id || "?"}`,
++    `Assistant turn: ${candidate.assistant_turn_id || "не определён"}`,
++    "Причина: ASSISTANT_WRITING_BLOCK_REQUIRED",
++    "",
++    "Assistant-ответ уже завершён, но Finder не нашёл Writing Block.",
++    "Обычный текст и Markdown/code block намеренно не исполняются как команда.",
++    "На Avito ничего не открывалось и не изменялось.",
++    "Следующее сообщение пользователя может быть обычным текстом; следующий исполняемый ответ ассистента должен быть Writing Block."
++  ].join("\n");
++}
++async function handlePromptFormError(message, sender) {
++  let state = await getState();
++  const candidate = message.candidate && typeof message.candidate === "object" ? message.candidate : {};
++  if (!state.search_id || candidate.run_id !== state.search_id) return { ok: true, data: { ignored: true, reason: "SEARCH_ID_MISMATCH" } };
++  if (sender?.tab?.id !== state.chatgpt_tab_id) return { ok: true, data: { ignored: true, reason: "SENDER_TAB_MISMATCH" } };
++  const expected = contextFromState(state);
++  const actual = { tab_id: sender?.tab?.id ?? null, window_id: sender?.tab?.windowId ?? null, origin: candidate.origin, chat_path: candidate.chat_path, conversation_id: candidate.conversation_id };
++  if (!Core.samePinnedChatContext(expected, actual)) return { ok: true, data: { ignored: true, reason: "FORM_ERROR_CONTEXT_MISMATCH" } };
++  if (candidate.anchor_turn_id !== state.anchor_turn_id) return { ok: true, data: { ignored: true, reason: "STALE_ANCHOR_CANDIDATE" } };
++  if (!["WAITING_FOR_ASSISTANT_WRITING_BLOCK", "WAITING_FOR_NEXT_ASSISTANT_FORM", "PAUSED_CHAT_CONTEXT_CHANGED"].includes(state.status)) {
++    return { ok: true, data: { ignored: true, reason: "COMMAND_ALREADY_IN_FLIGHT" } };
++  }
++  if (candidate.rejection_reason !== "ASSISTANT_WRITING_BLOCK_REQUIRED" || candidate.assistant_finality_confirmed !== true) {
++    return { ok: true, data: { ignored: true, reason: "FORM_ERROR_NOT_CONFIRMED" } };
++  }
++  const report = assistantFormErrorReport(state, candidate);
++  const staged = await saveState({
++    ...state,
++    status: "VALIDATION_ERROR_REPORT_READY",
++    phase: "CHATGPT_CAPTURE_FORMAT",
++    assistant_turn_id: candidate.assistant_turn_id || null,
++    blocked_reason: "ASSISTANT_WRITING_BLOCK_REQUIRED",
++    report,
++    report_kind: "validation_error"
++  });
++  await log("ASSISTANT_WRITING_BLOCK_REQUIRED", {
++    search_id: staged.search_id,
++    anchor_turn_id: staged.anchor_turn_id,
++    assistant_turn_id: candidate.assistant_turn_id || null,
++    avito_mutated: false
++  });
++  const delivered = await deliverReportToPinnedChat(staged, report, "validation_error");
++  return { ok: true, data: { accepted: true, disposition: "continuation_started", continuation_anchor_turn_id: delivered.anchor_turn_id || null, reason: "ASSISTANT_WRITING_BLOCK_REQUIRED" } };
+ }
+ 
+ async function handleFullText(message, sender) {
+@@ -3705,7 +3754,7 @@
+     log,patchProxyDiagnostics,applyProxyProfileInternal,prepareRecoveryProxy,restoreInterruptedProxyTransaction,
+     maybeCreateRecoveryEndpoint,reserveRecoveryEndpoint,recoverAvitoIpBlockAndReload,recoverRuntimeOnWake,
+     completeAvitoTask,blockAvitoPageReady,stop,deliverReportToPinnedChat,returnAvitoRuntimeFailureToPinnedChat,recoverAvitoConnectionAndReload,resumePersistedConnectionRecovery,persistRateLimitBackoff,
+-    networkEvidenceForTab,recordNetworkEvidence,handleFullText,queueAvitoTask,runSequentialCardBatch,runExplicitListingQueue,
++    networkEvidenceForTab,recordNetworkEvidence,handleFullText,handlePromptFormError,queueAvitoTask,runSequentialCardBatch,runExplicitListingQueue,
+     continuationSequentialCheckpoint,readSequentialCardWithRecovery,ensureSequentialOwnedTargetTab,adoptSequentialChild,ownedSequentialChildren,proxyUiRequest,sendAvito,
+     saveManualTrafficProfile,deleteProxyProfileLocally,setProxyDirect,syncProxyMarket,migrateLegacyProxyProfiles,
+     owner:()=>workerRecoveryOwner,
+@@ -3886,6 +3935,7 @@
+     case "AF_CAPTURE_ACTIVITY": await log("CAPTURE_ACTIVITY", diagnosticFields(message)); sendResponse({ ok: true, data: { recorded: true } }); return;
+     case "AF_CAPTURE_CONTEXT_BLOCKED": sendResponse(await contextBlockedFromContent(message, sender)); return;
+     case "AF_CAPTURE_FULL_TEXT": sendResponse(await captureLane(()=>handleFullText(message, sender))); return;
++    case "AF_CAPTURE_FORM_ERROR": sendResponse(await captureLane(()=>handlePromptFormError(message, sender))); return;
+     case "AF_DEBUGGER_TYPE_VISIBLE_TARGET": sendResponse(await typeVisibleAvitoTargetWithDebugger(message, sender)); return;
+     case "AF_DEBUGGER_CLICK_VISIBLE_TARGET": sendResponse(await clickVisibleTargetWithDebugger(message, sender)); return;
+     case "AF_DEBUGGER_CLICK_VISIBLE_OPTION": sendResponse(await clickVisibleOptionWithDebugger(message, sender)); return;
+

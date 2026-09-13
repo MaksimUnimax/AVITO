@@ -1,0 +1,522 @@
+--- v0.9.15/avito_content.js
++++ v0.9.18/avito_content.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.14 — discovery report before an explicit selected detail queue. */
++/* Avito Finder v0.9.17 — direct-search inventory with readiness-only sequential detail review. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+@@ -1018,14 +1018,48 @@
+     }
+     return fallback;
+   }
++  function normalizedVisiblePrice(text) {
++    const raw = Core.normalizeText(text || "");
++    const matches = Array.from(raw.matchAll(/(?:^|[^\d])((?:\d{1,3}(?:[\s\u00a0]\d{3})+|\d{1,7})\s*(?:₽|руб(?:\.|лей|ля)?))/giu));
++    for (const match of matches) {
++      const normalized = String(match[1]).replace(/(?:руб(?:\.|лей|ля)?)/iu, "₽").replace(/\s+/g, " ").trim();
++      const amount = Number(normalized.replace(/[^\d]/g, ""));
++      // Exclude delivery/payment crumbs such as "от 1 ₽". This extension's
++      // candidate workflow is for computer listings, where a product price is
++      // at least four digits; a valid larger visible price wins over a nearby
++      // delivery amount in the same container.
++      if (Number.isFinite(amount) && amount >= 1000 && amount <= 10000000) return normalized;
++    }
++    return "";
++  }
+   function priceInListingCard(card) {
++    const marked = Array.from(card.querySelectorAll("[data-marker*='price'],[itemprop='price']")).find((node) => visible(node) && normalizedVisiblePrice(textOf(node, 160)));
++    if (marked) return normalizedVisiblePrice(textOf(marked, 160));
+     const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+     let node = walker.nextNode();
+     while (node) {
+-      const raw = Core.normalizeText(node.nodeValue || "");
+-      const matches = Array.from(raw.matchAll(/(?:^|[^\d])((?:\d{1,3}(?:[\s\u00a0]\d{3})+|\d{1,6})\s*₽)/gu));
+-      if (matches.length) return String(matches[0][1] || "").replace(/\s+/g, " ").trim();
++      const price = normalizedVisiblePrice(node.nodeValue || "");
++      if (price) return price;
+       node = walker.nextNode();
++    }
++    return "";
++  }
++  function priceInPublicListingView() {
++    // Prefer the product-price surface. Broad price selectors can include
++    // shipping/payment text, so they are only consulted after item-view nodes.
++    const selectors = ["[data-marker='item-view/item-price']", "[data-marker^='item-view/'][data-marker*='price']", "[itemprop='price']"];
++    for (const selector of selectors) {
++      for (const node of Array.from(document.querySelectorAll(selector))) {
++        if (!visible(node)) continue;
++        const price = normalizedVisiblePrice(textOf(node, 180));
++        if (price) return price;
++      }
++    }
++    const titleNode = Array.from(document.querySelectorAll("[data-marker='item-view/title-info'],h1[itemprop='name'],h1")).find(visible) || null;
++    let scope = titleNode?.parentElement || document.body;
++    for (let i = 0; scope && i < 3; i += 1, scope = scope.parentElement) {
++      const price = normalizedVisiblePrice(textOf(scope, 1200));
++      if (price) return price;
+     }
+     return "";
+   }
+@@ -1353,7 +1387,7 @@
+   function collectPublicListingDetails() {
+     const titleNode = Array.from(document.querySelectorAll("[data-marker='item-view/title-info'],h1[itemprop='name'],h1")).find(visible) || null;
+     const title = titleNode ? publicText(textOf(titleNode, 360), 360) : "";
+-    const price = firstVisibleText(["[data-marker='item-view/item-price']", "[itemprop='price']"], 120);
++    const price = priceInPublicListingView() || firstVisibleText(["[data-marker='item-view/item-price']", "[itemprop='price']"], 120);
+     const description = firstVisibleText(["[data-marker='item-view/item-description']"], 2600);
+     const seller = firstVisibleText(["[data-marker='seller-info/name']", "[data-marker='seller-link/link']", "[data-marker='item-view/seller-info'] [title]"], 240);
+     const sellerRating = firstVisibleText(["[data-marker='rating-caption/rating']", "[data-marker='sellerRate']"], 240);
+
+--- v0.9.15/core.js
++++ v0.9.18/core.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.15 — search-card signals are ranked before sequential detail reading. */
++/* Avito Finder v0.9.18 — runtime-controlled sequential card gap, direct search URLs, and price-confirmed retries. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+   const STORAGE = Object.freeze({
+@@ -12,15 +12,16 @@
+   const VALID_MODES = new Set(["INSPECT_FILTERS", "SEARCH", "DIAGNOSE_DOM", "AVITO_UI"]);
+   // These are generic action verbs, not per-element features. Targets remain
+   // visible public controls resolved locally by marker/label/placeholder.
+-  const UI_ACTION_TYPES = new Set(["CLICK", "TYPE", "COLLECT_MENU", "SELECT_OPTION", "WAIT", "WAIT_FOR", "SNAPSHOT", "COLLECT_LISTINGS", "COLLECT_LISTING_DETAILS", "FILTERED_SEQUENTIAL_REVIEW", "PREPARE_FILTERED_CANDIDATE_QUEUE", "START_PREPARED_FILTERED_QUEUE", "RESUME_FILTERED_SEQUENTIAL_REVIEW"]);
++  const UI_ACTION_TYPES = new Set(["CLICK", "TYPE", "COLLECT_MENU", "SELECT_OPTION", "WAIT", "WAIT_FOR", "SNAPSHOT", "COLLECT_LISTINGS", "COLLECT_LISTING_DETAILS", "FILTERED_SEQUENTIAL_REVIEW", "PREPARE_FILTERED_CANDIDATE_QUEUE", "START_PREPARED_FILTERED_QUEUE", "RESUME_FILTERED_SEQUENTIAL_REVIEW", "RECHECK_PREPARED_MISSING_FIELDS"]);
+   const UI_PLAN_MAX_STEPS = 12;
+   const UI_PLAN_MAX_TYPED_TEXT = 160;
+   const UI_PLAN_MAX_LISTINGS = 120;
+   const FILTERED_REVIEW_MAX_CANDIDATES = 30;
+-  const FILTERED_REVIEW_DEFAULT_BATCH = 5;
+-  // Command timing is deliberately a fixed allowlist, not arbitrary milliseconds.
+-  // Omitted profile preserves the prior visible-control behavior.
++  const FILTERED_REVIEW_DEFAULT_BATCH = 30;
++  // UI timing profile controls only visible city/filter/search interactions.
++  // Sequential card cadence is parsed separately as an explicit numeric checkpoint setting.
+   const UI_TIMING_PROFILES = new Set(["CONTROL_VISIBLE", "COLLECTION_FAST"]);
++  const SEQUENTIAL_CARD_GAP_MAX_MS = 2147483647;
+   const DIAGNOSTIC_ACTIONS = new Set(["", "OPEN_LOCATION_DIALOG"]);
+   const DIAGNOSTIC_SCOPES = new Set([
+     "PAGE_MAIN_VISIBLE",
+@@ -271,6 +272,8 @@
+     if (preparedStart) return { type: "START_PREPARED_FILTERED_QUEUE", batch: Math.max(1, Math.min(Number(preparedStart[1] || FILTERED_REVIEW_DEFAULT_BATCH), FILTERED_REVIEW_DEFAULT_BATCH)), source_line: clean };
+     const sequentialStart = clean.match(/^(?:собери|начни|запусти)\s+(?:(?:поочер[её]дн[\p{L}]*|последовательн[\p{L}]*)\s+)?(?:проверку|сбор|обзор)\s+(?:только\s+)?(?:текущих\s+)?(?:отфильтрован(?:ных|ные)\s+)?(?:объявлен(?:ий|ия)?|карточ(?:ек|ки)?)(?:\s+(?:до|не\s+более)\s*(\d{1,2}))?(?:\s+(?:пакет(?:ом)?|за\s+раз)\s*(\d{1,2}))?/iu);
+     if (sequentialStart) return { type: "FILTERED_SEQUENTIAL_REVIEW", limit: Math.max(1, Math.min(Number(sequentialStart[1] || FILTERED_REVIEW_MAX_CANDIDATES), FILTERED_REVIEW_MAX_CANDIDATES)), batch: Math.max(1, Math.min(Number(sequentialStart[2] || FILTERED_REVIEW_DEFAULT_BATCH), FILTERED_REVIEW_DEFAULT_BATCH)), source_line: clean };
++    const missingPriceRetry = clean.match(/^(?:повторно|заново)\s+(?:проверь|прочитай|собери)\s+(?:только\s+)?(?:карточки|объявления)(?:\s+подготовленной\s+очереди)?\s+(?:(?:без\s+(?:подтвержд[её]нн[\p{L}]*\s+)?|с\s+(?:неполученн[\p{L}]*|отсутствующ[\p{L}]*|неподтвержд[её]нн[\p{L}]*)\s+))(?:цен[\p{L}]*|стоимост[\p{L}]*)/iu);
++    if (missingPriceRetry) return { type: "RECHECK_PREPARED_MISSING_FIELDS", required_field: "price", batch: FILTERED_REVIEW_MAX_CANDIDATES, source_line: clean };
+     const sequentialResume = clean.match(/^(?:продолжи|возобнови)\s+(?:(?:поочер[её]дн[\p{L}]*|последовательн[\p{L}]*)\s+)?(?:проверку|сбор|обзор)(?:\s+(?:отфильтрован(?:ных|ные)\s+)?(?:объявлен(?:ий|ия)?|карточ(?:ек|ки)?))?(?:\s+после\s+(?:ручн\w*\s+)?(?:реш[её]нн\w*\s+)?капч\w*)?/iu);
+     if (sequentialResume) return { type: "RESUME_FILTERED_SEQUENTIAL_REVIEW", source_line: clean };
+     const disabledBulk = clean.match(/^(?:собери|получи|обработай)\s+(?:быстро\s+)?(?:публичн(?:ые|ых)?\s+)?(?:паспорта|детали|характеристики|полные\s+данные)\s+(?:всех|все)\s+(?:найденных\s+|отфильтрованных\s+)?(?:объявлен(?:ий|ия)?|карточ(?:ек|ки)?)/iu);
+@@ -288,6 +291,15 @@
+     if (click && (quoted[0] || marker)) return { type: "CLICK", target: marker ? { by: "marker", value: marker } : targetFromText(quoted[0]), source_line: clean };
+     return null;
+   }
++  function parseSequentialCardGap(text, fields) {
++    const raw = String(fields["Пауза между карточками"] || directiveValue(text, "Пауза между карточками") || "").trim();
++    if (!raw) return { value: null, source: "preserve_checkpoint", error: null };
++    const match = raw.match(/^(\d{1,10})\s*(?:мс|ms|миллисекунд(?:а|ы)?|миллисекунд)?\s*[.!;:]*$/iu);
++    if (!match) return { value: null, source: "invalid", error: "UI_PLAN_CARD_GAP_INVALID" };
++    const value = Number(match[1]);
++    if (!Number.isSafeInteger(value) || value < 0 || value > SEQUENTIAL_CARD_GAP_MAX_MS) return { value: null, source: "invalid", error: "UI_PLAN_CARD_GAP_OUT_OF_RANGE" };
++    return { value, source: "explicit_field", error: null };
++  }
+   function parseUiActionPlan(text, fields) {
+     const raw = normalizeText(text);
+     const pageUrl = directiveValue(String(fields["Действия"] || fields["Шаги"] || ""), "Страница") || directiveValue(raw, "Страница") || firstAvitoUrl(raw);
+@@ -295,9 +307,11 @@
+     const timingProfileRaw = String(fields["Темп"] || directiveValue(raw, "Темп") || "").trim().toUpperCase().replace(/[.:;]+$/u, "");
+     const timingProfile = timingProfileRaw || "CONTROL_VISIBLE";
+     const timingProfileSource = timingProfileRaw ? "explicit_field" : "default_control_visible";
++    const cardGap = parseSequentialCardGap(raw, fields);
+     const parsed = [];
+     const errors = [];
+     if (!UI_TIMING_PROFILES.has(timingProfile)) errors.push("UI_PLAN_TIMING_PROFILE_NOT_ALLOWED");
++    if (cardGap.error) errors.push(cardGap.error);
+     for (const line of genericActionLines(raw, fields)) {
+       const step = parseGenericStep(line);
+       if (!step) continue;
+@@ -318,8 +332,10 @@
+       reuse_existing_avito: reuseExistingAvito,
+       timing_profile: timingProfile,
+       timing_profile_source: timingProfileSource,
++      sequential_card_gap_ms: cardGap.value,
++      sequential_card_gap_source: cardGap.source,
+       steps: parsed.slice(0, UI_PLAN_MAX_STEPS),
+-      plan_fingerprint: fingerprint([timingProfile, ...parsed.map((step) => step.source_line)].join("\n"))
++      plan_fingerprint: fingerprint([timingProfile, `card_gap_ms=${cardGap.value === null ? "preserve" : cardGap.value}`, ...parsed.map((step) => step.source_line)].join("\n"))
+     };
+   }
+   function parseCommandForm(text) {
+@@ -520,7 +536,7 @@
+       ...(sequential.status === "queued_waiting_for_start" ? ["", "Карточки ещё не открывались. Очередь подготовлена в выбранном порядке; следующая отдельная команда запускает последовательное чтение тестовым пакетом."] : []),
+       ...(sequential.blocked_reason === "FILTERED_CANDIDATE_QUEUE_EMPTY" ? ["", "В текущей видимой выдаче не нашлось карточек для очереди. Фильтры и сортировка не менялись автоматически."] : []),
+       "", "Предварительный порядок по публичной карточке (не окончательная рекомендация):",
+-      sequentialRanked.length ? sequentialRanked.slice(0, 30).map((item, index) => `${index + 1}. ${item.title || "без названия"}${item.price ? ` — ${item.price}` : ""}${item.cpu ? `; ${item.cpu}` : ""}${item.ram ? `; ОЗУ ${item.ram}` : ""}${item.storage ? `; ${item.storage}` : ""}${item.screen ? `; ${item.screen}` : ""}${item.seller ? `; ${item.seller}` : ""}${item.seller_rating ? ` (${item.seller_rating})` : ""}${item.delivery ? `; ${item.delivery}` : ""}${item.missing_fields?.length ? `; не хватает: ${item.missing_fields.join(", ")}` : ""}`).join("\n") : "нет карточек для локального порядка"
++      sequentialRanked.length ? sequentialRanked.slice(0, 30).map((item, index) => `${index + 1}. ${item.title || "без названия"}${item.price ? `; цена ${item.price}` : "; цена не подтверждена"}${item.cpu ? `; ${item.cpu}` : ""}${item.ram ? `; ОЗУ ${item.ram}` : ""}${item.storage ? `; ${item.storage}` : ""}${item.screen ? `; ${item.screen}` : ""}${item.seller ? `; ${item.seller}` : ""}${item.seller_rating ? ` (${item.seller_rating})` : ""}${item.delivery ? `; ${item.delivery}` : ""}${item.missing_fields?.length ? `; не хватает: ${item.missing_fields.join(", ")}` : ""}${item.href ? ` — ${item.href}` : ""}`).join("\n") : "нет карточек для локального порядка"
+     ] : [];
+     const blockedCandidates = Array.isArray(plan.steps) ? plan.steps.filter((step) => Array.isArray(step.candidates) && step.candidates.length).map((step) => {
+       const items = step.candidates.slice(0, 8).map((candidate) => `${candidate.description || "?"}${candidate.scope ? ` [${candidate.scope}]` : ""}${candidate.kind ? ` {${candidate.kind}}` : ""}`).join(" | ");
+
+--- v0.9.15/manifest.json
++++ v0.9.18/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.9.15",
+-  "version_name": "0.9.15-search-card-ranking-before-details-test-candidate",
+-  "description": "Отдельный Avito Finder: публичные поля карточек поиска (цена, продавец, рейтинг, отзывы, бейджи, доставка и краткое описание) собираются до открытия объявлений. Число результатов не блокирует работу; пользователь выбирает порядок, затем формируется очередь до 30 карточек и детали читаются строго по одной. CAPTCHA не решается и не обходится.",
++  "version": "0.9.18",
++  "version_name": "0.9.18-runtime-card-gap-control-test-candidate",
++  "description": "Отдельный Avito Finder: адрес поисковой выдачи Avito применяется как видимая навигация без повторного ввода города и фильтров. Очередь до 30 карточек читается строго по одной; пауза между успешно закрытой текущей и следующей карточкой задаётся в каждой assistant-команде и сохраняется в checkpoint. Цена и ссылка сохраняются в итоговом ранжировании; повторно читаются только карточки без достоверной цены. CAPTCHA не решается и не обходится.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.9.15/service_worker.js
++++ v0.9.18/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.15 — rank public search-card signals before sequential detail review. */
++/* Avito Finder v0.9.18 — runtime-controlled sequential card gap, direct visible search navigation, and price-confirmed retries. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -11,8 +11,9 @@
+ const UI_CLICK_RECONCILE_TIMEOUT_MS = 16000;
+ const UI_CLICK_RECONCILE_DELAY_MS = 900;
+ const FILTERED_REVIEW_MAX_CANDIDATES = 30;
+-const SEQUENTIAL_REVIEW_DEFAULT_BATCH = 5;
+-const SEQUENTIAL_REVIEW_CARD_GAP_MS = 3500;
++const SEQUENTIAL_REVIEW_DEFAULT_BATCH = 30;
++const SEQUENTIAL_REVIEW_DEFAULT_CARD_GAP_MS = 0;
++const SEQUENTIAL_REVIEW_CARD_GAP_MAX_MS = 2147483647;
+ const SEQUENTIAL_CARD_READY_TIMEOUT_MS = 18000;
+ const SEQUENTIAL_CARD_CONTENT_TIMEOUT_MS = 6500;
+ // Default production pauses are deliberately visible: the user can observe an
+@@ -320,22 +321,45 @@
+   });
+   return { tab, created: true, navigated: false, reused: false, source: "initial_active_public_root" };
+ }
+-async function ensureAvitoTarget(state, _requestedUrl, purpose, _policy = {}) {
+-  // Binding lasts only for the active run. A fresh explicit «Ищи» selects one
+-  // visible Avito tab in this window, or creates exactly one active public root
+-  // when none exists. It never restores a prior tabId, URL or chat-page state.
++function directPublicAvitoUrl(value) {
++  try {
++    const url = new URL(String(value || ""));
++    if (!Core.isAvitoUrl(url.href) || url.protocol !== "https:" || !/^(?:www\.)?avito\.ru$/iu.test(url.hostname) || url.username || url.password) return null;
++    url.hash = "";
++    return url.href;
++  } catch (_) { return null; }
++}
++function sameDocumentUrl(left, right) {
++  try { const a = new URL(String(left || "")); const b = new URL(String(right || "")); a.hash = ""; b.hash = ""; return a.href === b.href; } catch (_) { return false; }
++}
++async function applyRequestedVisibleAvitoUrl(state, tab, requestedUrl, purpose, source) {
++  const url = directPublicAvitoUrl(requestedUrl);
++  if (!url || sameDocumentUrl(tab?.url, url)) return { tab, navigated: false, source };
++  const updated = await tabsUpdate(tab.id, { url, active: true });
++  if (!updated?.id || updated.windowId !== state.current_window_id) throw new Error("AVITO_DIRECT_URL_NAVIGATION_FAILED");
++  await log("AVITO_DIRECT_URL_NAVIGATED", { search_id: state.search_id, purpose, source, requested_url: url, tab: shortTab(updated) });
++  return { tab: updated, navigated: true, source: `${source}_direct_url` };
++}
++async function ensureAvitoTarget(state, requestedUrl, purpose, _policy = {}) {
++  // A writing-block page URL is a normal visible navigation instruction. It
++  // carries city, category, query and filters, so those controls are not typed
++  // again after the target route has been supplied.
+   const bound = await persistedRunOwnedAvitoTab(state);
+   if (bound) {
+     await log("AVITO_TAB_REUSED_WITHIN_RUN", { search_id: state.search_id, purpose, tab: shortTab(bound), persistent_binding: false });
+-    return { tab: bound, created: false, navigated: false, reused: true, source: "current_run" };
++    const routed = await applyRequestedVisibleAvitoUrl(state, bound, requestedUrl, purpose, "current_run");
++    return { tab: routed.tab, created: false, navigated: routed.navigated, reused: true, source: routed.source };
+   }
+   try {
+     const selected = await selectVisibleAvitoTab(state.current_window_id);
+     await log("AVITO_VISIBLE_TARGET_SELECTED", { search_id: state.search_id, purpose, tab: shortTab(selected.tab), source: selected.source, persistent_binding: false });
+-    return { tab: selected.tab, created: false, navigated: false, reused: false, source: selected.source };
++    const routed = await applyRequestedVisibleAvitoUrl(state, selected.tab, requestedUrl, purpose, selected.source);
++    return { tab: routed.tab, created: false, navigated: routed.navigated, reused: false, source: routed.source };
+   } catch (error) {
+     if (String(error?.message || error) === "AVITO_VISIBLE_TAB_REQUIRED_OPEN_ONE_PUBLIC_AVITO_TAB" && state?.user_started === true && state?.avito_target_bound_once !== true) {
+-      return createInitialPublicAvitoTab(state, purpose);
++      const created = await createInitialPublicAvitoTab(state, purpose);
++      const routed = await applyRequestedVisibleAvitoUrl(state, created.tab, requestedUrl, purpose, created.source);
++      return { tab: routed.tab, created: true, navigated: routed.navigated, reused: false, source: routed.source };
+     }
+     throw error;
+   }
+@@ -353,7 +377,7 @@
+ }
+ function collectionStep(step) {
+   const type = String(step?.type || "").toUpperCase();
+-  return type === "COLLECT_LISTINGS" || type === "COLLECT_LISTING_DETAILS" || type === "FILTERED_SEQUENTIAL_REVIEW" || type === "RESUME_FILTERED_SEQUENTIAL_REVIEW";
++  return type === "COLLECT_LISTINGS" || type === "COLLECT_LISTING_DETAILS" || type === "FILTERED_SEQUENTIAL_REVIEW" || type === "PREPARE_FILTERED_CANDIDATE_QUEUE" || type === "START_PREPARED_FILTERED_QUEUE" || type === "RESUME_FILTERED_SEQUENTIAL_REVIEW" || type === "RECHECK_PREPARED_MISSING_FIELDS";
+ }
+ function firstNonWaitStep(steps) {
+   for (const step of Array.isArray(steps) ? steps : []) if (String(step?.type || "").toUpperCase() !== "WAIT") return step || null;
+@@ -533,6 +557,11 @@
+   return { rating: match ? Number(String(match[1]).replace(",", ".")) : 0, reviews: match ? Number(match[2]) : 0 };
+ }
+ function priceNumber(text) { const value = String(text || "").replace(/[^\d]/g, ""); return value ? Number(value) : Number.POSITIVE_INFINITY; }
++function confirmedPriceText(value) {
++  const text = String(value || "").replace(/\s+/g, " ").trim();
++  const amount = priceNumber(text);
++  return /(?:₽|руб)/iu.test(text) && Number.isFinite(amount) && amount >= 1000 && amount <= 10000000 ? text : "";
++}
+ function deliveryDays(text) { const value = String(text || "").toLowerCase(); if (/(?:сегодня|за\s*0\s*дн)/iu.test(value)) return 0; const match = value.match(/(?:от\s*)?(\d{1,2})\s*(?:дн|дня|день|дней)/iu); return match ? Number(match[1]) : Number.POSITIVE_INFINITY; }
+ function sortPublicCandidates(rows, strategy) {
+   const items = Array.isArray(rows) ? rows.slice() : [];
+@@ -573,6 +602,7 @@
+   const specText = specs.map((x) => `${x.label || ""} ${x.value || ""}`).join(" ");
+   const text = `${ranked.title} ${specText} ${details?.description || ""} ${ranked.delivery} ${(details?.seller_badges || []).join(" ")}`;
+   const pick = (pattern) => specs.find((x) => pattern.test(`${x.label || ""}`))?.value || "";
++  ranked.price = confirmedPriceText(details?.price) || confirmedPriceText(ranked.price) || "";
+   ranked.cpu = pick(/процессор/iu) || ranked.cpu;
+   ranked.ram = pick(/оперативн.*памят/iu) || ranked.ram;
+   ranked.storage = pick(/накопител|ssd|hdd/iu) || ranked.storage;
+@@ -584,6 +614,62 @@
+   ranked.preliminary_score = scoreReviewText(text) - Math.min(8, ranked.missing_fields.length * 2);
+   return ranked;
+ }
++function sequentialDetailKey(summary) {
++  return canonicalPublicListingUrl(summary?.href || "");
++}
++function mergeSequentialDetails(previous, next) {
++  const old = previous && typeof previous === "object" ? previous : {};
++  const fresh = next && typeof next === "object" ? next : {};
++  return {
++    ...old,
++    ...fresh,
++    price: confirmedPriceText(fresh.price) || confirmedPriceText(old.price) || "",
++    title: fresh.title || old.title || "",
++    seller: fresh.seller || old.seller || "",
++    seller_rating: fresh.seller_rating || old.seller_rating || "",
++    location: fresh.location || old.location || "",
++    description: fresh.description || old.description || "",
++    condition: Array.isArray(fresh.condition) && fresh.condition.length ? fresh.condition : (Array.isArray(old.condition) ? old.condition : []),
++    specifications: Array.isArray(fresh.specifications) && fresh.specifications.length ? fresh.specifications : (Array.isArray(old.specifications) ? old.specifications : []),
++    seller_badges: Array.isArray(fresh.seller_badges) && fresh.seller_badges.length ? fresh.seller_badges : (Array.isArray(old.seller_badges) ? old.seller_badges : []),
++    delivery: Array.isArray(fresh.delivery) && fresh.delivery.length ? fresh.delivery : (Array.isArray(old.delivery) ? old.delivery : []),
++    missing_fields: Array.isArray(fresh.missing_fields) ? fresh.missing_fields : (Array.isArray(old.missing_fields) ? old.missing_fields : [])
++  };
++}
++function upsertSequentialDetail(checkpoint, summary, detail) {
++  const rows = Array.isArray(checkpoint.details) ? checkpoint.details : [];
++  const key = sequentialDetailKey(summary);
++  const index = key ? rows.findIndex((row) => sequentialDetailKey(row?.summary || {}) === key) : -1;
++  const row = { summary, details: mergeSequentialDetails(index >= 0 ? rows[index]?.details : null, detail) };
++  if (index >= 0) rows[index] = row; else rows.push(row);
++  checkpoint.details = rows;
++  return row;
++}
++function hasConfirmedPrice(summary, details) {
++  return Boolean(confirmedPriceText(details?.price) || confirmedPriceText(summary?.price));
++}
++function missingPriceCandidates(checkpoint) {
++  const all = Array.isArray(checkpoint?.all_candidates) && checkpoint.all_candidates.length ? checkpoint.all_candidates : (Array.isArray(checkpoint?.candidates) ? checkpoint.candidates : []);
++  const byHref = new Map((Array.isArray(checkpoint?.details) ? checkpoint.details : []).map((row) => [sequentialDetailKey(row?.summary || {}), row]));
++  return all.filter((summary) => {
++    const row = byHref.get(sequentialDetailKey(summary));
++    return !row || !hasConfirmedPrice(summary, row.details);
++  });
++}
++
++function normalizeSequentialCardGapMs(value, fallback = SEQUENTIAL_REVIEW_DEFAULT_CARD_GAP_MS) {
++  const parsed = Number(value);
++  if (Number.isSafeInteger(parsed) && parsed >= 0 && parsed <= SEQUENTIAL_REVIEW_CARD_GAP_MAX_MS) return parsed;
++  return fallback;
++}
++function requestedSequentialCardGapMs(plan) {
++  const raw = plan?.sequential_card_gap_ms;
++  return raw === null || raw === undefined ? null : normalizeSequentialCardGapMs(raw, null);
++}
++function checkpointCardGapMs(plan, checkpoint) {
++  const requested = requestedSequentialCardGapMs(plan);
++  return requested === null ? normalizeSequentialCardGapMs(checkpoint?.card_gap_ms) : requested;
++}
+ function compactSequentialCheckpoint(checkpoint) {
+   const cp = checkpoint && typeof checkpoint === "object" ? checkpoint : {};
+   const candidates = Array.isArray(cp.candidates) ? cp.candidates : [];
+@@ -594,8 +680,9 @@
+     status: cp.status || "paused", total_result_count: cp.total_result_count ?? null, total_result_count_exact: cp.total_result_count_exact !== false,
+     candidate_limit: cp.candidate_limit ?? FILTERED_REVIEW_MAX_CANDIDATES,
+     candidate_count: candidates.length, details_collected: details.length, remaining: Math.max(0, candidates.length - Number(cp.cursor || 0)), batch_size: cp.batch_size || SEQUENTIAL_REVIEW_DEFAULT_BATCH,
+-    card_gap_ms: cp.card_gap_ms || SEQUENTIAL_REVIEW_CARD_GAP_MS, cards_closed: cp.cards_closed || 0, visible_filters: Array.isArray(cp.visible_filters) ? cp.visible_filters : [],
++    card_gap_ms: cp.card_gap_ms ?? SEQUENTIAL_REVIEW_DEFAULT_CARD_GAP_MS, cards_closed: cp.cards_closed || 0, visible_filters: Array.isArray(cp.visible_filters) ? cp.visible_filters : [],
+     sort_strategy: cp.sort_strategy || null, discovery_count: cp.discovery_count ?? null,
++    retry_mode: cp.retry_mode || null, retry_candidate_count: cp.retry_candidate_count ?? null,
+     ranked: ranked.slice(0, FILTERED_REVIEW_MAX_CANDIDATES), failed: failed.slice(0, 20), captcha: cp.captcha || null, blocked_reason: cp.blocked_reason || null
+   };
+ }
+@@ -639,7 +726,7 @@
+       }
+       const summary = checkpoint.candidates[Number(checkpoint.captcha.cursor || checkpoint.cursor)] || checkpoint.captcha.summary || {};
+       if (detail?.blocked_reason) checkpoint.failed.push({ title: summary.title || "", href: summary.href || "", reason: detail.blocked_reason });
+-      else checkpoint.details.push({ summary, details: detail });
++      else upsertSequentialDetail(checkpoint, summary, detail);
+       if (await closeSequentialOwnedCard(ready.id, parentTab.id, parentTab.windowId)) checkpoint.cards_closed += 1;
+       checkpoint.cursor = Math.max(Number(checkpoint.cursor || 0), Number(checkpoint.captcha.cursor || 0) + 1);
+       checkpoint.captcha = null; checkpoint.blocked_reason = null; checkpoint.status = "running"; attempted += 1;
+@@ -663,7 +750,7 @@
+         return { checkpoint, attempted, blocked_reason: "CAPTCHA_MANUAL_REQUIRED" };
+       }
+       if (detail?.blocked_reason) checkpoint.failed.push({ title: summary.title || "", href: summary.href || "", reason: detail.blocked_reason });
+-      else checkpoint.details.push({ summary, details: detail });
++      else upsertSequentialDetail(checkpoint, summary, detail);
+     } catch (error) {
+       checkpoint.failed.push({ title: summary?.title || "", href: summary?.href || "", reason: String(error?.message || error).slice(0, 180) });
+     } finally {
+@@ -671,7 +758,11 @@
+     }
+     checkpoint.cursor = cursor + 1; checkpoint.status = "running"; checkpoint.blocked_reason = null; attempted += 1;
+     await persistSequentialCheckpoint(state, checkpoint);
+-    if (attempted < batchTarget && checkpoint.cursor < checkpoint.candidates.length) await wait(SEQUENTIAL_REVIEW_CARD_GAP_MS);
++    const cardGapMs = normalizeSequentialCardGapMs(checkpoint.card_gap_ms);
++    if (attempted < batchTarget && checkpoint.cursor < checkpoint.candidates.length && cardGapMs > 0) {
++      await log("SEQUENTIAL_CARD_GAP_WAIT", { search_id: state.search_id, cursor: checkpoint.cursor, card_gap_ms: cardGapMs });
++      await wait(cardGapMs);
++    }
+   }
+   checkpoint.status = checkpoint.cursor >= checkpoint.candidates.length ? "completed" : "paused_after_test_batch";
+   checkpoint.blocked_reason = null;
+@@ -679,31 +770,33 @@
+   return { checkpoint, attempted, blocked_reason: null };
+ }
+ async function runFilteredSequentialReview(state, parentTab, plan) {
+-  const action = (plan.steps || []).find((step) => ["FILTERED_SEQUENTIAL_REVIEW", "PREPARE_FILTERED_CANDIDATE_QUEUE", "START_PREPARED_FILTERED_QUEUE", "RESUME_FILTERED_SEQUENTIAL_REVIEW"].includes(String(step?.type || ""))) || {};
++  const action = (plan.steps || []).find((step) => ["FILTERED_SEQUENTIAL_REVIEW", "PREPARE_FILTERED_CANDIDATE_QUEUE", "START_PREPARED_FILTERED_QUEUE", "RESUME_FILTERED_SEQUENTIAL_REVIEW", "RECHECK_PREPARED_MISSING_FIELDS"].includes(String(step?.type || ""))) || {};
+   const actionType = String(action.type || "");
+   const isResume = actionType === "RESUME_FILTERED_SEQUENTIAL_REVIEW";
+   const isDiscovery = actionType === "FILTERED_SEQUENTIAL_REVIEW";
+   const isPrepare = actionType === "PREPARE_FILTERED_CANDIDATE_QUEUE";
+   const isStartPrepared = actionType === "START_PREPARED_FILTERED_QUEUE";
++  const isRecheckMissingPrice = actionType === "RECHECK_PREPARED_MISSING_FIELDS";
+   let checkpoint = state.sequential_review && typeof state.sequential_review === "object" ? { ...state.sequential_review } : null;
+   const queueCap = Math.max(1, Math.min(Number(action.limit || checkpoint?.candidate_limit || FILTERED_REVIEW_MAX_CANDIDATES), FILTERED_REVIEW_MAX_CANDIDATES));
+   const batchSize = Math.max(1, Math.min(Number(action.batch || checkpoint?.batch_size || SEQUENTIAL_REVIEW_DEFAULT_BATCH), SEQUENTIAL_REVIEW_DEFAULT_BATCH));
++  const configuredCardGapMs = checkpointCardGapMs(plan, checkpoint);
+ 
+   if (isDiscovery) {
+     const inventory = await readFilteredCandidateInventory(parentTab.id, parentTab.windowId, queueCap, "discovery");
+     if (!inventory.ok) {
+-      const review = { status: "inventory_unavailable", total_result_count: inventory.total_result_count ?? null, total_result_count_exact: inventory.total_result_count_exact !== false, candidate_limit: queueCap, candidate_count: 0, details_collected: 0, remaining: 0, batch_size: batchSize, card_gap_ms: SEQUENTIAL_REVIEW_CARD_GAP_MS, cards_closed: 0, visible_filters: inventory.visible_filters || [], sort_strategy: null, ranked: [], failed: [], captcha: null, blocked_reason: inventory.blocked_reason || "FILTERED_CANDIDATE_DISCOVERY_UNAVAILABLE" };
++      const review = { status: "inventory_unavailable", total_result_count: inventory.total_result_count ?? null, total_result_count_exact: inventory.total_result_count_exact !== false, candidate_limit: queueCap, candidate_count: 0, details_collected: 0, remaining: 0, batch_size: batchSize, card_gap_ms: configuredCardGapMs, cards_closed: 0, visible_filters: inventory.visible_filters || [], sort_strategy: null, ranked: [], failed: [], captcha: null, blocked_reason: inventory.blocked_reason || "FILTERED_CANDIDATE_DISCOVERY_UNAVAILABLE" };
+       return { ok: false, url: parentTab.url || null, plan_fingerprint: plan.plan_fingerprint || "", steps: [{ index: 1, type: actionType, status: "blocked", blocked_reason: review.blocked_reason }], listings: [], sequential_review: review, blocked_reason: review.blocked_reason };
+     }
+     checkpoint = {
+       version: 3, parent_tab_id: parentTab.id, parent_window_id: parentTab.windowId, parent_url: parentTab.url || "", total_result_count: inventory.total_result_count ?? null,
+       total_result_count_exact: inventory.total_result_count_exact !== false, discovery_count: inventory.discovered_count ?? 0,
+-      candidate_limit: queueCap, candidates: [], cursor: 0, batch_size: batchSize, card_gap_ms: SEQUENTIAL_REVIEW_CARD_GAP_MS,
++      candidate_limit: queueCap, candidates: [], all_candidates: [], cursor: 0, batch_size: batchSize, card_gap_ms: configuredCardGapMs,
+       cards_closed: 0, details: [], failed: [], visible_filters: inventory.visible_filters || [], captcha: null,
+       sort_strategy: null, status: "awaiting_sort_strategy", blocked_reason: null
+     };
+     await persistSequentialCheckpoint(state, checkpoint);
+-    await log("FILTERED_CANDIDATE_DISCOVERY_REPORTED", { search_id: state.search_id, total_result_count: checkpoint.total_result_count, total_result_count_exact: checkpoint.total_result_count_exact, discovered_count: checkpoint.discovery_count, queue_cap: queueCap, scroll_rounds: inventory.scroll_rounds || 0 });
++    await log("FILTERED_CANDIDATE_DISCOVERY_REPORTED", { search_id: state.search_id, total_result_count: checkpoint.total_result_count, total_result_count_exact: checkpoint.total_result_count_exact, discovered_count: checkpoint.discovery_count, queue_cap: queueCap, card_gap_ms: checkpoint.card_gap_ms, scroll_rounds: inventory.scroll_rounds || 0 });
+     const review = compactSequentialCheckpoint(checkpoint);
+     return {
+       ok: true, url: parentTab.url || null, plan_fingerprint: plan.plan_fingerprint || "",
+@@ -719,15 +812,15 @@
+     const inventory = await readFilteredCandidateInventory(parentTab.id, parentTab.windowId, queueCap, "queue_all");
+     const candidates = sortPublicCandidates((inventory.listings || []).map((item) => ({ ...item, href: canonicalPublicListingUrl(item.href) })).filter((item) => item.href), strategy).slice(0, queueCap);
+     checkpoint = {
+-      ...checkpoint, parent_url: parentTab.url || checkpoint.parent_url || "", candidate_limit: queueCap, candidates,
++      ...checkpoint, parent_url: parentTab.url || checkpoint.parent_url || "", candidate_limit: queueCap, candidates, all_candidates: candidates,
+       total_result_count: inventory.total_result_count ?? checkpoint.total_result_count ?? null,
+       total_result_count_exact: inventory.total_result_count_exact !== false,
+       discovery_count: inventory.discovered_count ?? checkpoint.discovery_count ?? 0,
+-      cursor: 0, batch_size: batchSize, details: [], failed: [], cards_closed: 0, captcha: null,
++      cursor: 0, batch_size: batchSize, card_gap_ms: configuredCardGapMs, details: [], failed: [], cards_closed: 0, captcha: null,
+       sort_strategy: strategy, status: candidates.length ? "queued_waiting_for_start" : "queue_empty", blocked_reason: candidates.length ? null : "FILTERED_CANDIDATE_QUEUE_EMPTY"
+     };
+     await persistSequentialCheckpoint(state, checkpoint);
+-    await log("FILTERED_CANDIDATE_QUEUE_PREPARED", { search_id: state.search_id, candidate_count: candidates.length, discovered_count: checkpoint.discovery_count, queue_cap: queueCap, strategy: checkpoint.sort_strategy, source: inventory.source || null, has_next_page: Boolean(inventory.has_next_page) });
++    await log("FILTERED_CANDIDATE_QUEUE_PREPARED", { search_id: state.search_id, candidate_count: candidates.length, discovered_count: checkpoint.discovery_count, queue_cap: queueCap, strategy: checkpoint.sort_strategy, card_gap_ms: checkpoint.card_gap_ms, source: inventory.source || null, has_next_page: Boolean(inventory.has_next_page) });
+     const review = compactSequentialCheckpoint(checkpoint);
+     return {
+       ok: candidates.length > 0, url: parentTab.url || null, plan_fingerprint: plan.plan_fingerprint || "",
+@@ -739,11 +832,37 @@
+   if (isStartPrepared) {
+     if (!checkpoint || !Array.isArray(checkpoint.candidates) || !checkpoint.candidates.length) throw new Error("SEQUENTIAL_REVIEW_NO_PREPARED_QUEUE");
+     await assertSequentialParent(state, parentTab);
+-    checkpoint = { ...checkpoint, batch_size: batchSize, status: "running", blocked_reason: null };
++    checkpoint = { ...checkpoint, batch_size: batchSize, card_gap_ms: configuredCardGapMs, status: "running", blocked_reason: null };
++    await persistSequentialCheckpoint(state, checkpoint);
++  } else if (isRecheckMissingPrice) {
++    if (!checkpoint || !(Array.isArray(checkpoint.all_candidates) && checkpoint.all_candidates.length) && !(Array.isArray(checkpoint.candidates) && checkpoint.candidates.length)) throw new Error("SEQUENTIAL_REVIEW_NO_PREPARED_QUEUE");
++    await assertSequentialParent(state, parentTab);
++    const retryCandidates = missingPriceCandidates(checkpoint);
++    if (!retryCandidates.length) {
++      checkpoint = { ...checkpoint, status: "no_missing_price_candidates", retry_mode: "missing_price", retry_candidate_count: 0, blocked_reason: null };
++      await persistSequentialCheckpoint(state, checkpoint);
++      const review = compactSequentialCheckpoint(checkpoint);
++      return { ok: true, url: parentTab.url || null, plan_fingerprint: plan.plan_fingerprint || "", steps: [{ index: 1, type: actionType, status: "completed", count: review.details_collected, text: "missing_price_candidates=0" }], listings: checkpoint.all_candidates || checkpoint.candidates || [], sequential_review: review, listing_details: null, blocked_reason: null };
++    }
++    checkpoint = {
++      ...checkpoint,
++      all_candidates: Array.isArray(checkpoint.all_candidates) && checkpoint.all_candidates.length ? checkpoint.all_candidates : checkpoint.candidates.slice(),
++      candidates: retryCandidates,
++      cursor: 0,
++      batch_size: batchSize,
++      card_gap_ms: configuredCardGapMs,
++      retry_mode: "missing_price",
++      retry_candidate_count: retryCandidates.length,
++      status: "retrying_missing_price",
++      blocked_reason: null,
++      captcha: null
++    };
+     await persistSequentialCheckpoint(state, checkpoint);
+   } else if (isResume) {
+     if (!checkpoint || !Array.isArray(checkpoint.candidates) || !checkpoint.candidates.length || checkpoint.status === "completed") throw new Error("SEQUENTIAL_REVIEW_NO_RESUMABLE_CHECKPOINT");
+     await assertSequentialParent(state, parentTab);
++    checkpoint = { ...checkpoint, card_gap_ms: configuredCardGapMs, status: "running", blocked_reason: null };
++    await persistSequentialCheckpoint(state, checkpoint);
+   } else {
+     throw new Error("FILTERED_REVIEW_ACTION_UNKNOWN");
+   }
+@@ -1032,7 +1151,7 @@
+     await log("AVITO_UI_PLAN_REQUESTED", { search_id: working.search_id, tab_id: verified.id, plan_fingerprint: plan.plan_fingerprint || null, step_count: Array.isArray(plan.steps) ? plan.steps.length : 0 });
+     let result;
+     try {
+-      const hasSequentialReview = Array.isArray(plan.steps) && plan.steps.some((step) => ["FILTERED_SEQUENTIAL_REVIEW", "PREPARE_FILTERED_CANDIDATE_QUEUE", "START_PREPARED_FILTERED_QUEUE", "RESUME_FILTERED_SEQUENTIAL_REVIEW"].includes(String(step?.type || "")));
++      const hasSequentialReview = Array.isArray(plan.steps) && plan.steps.some((step) => ["FILTERED_SEQUENTIAL_REVIEW", "PREPARE_FILTERED_CANDIDATE_QUEUE", "START_PREPARED_FILTERED_QUEUE", "RESUME_FILTERED_SEQUENTIAL_REVIEW", "RECHECK_PREPARED_MISSING_FIELDS"].includes(String(step?.type || "")));
+       if (hasSequentialReview) {
+         if (plan.steps.length !== 1) throw new Error("SEQUENTIAL_REVIEW_PLAN_MUST_CONTAIN_EXACTLY_ONE_REVIEW_ACTION");
+         result = await runFilteredSequentialReview(working, verified, plan);
+@@ -1052,7 +1171,7 @@
+       await log("AVITO_UI_PLAN_STEP_RESULT", { search_id: working.search_id, tab_id: verified.id, index: step.index ?? null, type: step.type || null, status: step.status || null, blocked_reason: step.blocked_reason || null, target_description: step.target_description || null });
+     }
+     await visibleAvitoDelay(working, "after_generic_ui_action_plan_before_chatgpt_return", uiPlanCompletionDelayMs(plan, result));
+-    if (!Array.isArray(plan.steps) || !plan.steps.some((step) => ["FILTERED_SEQUENTIAL_REVIEW", "PREPARE_FILTERED_CANDIDATE_QUEUE", "START_PREPARED_FILTERED_QUEUE", "RESUME_FILTERED_SEQUENTIAL_REVIEW"].includes(String(step?.type || "")))) {
++    if (!Array.isArray(plan.steps) || !plan.steps.some((step) => ["FILTERED_SEQUENTIAL_REVIEW", "PREPARE_FILTERED_CANDIDATE_QUEUE", "START_PREPARED_FILTERED_QUEUE", "RESUME_FILTERED_SEQUENTIAL_REVIEW", "RECHECK_PREPARED_MISSING_FIELDS"].includes(String(step?.type || "")))) {
+       working = await rememberRouteContext(working, await captureRouteContext(verified.id, working.current_window_id), "ui_plan_completed");
+     }
+     const actionPlan = { search_id: working.search_id, mode: "AVITO_UI", captured_at: new Date().toISOString(), avito: result };
+@@ -1078,12 +1197,11 @@
+   const request = parsed.mode === "DIAGNOSE_DOM" ? parsed.diagnostic : null;
+   const uiPlan = parsed.mode === "AVITO_UI" ? parsed.ui_plan : null;
+   const commandUrlEvidence = request?.page_url || uiPlan?.page_url || null;
++  const requestedUrl = directPublicAvitoUrl(commandUrlEvidence);
+   return {
+     request,
+     uiPlan,
+-    // A writing block URL is context/evidence, never a navigation instruction.
+-    // All Avito work resolves through the run-owned target lifecycle below.
+-    requestedUrl: null,
++    requestedUrl,
+     commandUrlEvidence,
+     purpose: parsed.mode === "DIAGNOSE_DOM" ? "avito_diagnose_dom" : (parsed.mode === "AVITO_UI" ? "avito_ui_action_plan" : "avito_inspect_filters")
+   };
+@@ -1091,8 +1209,8 @@
+ async function queueAvitoTask(initialState, parsed) {
+   const targetRequest = buildAvitoTargetRequest(parsed);
+   const avito = await ensureAvitoTarget(initialState, targetRequest.requestedUrl, targetRequest.purpose);
+-  if (targetRequest.commandUrlEvidence) {
+-    await log("AVITO_COMMAND_URL_IGNORED", { search_id: initialState.search_id, purpose: targetRequest.purpose, requested_url: targetRequest.commandUrlEvidence, bound_tab_id: avito.tab.id, bound_url: avito.tab.url || null });
++  if (targetRequest.commandUrlEvidence && !targetRequest.requestedUrl) {
++    await log("AVITO_COMMAND_URL_REJECTED", { search_id: initialState.search_id, purpose: targetRequest.purpose, requested_url: targetRequest.commandUrlEvidence, bound_tab_id: avito.tab.id, bound_url: avito.tab.url || null });
+   }
+   const deadline = new Date(Date.now() + AVITO_READY_TIMEOUT_MS).toISOString();
+   const state = await saveState({ ...initialState, status: "WAITING_FOR_AVITO_PAGE_READY", phase: "AVITO_NAVIGATION", avito_tab_id: avito.tab.id, avito_tab_created: avito.created, avito_target_bound_once: true, avito_target_binding_source: avito.source || null, command_mode: parsed.mode, diagnostic_request: targetRequest.request, ui_action_plan: targetRequest.uiPlan, avito_ready_deadline_at: deadline, ui_click_reconcile_deadline_at: null, pending_ui_click: null, blocked_reason: null });
+

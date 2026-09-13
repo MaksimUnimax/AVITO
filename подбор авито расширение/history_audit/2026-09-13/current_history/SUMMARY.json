@@ -1,0 +1,31 @@
+{
+  "head": "fd7de3d98b876354e337597c2aa70f36918ff08c",
+  "commit_count": 352,
+  "versions": [
+    "1.0.6",
+    "1.0.23",
+    "1.0.24",
+    "1.0.34",
+    "1.0.35",
+    "1.0.36",
+    "1.0.37",
+    "1.0.38"
+  ],
+  "version_count": 8,
+  "exact_source_versions": [
+    "1.0.23",
+    "1.0.24",
+    "1.0.34",
+    "1.0.35",
+    "1.0.36",
+    "1.0.37",
+    "1.0.38"
+  ],
+  "source_unavailable_versions": [
+    "1.0.6"
+  ],
+  "patch_commit_count": 193,
+  "adjacent_diff_count": 6,
+  "ref_count": 13,
+  "pr_count": 4
+}

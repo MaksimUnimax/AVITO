@@ -1,0 +1,109 @@
+--- v0.9.8/avito_content.js
++++ v0.9.9/avito_content.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.8 — visible public result harvest and bounded parallel listing passports. */
++/* Avito Finder v0.9.9 — visible public result harvest with worker-side form-submit reconciliation. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+
+--- v0.9.8/core.js
++++ v0.9.9/core.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.8 — bulk public-result harvest and bounded parallel detail collection. */
++/* Avito Finder v0.9.9 — form-submit reconciliation plus bounded parallel public-detail harvest. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+   const STORAGE = Object.freeze({
+
+--- v0.9.8/manifest.json
++++ v0.9.9/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.9.8",
+-  "version_name": "0.9.8-bulk-public-harvest-parallel-details-test-candidate",
+-  "description": "Отдельный Avito Finder: после видимой настройки города и фильтров массово читает только публично отрисованные карточки, проходит по наблюдаемой пагинации и собирает публичные паспорта в четырёх фактических дочерних Avito-вкладках без искусственных 2-секундных пауз. Не использует Avito API, Network, Fetch, Runtime, cookies, сообщения, телефон, покупку или скрытые эндпоинты. Новые вкладки принадлежат текущему запуску и закрываются только если остаются неактивными.",
++  "version": "0.9.9",
++  "version_name": "0.9.9-form-submit-reconciliation-immediate-fast-harvest-test-candidate",
++  "description": "Отдельный Avito Finder: после видимой настройки города и фильтров быстро читает только публично отрисованные карточки и паспорта. Видимый submit без href немедленно reconciles только при подтверждённой смене URL исходной вкладки; сбор идёт без искусственных 2-секундных пауз. Не использует Avito API, Network, Fetch, Runtime, cookies, сообщения, телефон, покупку или скрытые эндпоинты.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.9.8/service_worker.js
++++ v0.9.9/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.8 — bounded parallel public listing detail harvest; retained safe tab lifecycle. */
++/* Avito Finder v0.9.9 — immediate same-tab form-submit reconciliation; retained fast public harvest. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -687,6 +687,19 @@
+   if (!pendingChildTabIds(state).includes(tab.id)) return false;
+   return Number(tab.openerTabId) === Number(pending.tab_id);
+ }
++// A form submit (for example Avito's visible “Найти” button) has no href.
++// It may reload the source tab before the content-script message can respond.
++// Accept it only when the exact source tab has visibly changed URL; child tabs
++// remain ineligible unless a visible anchor supplied an expected pathname.
++function pendingUiClickNavigationMatches(state, tab) {
++  const pending = state?.pending_ui_click || {};
++  const sourceTab = pendingUiClickMatches(state, tab?.id);
++  const childTab = isPendingUiClickChildTab(state, tab);
++  if (!sourceTab && !childTab) return false;
++  const expectedPath = String(pending.expected_navigation_path || "");
++  if (expectedPath) return expectedNavigationPathMatches(tab?.url || "", expectedPath);
++  return sourceTab && String(tab?.url || "") !== String(pending.page_url || "");
++}
+ async function rememberPendingUiClickChildTab(tab, source) {
+   const state = await getState();
+   const pending = state?.pending_ui_click || null;
+@@ -703,13 +716,13 @@
+ async function choosePendingUiClickNavigationTab(state) {
+   const pending = state?.pending_ui_click || {};
+   const sourceTab = await getTab(pending.tab_id);
+-  if (isAvitoPageReady(sourceTab, state.current_window_id) && String(sourceTab.url || "") !== String(pending.page_url || "") && (!pending.expected_navigation_path || expectedNavigationPathMatches(sourceTab.url, pending.expected_navigation_path))) {
++  if (isAvitoPageReady(sourceTab, state.current_window_id) && pendingUiClickNavigationMatches(state, sourceTab)) {
+     return { tab: sourceTab, source: "same_tab_navigation" };
+   }
+   for (const childTabId of pendingChildTabIds(state)) {
+     const child = await getTab(childTabId);
+     if (!isPendingUiClickChildTab(state, child) || !isAvitoPageReady(child, state.current_window_id)) continue;
+-    if (!expectedNavigationPathMatches(child.url, pending.expected_navigation_path)) continue;
++    if (!pendingUiClickNavigationMatches(state, child)) continue;
+     return { tab: child, source: "visible_child_tab" };
+   }
+   return null;
+@@ -732,7 +745,7 @@
+   const isChildTab = isPendingUiClickChildTab(state, readyTab);
+   if (!isSourceTab && !isChildTab) return;
+   if (!isAvitoPageReady(readyTab, state.current_window_id)) return;
+-  if (!pending.expected_navigation_path || !expectedNavigationPathMatches(readyTab.url, pending.expected_navigation_path)) return;
++  if (!pendingUiClickNavigationMatches(state, readyTab)) return;
+   clearUiClickReconcileDeadline(state.search_id);
+   const active = readyTab.active ? readyTab : await activate(readyTab, "avito_ui_post_click_reconciliation");
+   const verified = await requireReadyAvitoTarget(active.id, state.current_window_id);
+@@ -779,7 +792,10 @@
+   const deadline = new Date(Date.now() + UI_CLICK_RECONCILE_TIMEOUT_MS).toISOString();
+   const waiting = await saveState({ ...latest, status: "WAITING_FOR_UI_CLICK_RECONCILIATION", phase: "AVITO_UI_CLICK_HANDOFF", blocked_reason: null, ui_click_reconcile_deadline_at: deadline, pending_ui_click: { ...latest.pending_ui_click, reconciliation: "waiting" } });
+   await log("AVITO_UI_CHANNEL_CLOSED_AFTER_CLICK_DISPATCH", { search_id: waiting.search_id, tab_id: tabId, dispatch_id: waiting.pending_ui_click?.dispatch_id || null, step_index: waiting.pending_ui_click?.step_index || null, reason: String(error?.message || error).slice(0, 220), deadline_at: deadline });
+-  scheduleUiClickReconcile(waiting);
++  // Reconcile immediately: the navigation may already be complete when the
++  // old content-script response channel closes. If it is not ready yet, the
++  // bounded reconciler schedules its next readiness check itself.
++  scheduleUiClickReconcile(waiting, 0);
+   return true;
+ }
+ async function reconcilePendingUiClickHandoff() {
+@@ -1154,7 +1170,7 @@
+ 
+ if (globalThis.__AF_TEST_EXPORTS) {
+   globalThis.__AF_TEST_EXPORTS.debuggerInput = { DEBUGGER_ALLOWED_METHODS, validDebuggerBounds, validDebuggerText, validDebuggerOptionText, debuggerSend, inputMouseFocus, inputClearExistingValue, typeVisibleAvitoTargetWithDebugger, clickVisibleTargetWithDebugger, clickVisibleOptionWithDebugger };
+-  globalThis.__AF_TEST_EXPORTS.uiClickHandoff = { asyncResponseChannelClosed, pendingUiClickMatches, expectedNavigationPathMatches, pendingChildTabIds, isPendingUiClickChildTab };
++  globalThis.__AF_TEST_EXPORTS.uiClickHandoff = { asyncResponseChannelClosed, pendingUiClickMatches, expectedNavigationPathMatches, pendingChildTabIds, isPendingUiClickChildTab, pendingUiClickNavigationMatches };
+   globalThis.__AF_TEST_EXPORTS.targetBinding = { ensureAvitoTarget, selectVisibleAvitoTab };
+ }
+ chrome.runtime.onInstalled.addListener(async () => { const current = await getState(); await saveState(current); await log("EXTENSION_INSTALLED_OR_UPDATED", { version: chrome.runtime.getManifest().version }); });
+

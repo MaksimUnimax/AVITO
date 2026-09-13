@@ -1,0 +1,675 @@
+--- v0.2.4/chatgpt_content.js
++++ v0.2.5/chatgpt_content.js
+@@ -3,110 +3,64 @@
+   "use strict";
+ 
+   const Core = AvitoFinderCore;
+-  // Directly transplanted selection order from the working Business Bridge
+-  // content script. This extension remains independent: no Bridge code, state,
+-  // storage keys, task protocol, queue, or report delivery is imported.
++  // The command-cycle transport below is a direct structural transplant from
++  // Business Bridge's start_exact → anchor → stable Copy workflow. Avito Finder
++  // keeps its own messages, storage and actions; it does not import Bridge state.
+   const PROMPT_STABILITY_MS = 2000;
++  const START_SEND_RENDER_WAIT_MS = 350;
++  const START_ANCHOR_TIMEOUT_MS = 20000;
++  let commandWaitGeneration = 0;
+   const confirmedLocalWritingBlockCopyButtons = new WeakSet();
+-  let commandWaitGeneration = 0;
+ 
+-  function visible(element) {
+-    if (!element) return false;
+-    const style = window.getComputedStyle(element);
+-    const rect = element.getBoundingClientRect();
+-    return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
++  function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
++  function visible(node) {
++    if (!(node instanceof HTMLElement)) return false;
++    const style = getComputedStyle(node); const rect = node.getBoundingClientRect();
++    return style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0" && rect.width > 0 && rect.height > 0;
+   }
++  function safeText(node) { return String(node?.innerText || node?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 240); }
++  function textOf(node, max = 12000) { return Core.normalizeText(node && (node.innerText || node.textContent || "")).slice(0, max); }
+ 
+-  function textOf(element, max) {
+-    return Core.normalizeText(element && (element.innerText || element.textContent || "")).slice(0, max || 12000);
+-  }
+-
+-  function selectorSummary(selector) {
+-    const nodes = Array.from(document.querySelectorAll(selector));
+-    return {selector, count: nodes.length, sample: nodes.length ? textOf(nodes[0], 180) : ""};
+-  }
+-
+-  function elementEvidence(selector, limit) {
+-    return Array.from(document.querySelectorAll(selector)).filter(visible).slice(0, limit || 10).map((element) => ({
+-      selector, tag: element.tagName.toLowerCase(), id: element.id || null, role: element.getAttribute("role"),
+-      aria_label: element.getAttribute("aria-label"), placeholder: element.getAttribute("placeholder"),
+-      contenteditable: element.getAttribute("contenteditable"), text: textOf(element, 180)
+-    }));
+-  }
+-
+-  // === BEGIN direct Business Bridge writing-block selection transplant ===
+-  function turnSections() {
+-    return Array.from(document.querySelectorAll('section[data-turn][data-turn-id]'));
+-  }
+-
+-  function latestUserTurnId() {
+-    const sections = turnSections();
+-    for (let index = sections.length - 1; index >= 0; index -= 1) {
+-      if (sections[index].getAttribute("data-turn") === "user") return sections[index].getAttribute("data-turn-id") || null;
+-    }
+-    return null;
+-  }
++  function turnSections() { return Array.from(document.querySelectorAll('section[data-turn][data-turn-id]')); }
++  function userTurnIds() { return new Set(turnSections().filter((section) => section.getAttribute("data-turn") === "user").map((section) => section.getAttribute("data-turn-id")).filter(Boolean)); }
++  function sectionUserText(section) { const role = section.querySelector('[data-message-author-role="user"]'); return (role?.innerText || role?.textContent || section?.innerText || section?.textContent || "").trim(); }
++  function latestUserTurnId() { const sections = turnSections(); for (let i = sections.length - 1; i >= 0; i -= 1) if (sections[i].getAttribute("data-turn") === "user") return sections[i].getAttribute("data-turn-id") || null; return null; }
+ 
+   function buttonSnapshot(button) {
+     const svgUse = button.querySelector("svg use");
+-    return {
+-      tag: button.tagName.toLowerCase(),
+-      testid: button.getAttribute("data-testid") || "",
+-      aria: button.getAttribute("aria-label") || "",
+-      title: button.getAttribute("title") || "",
+-      text: textOf(button, 120),
+-      svg: svgUse?.getAttribute("href") || svgUse?.getAttribute("xlink:href") || "",
+-      enabled: !(button instanceof HTMLButtonElement && button.disabled) && button.getAttribute("aria-disabled") !== "true"
+-    };
++    return { tag: button.tagName.toLowerCase(), testid: button.getAttribute("data-testid") || "", aria: button.getAttribute("aria-label") || "", title: button.getAttribute("title") || "", text: safeText(button), svg: svgUse?.getAttribute("href") || svgUse?.getAttribute("xlink:href") || "", enabled: !(button instanceof HTMLButtonElement && button.disabled) && button.getAttribute("aria-disabled") !== "true" };
+   }
++  function buttonToken(snapshot) { return [snapshot.testid, snapshot.aria, snapshot.title, snapshot.text].join(" ").toLowerCase(); }
++  function asEnabledButton(node) { const button = node instanceof HTMLElement ? node : node?.closest?.('button, [role="button"], input[type="submit"]'); if (!(button instanceof HTMLElement)) return null; if (button instanceof HTMLButtonElement && button.disabled) return null; if (button.getAttribute("aria-disabled") === "true") return null; return visible(button) ? button : null; }
+ 
+-  function buttonToken(snapshot) {
+-    return [snapshot.testid, snapshot.aria, snapshot.title, snapshot.text].join(" ").toLowerCase();
+-  }
+-
+-  function legacyWritingBlockElement(section) {
+-    return section?.querySelector?.('[data-writing-block], [data-writing-block-id], #code-block-viewer') || null;
+-  }
+-
+-  function isCurrentWritingBlockEditButton(button) {
+-    const snapshot = buttonSnapshot(button);
+-    return snapshot.testid === "writing-block-header-magic-edit-button" ||
+-      /(?:^|\s)(?:редактировать|edit)(?:\s|$)/u.test(buttonToken(snapshot));
+-  }
+-
++  // ===== Exact writing-block selection and Copy order from Business Bridge =====
++  function legacyWritingBlockElement(section) { return section?.querySelector?.('[data-writing-block], [data-writing-block-id], #code-block-viewer') || null; }
++  function isCurrentWritingBlockEditButton(button) { const snapshot = buttonSnapshot(button); return snapshot.testid === "writing-block-header-magic-edit-button" || /(?:^|\s)(?:редактировать|edit)(?:\s|$)/u.test(buttonToken(snapshot)); }
+   function isCurrentWritingBlockLocalCopyButton(button) {
+     const snapshot = buttonSnapshot(button);
+     if (snapshot.testid === "copy-turn-action-button" || /копировать\s+ответ|copy\s+response/u.test(buttonToken(snapshot))) return false;
+     return snapshot.aria === "Копировать" || /(?:^|\s)(?:копировать|copy)(?:\s|$)/u.test(buttonToken(snapshot));
+   }
+-
+   function cleanLocalWritingBlockText(root) {
+     if (!(root instanceof Element)) return "";
+     const clone = root.cloneNode(true);
++    // Keep aria-live body nodes exactly as Bridge does; remove controls only.
+     clone.querySelectorAll("button, [role=button], svg, script, style").forEach((node) => node.remove());
+     return String(clone.innerText || clone.textContent || "").replace(/\u00a0/g, " ").replace(/^\s+|\s+$/g, "");
+   }
+-
+   function currentWritingBlockBinding(section) {
+     if (!(section instanceof Element)) return null;
+     const buttons = Array.from(section.querySelectorAll("button"));
+-    const edits = buttons.filter(isCurrentWritingBlockEditButton);
+-    const copies = buttons.filter(isCurrentWritingBlockLocalCopyButton);
+-    for (const editButton of edits) {
+-      for (const copyButton of copies) {
+-        let root = copyButton.parentElement;
+-        while (root && root !== section) {
+-          if (root.contains(editButton) && root.contains(copyButton)) {
+-            const body = cleanLocalWritingBlockText(root);
+-            if (body.length > 0) return {root, edit_button: editButton, copy_button: copyButton, source: "current_local_toolbar"};
+-          }
+-          root = root.parentElement;
+-        }
++    const edits = buttons.filter(isCurrentWritingBlockEditButton); const copies = buttons.filter(isCurrentWritingBlockLocalCopyButton);
++    for (const editButton of edits) for (const copyButton of copies) {
++      let root = copyButton.parentElement;
++      while (root && root !== section) {
++        if (root.contains(editButton) && root.contains(copyButton) && cleanLocalWritingBlockText(root).length > 0) return {root, edit_button: editButton, copy_button: copyButton, source: "current_local_toolbar"};
++        root = root.parentElement;
+       }
+     }
+     return null;
+   }
+-
+   function resolveWritingBlockBinding(section) {
+     const legacyRoot = legacyWritingBlockElement(section);
+     if (legacyRoot instanceof Element) {
+@@ -115,249 +69,87 @@
+     }
+     return currentWritingBlockBinding(section);
+   }
+-
+   function sectionWritingBlockText(section, binding = null) {
+-    const resolved = binding || resolveWritingBlockBinding(section);
+-    if (!resolved?.root) return "";
++    const resolved = binding || resolveWritingBlockBinding(section); if (!resolved?.root) return "";
+     if (resolved.source === "current_local_toolbar") return cleanLocalWritingBlockText(resolved.root);
+-    return (resolved.root.innerText || resolved.root.textContent || "")
+-      .replace(/^Редактировать\s*/u, "")
+-      .replace(/\s*Копировать(?:\s+ответ)?\s*$/u, "")
+-      .replace(/\s*Развернуть\s*$/u, "");
++    return (resolved.root.innerText || resolved.root.textContent || "").replace(/^Редактировать\s*/u, "").replace(/\s*Копировать(?:\s+ответ)?\s*$/u, "").replace(/\s*Развернуть\s*$/u, "");
+   }
+-
+-  function writingBlockStructuralId(section) {
+-    const binding = resolveWritingBlockBinding(section);
+-    const block = binding?.root;
+-    if (!block) return "";
+-    return block.getAttribute("data-writing-block-id") || block.getAttribute("data-writing-block") || block.id || binding?.source || section.getAttribute("data-turn-id") || "writing-block";
+-  }
+-
+-  function writingBlockStructuralSignature(anchorTurnId, assistant, blockId, copy) {
+-    const controls = (copy?.buttons || []).map((button) => [button.tag || "", button.testid || "", button.aria || "", button.title || "", button.svg || "", button.enabled === true ? "1" : "0"].join(":"));
+-    return [anchorTurnId || "", assistant?.getAttribute("data-turn-id") || "", blockId || "", copy?.writing_block === true ? "writing-block" : "no-writing-block", copy?.ready === true ? "copy-ready" : "copy-pending", copy?.mode || "", controls.join("|")].join("||");
+-  }
+-
++  function writingBlockStructuralId(section) { const binding = resolveWritingBlockBinding(section); const block = binding?.root; return block ? (block.getAttribute("data-writing-block-id") || block.getAttribute("data-writing-block") || block.id || binding.source || section.getAttribute("data-turn-id") || "writing-block") : ""; }
++  function writingBlockStructuralSignature(anchorTurnId, assistant, blockId, copy) { const controls = (copy?.buttons || []).map((button) => [button.tag || "",button.testid || "",button.aria || "",button.title || "",button.svg || "",button.enabled === true ? "1" : "0"].join(":")); return [anchorTurnId || "",assistant?.getAttribute("data-turn-id") || "",blockId || "",copy?.writing_block === true ? "writing-block" : "no-writing-block",copy?.ready === true ? "copy-ready" : "copy-pending",copy?.mode || "",controls.join("|")].join("||"); }
+   function detectCopyReadiness(section) {
+-    const buttons = Array.from(section?.querySelectorAll?.("button") || []).map((button) => ({button, snapshot: buttonSnapshot(button)}));
+-    const binding = resolveWritingBlockBinding(section);
+-    const localCopySnapshot = binding?.copy_button ? buttonSnapshot(binding.copy_button) : null;
+-    if (binding?.source === "current_local_toolbar" && localCopySnapshot) {
+-      return {ready: localCopySnapshot.enabled === true, mode: localCopySnapshot.enabled ? "current_writing_block_local_copy" : "current_writing_block_copy_disabled", writing_block: true, buttons: buttons.map((entry) => entry.snapshot)};
+-    }
+-    const allSemanticCopy = buttons.find((entry) => {
+-      const token = buttonToken(entry.snapshot);
+-      return entry.snapshot.testid === "copy-turn-action-button" || token.includes("copy") || token.includes("копир");
+-    });
+-    const allSpriteCopy = buttons.find((entry) => String(entry.snapshot.svg).includes("#ce3544"));
+-    const writingBlock = Boolean(binding?.root);
++    const buttons = Array.from(section?.querySelectorAll?.("button") || []).map((button) => ({button, snapshot: buttonSnapshot(button)})); const binding = resolveWritingBlockBinding(section); const localCopySnapshot = binding?.copy_button ? buttonSnapshot(binding.copy_button) : null;
++    if (binding?.source === "current_local_toolbar" && localCopySnapshot) return {ready: localCopySnapshot.enabled === true, mode: localCopySnapshot.enabled ? "current_writing_block_local_copy" : "current_writing_block_copy_disabled", writing_block: true, buttons: buttons.map((entry) => entry.snapshot)};
++    const allSemanticCopy = buttons.find((entry) => { const token = buttonToken(entry.snapshot); return entry.snapshot.testid === "copy-turn-action-button" || token.includes("copy") || token.includes("копир"); });
++    const allSpriteCopy = buttons.find((entry) => String(entry.snapshot.svg).includes("#ce3544")); const writingBlock = Boolean(binding?.root);
+     if ((allSemanticCopy && !allSemanticCopy.snapshot.enabled) || (allSpriteCopy && !allSpriteCopy.snapshot.enabled)) return {ready: false, mode: "copy_control_disabled", writing_block: writingBlock, buttons: buttons.map((entry) => entry.snapshot)};
+     if (allSemanticCopy && allSemanticCopy.snapshot.enabled) return {ready: true, mode: "semantic_copy_button", writing_block: writingBlock, buttons: buttons.map((entry) => entry.snapshot)};
+     if (allSpriteCopy && allSpriteCopy.snapshot.enabled) return {ready: true, mode: "copy_svg_sprite", writing_block: writingBlock, buttons: buttons.map((entry) => entry.snapshot)};
+     return {ready: false, mode: buttons.length ? "copy_control_not_ready" : "no_controls_yet", writing_block: writingBlock, buttons: buttons.map((entry) => entry.snapshot)};
+   }
+-
+   function confirmLocalWritingBlockCopyAndExtract(section) {
+-    const binding = resolveWritingBlockBinding(section);
+-    const text = sectionWritingBlockText(section, binding);
+-    const bytes = text ? new TextEncoder().encode(text).byteLength : 0;
++    const binding = resolveWritingBlockBinding(section); const text = sectionWritingBlockText(section, binding); const bytes = text ? new TextEncoder().encode(text).byteLength : 0;
+     if (!text) return {ok: false, error: "WRITING_BLOCK_LOCAL_BODY_UNAVAILABLE", text: "", bytes: 0};
+     if (binding?.source === "current_local_toolbar" && binding.copy_button instanceof HTMLElement) {
+-      const snapshot = buttonSnapshot(binding.copy_button);
+-      if (snapshot.enabled !== true) return {ok: false, error: "WRITING_BLOCK_COPY_CONTROL_UNAVAILABLE", text: "", bytes: 0};
+-      if (!confirmedLocalWritingBlockCopyButtons.has(binding.copy_button)) {
+-        binding.copy_button.click();
+-        confirmedLocalWritingBlockCopyButtons.add(binding.copy_button);
+-      }
++      const snapshot = buttonSnapshot(binding.copy_button); if (snapshot.enabled !== true) return {ok: false, error: "WRITING_BLOCK_COPY_CONTROL_UNAVAILABLE", text: "", bytes: 0};
++      if (!confirmedLocalWritingBlockCopyButtons.has(binding.copy_button)) { try { binding.copy_button.click(); confirmedLocalWritingBlockCopyButtons.add(binding.copy_button); } catch (error) { return {ok:false,error:`WRITING_BLOCK_COPY_CLICK_FAILED:${String(error?.message || error || "unknown")}`,text:"",bytes:0}; } }
+     }
+     return {ok: true, text, bytes, source: binding?.source || "legacy_explicit_root"};
+   }
++  function assistantCandidateAfterAnchor(anchorTurnId) {
++    const sections = turnSections(); const index = sections.findIndex((section) => section.getAttribute("data-turn-id") === anchorTurnId); if (index < 0) return {missing_anchor:true};
++    const assistants = [];
++    for (let i=index+1;i<sections.length;i+=1) { const section=sections[i]; const turnType=section.getAttribute("data-turn"); if (turnType === "user") return {manual_interruption:true,next_user_turn_id:section.getAttribute("data-turn-id"),manual_turn_index_after_anchor:i-index}; if (turnType === "assistant") assistants.push(section); }
++    const assistant = assistants[assistants.length-1]; if (!assistant) return {waiting:true};
++    const copy=detectCopyReadiness(assistant); const structuralBlockId=writingBlockStructuralId(assistant); const promptText=copy.writing_block ? sectionWritingBlockText(assistant) : ""; const payloadExtracted=copy.writing_block===true && typeof promptText === "string" && promptText.length>0; const payloadBytes=payloadExtracted ? new TextEncoder().encode(promptText).byteLength : 0;
++    return {anchor_turn_id:anchorTurnId,assistant_turn_id:assistant.getAttribute("data-turn-id"),assistant,assistant_count_after_anchor:assistants.length,prompt_text:promptText,payload_extracted:payloadExtracted,payload_bytes:payloadBytes,payload_extraction_error:payloadExtracted ? "" : (copy.writing_block ? "writing_block_body_not_available" : "writing_block_missing"),copy_ready:copy.ready,copy_mode:copy.mode,writing_block:copy.writing_block,prompt_form_reason:copy.writing_block ? "writing_block_present" : "writing_block_missing",writing_block_id:structuralBlockId,button_snapshot:copy.buttons,structural_signature:writingBlockStructuralSignature(anchorTurnId,assistant,structuralBlockId,copy)};
++  }
+ 
+-  function assistantCandidateAfterAnchor(anchorTurnId) {
+-    const sections = turnSections();
+-    const index = sections.findIndex((section) => section.getAttribute("data-turn-id") === anchorTurnId);
+-    if (index < 0) return {missing_anchor: true, sections};
+-    const assistants = [];
+-    for (let i = index + 1; i < sections.length; i += 1) {
+-      const section = sections[i];
+-      const turnType = section.getAttribute("data-turn");
+-      if (turnType === "user") return {manual_interruption: true, next_user_turn_id: section.getAttribute("data-turn-id"), manual_turn_index_after_anchor: i - index, sections};
+-      if (turnType === "assistant") assistants.push(section);
+-    }
+-    const assistant = assistants[assistants.length - 1];
+-    if (!assistant) return {waiting: true, sections, assistant_count_after_anchor: 0};
+-    const copy = detectCopyReadiness(assistant);
+-    const structuralBlockId = writingBlockStructuralId(assistant);
+-    const promptText = copy.writing_block ? sectionWritingBlockText(assistant) : "";
+-    const payloadExtracted = copy.writing_block === true && typeof promptText === "string" && promptText.length > 0;
+-    const payloadBytes = payloadExtracted ? new TextEncoder().encode(promptText).byteLength : 0;
+-    return {
+-      anchor_turn_id: anchorTurnId,
+-      assistant_turn_id: assistant.getAttribute("data-turn-id"),
+-      assistant,
+-      assistant_count_after_anchor: assistants.length,
+-      prompt_text: promptText,
+-      payload_extracted: payloadExtracted,
+-      payload_bytes: payloadBytes,
+-      payload_extraction_error: payloadExtracted ? "" : (copy.writing_block ? "writing_block_body_not_available" : "writing_block_missing"),
+-      copy_ready: copy.ready,
+-      copy_mode: copy.mode,
+-      writing_block: copy.writing_block,
+-      prompt_form_reason: copy.writing_block ? "writing_block_present" : "writing_block_missing",
+-      writing_block_id: structuralBlockId,
+-      button_snapshot: copy.buttons,
+-      structural_signature: writingBlockStructuralSignature(anchorTurnId, assistant, structuralBlockId, copy),
+-      sections
+-    };
++  // ===== Exact start message → new user anchor transport from Business Bridge =====
++  function getComposerText(composer) { return composer instanceof HTMLTextAreaElement || composer instanceof HTMLInputElement ? composer.value : (composer.textContent || ""); }
++  function canonicalComposerText(value) { return String(value || "").replace(/\r\n/g,"\n").replace(/[\u200B-\u200D\uFEFF]/g,"").trim(); }
++  function composerTextMatches(actual, expected) { return actual === expected || canonicalComposerText(actual) === canonicalComposerText(expected); }
++  function setComposerText(composer, text) {
++    composer.focus();
++    if (composer instanceof HTMLTextAreaElement || composer instanceof HTMLInputElement) {
++      const descriptor=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(composer),"value"); const setter=descriptor?.set; if (!setter) throw new Error("CHATGPT_COMPOSER_VALUE_SETTER_UNAVAILABLE"); setter.call(composer,text);
++    } else composer.textContent=text;
++    composer.dispatchEvent(new InputEvent("input",{bubbles:true,inputType:"insertText",data:text})); composer.dispatchEvent(new Event("change",{bubbles:true}));
+   }
+-  // === END direct Business Bridge writing-block selection transplant ===
++  function isInsideAssistantOrWritingBlock(node) { return node instanceof Element && Boolean(node.closest('section[data-turn="assistant"], [data-message-author-role="assistant"], [data-writing-block], [data-writing-block-id], #code-block-viewer')); }
++  function isComposerForm(form) { return form instanceof HTMLFormElement && form.isConnected && visible(form) && !isInsideAssistantOrWritingBlock(form); }
++  function isChatComposerNode(node) { return node instanceof HTMLElement && node.isConnected && visible(node) && node.getAttribute("contenteditable") !== "false" && !node.hasAttribute("readonly") && !node.hasAttribute("disabled") && !isInsideAssistantOrWritingBlock(node) && isComposerForm(node.closest("form")); }
++  function isPrimaryComposerContextValid(context) { if (!context?.composer || !context?.form || !context.form.contains(context.composer) || !isChatComposerNode(context.composer)) return false; const id=String(context.composer.id || "").toLowerCase(); const testid=String(context.composer.getAttribute("data-testid") || "").toLowerCase(); return id === "prompt-textarea" || testid.includes("prompt-textarea") || Boolean(context.form.closest("#composer-background, [data-testid*='composer' i], [data-testid*='prompt' i]")); }
++  function composerCandidateScore(node) { const form=node.closest("form"); const rect=node.getBoundingClientRect(); let score=0; if(node.id === "prompt-textarea")score+=2000; if(String(node.getAttribute("data-testid")||"").toLowerCase().includes("prompt"))score+=500; if(form?.querySelector('button[data-testid*="send"], button[aria-label*="send" i], button[aria-label*="отправ" i]'))score+=200; if(rect.bottom>=window.innerHeight*.55)score+=80; return score; }
++  function findPrimaryComposerContext() {
++    const selectors=['#prompt-textarea','[data-testid="prompt-textarea"]','textarea[id*="prompt" i]','textarea[data-testid*="prompt" i]','[contenteditable="true"][id*="prompt" i]','[contenteditable="true"][data-testid*="prompt" i]']; const seen=new Set(), candidates=[];
++    for(const selector of selectors) for(const node of document.querySelectorAll(selector)) { if(seen.has(node))continue;seen.add(node); const form=node.closest("form"); const context={composer:node,form}; if(!isPrimaryComposerContextValid(context))continue;candidates.push({context,score:composerCandidateScore(node)}); }
++    candidates.sort((a,b)=>b.score-a.score); return candidates[0]?.context || null;
++  }
++  function primaryComposerSendButtonScore(button, context) { if(!isPrimaryComposerContextValid(context) || button.closest("form")!==context.form || isInsideAssistantOrWritingBlock(button)) return -Infinity; const token=[button.getAttribute("data-testid")||"",button.getAttribute("aria-label")||"",button.getAttribute("title")||"",button.getAttribute("name")||"",button.getAttribute("type")||"",safeText(button)].join(" ").toLowerCase(); let score=0; if((button.getAttribute("data-testid")||"").toLowerCase()==="send-button")score+=1000; if((button.getAttribute("data-testid")||"").toLowerCase().includes("send"))score+=700; if(/\b(send|submit)\b|отправ/.test(token))score+=450; if(button.matches('button[type="submit"], input[type="submit"]'))score+=250; if(button.closest('[data-testid*="composer" i], #composer-background'))score+=120; if(/mic|voice|audio|dictat|голос|микрофон|stop|cancel|отмен/.test(token))score-=1200; return score; }
++  function findPrimaryComposerSendButton(context) { if(!isPrimaryComposerContextValid(context))return null; return Array.from(context.form.querySelectorAll('button, [role="button"], input[type="submit"]')).map(asEnabledButton).filter(Boolean).map((button)=>({button,score:primaryComposerSendButtonScore(button,context)})).filter((entry)=>Number.isFinite(entry.score)&&entry.score>=250).sort((a,b)=>b.score-a.score)[0]?.button || null; }
++  function normalizedAnchorNeedle(text) { return String(text||"").replace(/\s+/g," ").trim().slice(0,120); }
++  function inspectNewUserAnchor(beforeIds, outgoingText) { const candidates=turnSections().filter((section)=>section.getAttribute("data-turn")==="user"&&section.getAttribute("data-turn-id")&&!beforeIds.has(section.getAttribute("data-turn-id"))).map((section)=>({section,turn_id:section.getAttribute("data-turn-id"),text:sectionUserText(section)})); const needle=normalizedAnchorNeedle(outgoingText); const matching=needle?candidates.filter((candidate)=>candidate.text.replace(/\s+/g," ").includes(needle)):[]; const selected=matching.length?matching[matching.length-1]:null; return {anchor_turn_id:selected?.turn_id || null,candidates,anchor_selection:selected?"text_match":(candidates.length?"strict_text_required":"no_new_user_turn")}; }
++  async function waitForNewUserAnchor(beforeIds,outgoingText,timeoutMs=START_ANCHOR_TIMEOUT_MS) { const deadline=Date.now()+timeoutMs; while(Date.now()<deadline) { const scan=inspectNewUserAnchor(beforeIds,outgoingText); if(scan.anchor_turn_id)return scan.anchor_turn_id; await sleep(100); } return null; }
++  async function waitUntilTextLeavesComposer(composer,originalText,sentText,timeoutMs=5000) { const deadline=Date.now()+timeoutMs; while(Date.now()<deadline){ const current=getComposerText(composer); if(!current.includes(sentText)&&(current===originalText||current.trim()===""))return true; await sleep(100); } return false; }
++  async function sendStartMessageAndCaptureAnchor(messageText) {
++    const context=findPrimaryComposerContext(); if(!isPrimaryComposerContextValid(context))throw new Error("START_PRIMARY_COMPOSER_MISSING"); const originalText=getComposerText(context.composer); if(originalText && !composerTextMatches(originalText,messageText))throw new Error("START_PRIMARY_COMPOSER_OCCUPIED"); const beforeIds=userTurnIds();
++    if(!composerTextMatches(originalText,messageText)){ setComposerText(context.composer,messageText); await sleep(START_SEND_RENDER_WAIT_MS); }
++    if(!isPrimaryComposerContextValid(context))throw new Error("START_PRIMARY_COMPOSER_SCOPE_LOST"); const send=findPrimaryComposerSendButton(context); if(!send)throw new Error("START_PRIMARY_COMPOSER_SEND_BUTTON_MISSING"); if(!send.isConnected || !visible(send))throw new Error("START_SEND_BUTTON_DISCONNECTED"); send.click(); const sent=await waitUntilTextLeavesComposer(context.composer,originalText,messageText); if(!sent)throw new Error("START_COMPOSER_NOT_CLEARED_AFTER_CLICK"); const anchorTurnId=await waitForNewUserAnchor(beforeIds,messageText); if(!anchorTurnId)throw new Error("START_EXACT_USER_ANCHOR_NOT_FOUND"); return {ok:true,anchor_turn_id:anchorTurnId,anchor_mode:"start_exact",anchor_policy:"exact_text_only",exact_turn_section_count:turnSections().length};
++  }
+ 
+   function commandAudit(anchorTurnId) {
+-    const candidate = assistantCandidateAfterAnchor(anchorTurnId);
+-    const assistant = candidate.assistant || null;
+-    const binding = assistant ? resolveWritingBlockBinding(assistant) : null;
+-    const structural = candidate.structural_signature || null;
+-    return {
+-      anchor_turn_id: anchorTurnId || null,
+-      exact_turn_section_count: candidate.sections?.length || turnSections().length,
+-      anchor_present: candidate.missing_anchor !== true,
+-      candidate_assistant_turn_id: candidate.assistant_turn_id || null,
+-      assistant_count_after_anchor: candidate.assistant_count_after_anchor ?? null,
+-      selected_assistant_policy: "last_assistant_before_next_user",
+-      manual_interruption: candidate.manual_interruption === true,
+-      manual_turn_id: candidate.next_user_turn_id || null,
+-      writing_block_present: candidate.writing_block === true,
+-      writing_block_source: binding?.source || null,
+-      writing_block_id: candidate.writing_block_id || null,
+-      local_copy_present: Boolean(binding?.copy_button),
+-      local_copy_enabled: Boolean(binding?.copy_button && buttonSnapshot(binding.copy_button).enabled),
+-      copy_ready: candidate.copy_ready === true,
+-      copy_mode: candidate.copy_mode || null,
+-      body_bytes: candidate.payload_bytes || 0,
+-      structural_signature: structural,
+-      form_valid: null,
+-      form_errors: candidate.missing_anchor ? ["ANCHOR_USER_TURN_NOT_FOUND"] : candidate.manual_interruption ? ["MANUAL_USER_TURN_AFTER_ANCHOR"] : !assistant ? ["NO_ASSISTANT_AFTER_ANCHOR"] : candidate.writing_block ? [] : ["WRITING_BLOCK_MISSING"],
+-      button_signatures: candidate.button_snapshot || []
+-    };
++    const candidate=assistantCandidateAfterAnchor(anchorTurnId); const assistant=candidate.assistant || null; const binding=assistant?resolveWritingBlockBinding(assistant):null;
++    return {exact_turn_section_count:turnSections().length,anchor_turn_id:anchorTurnId,anchor_present:!candidate.missing_anchor,candidate_assistant_turn_id:candidate.assistant_turn_id||null,assistant_count_after_anchor:candidate.assistant_count_after_anchor??null,selected_assistant_policy:"last_assistant_before_next_user",manual_interruption:candidate.manual_interruption===true,manual_turn_id:candidate.next_user_turn_id||null,writing_block_present:candidate.writing_block===true,writing_block_source:binding?.source||null,writing_block_id:candidate.writing_block_id||null,local_copy_present:Boolean(binding?.copy_button),local_copy_enabled:Boolean(binding?.copy_button&&buttonSnapshot(binding.copy_button).enabled),copy_ready:candidate.copy_ready===true,copy_mode:candidate.copy_mode||null,body_bytes:candidate.payload_bytes||0,structural_signature:candidate.structural_signature||"",form_valid:null,form_errors:candidate.missing_anchor?["ANCHOR_USER_TURN_NOT_FOUND"]:candidate.manual_interruption?["MANUAL_USER_TURN_AFTER_ANCHOR"]:!assistant?["NO_ASSISTANT_AFTER_ANCHOR"]:candidate.writing_block?[]:["WRITING_BLOCK_MISSING"],button_signatures:candidate.button_snapshot||[]};
+   }
++  function auditSignature(audit,error){return Core.stableShortHash(JSON.stringify({audit,error:error||""}));}
++  function publishAudit(searchId,anchorTurnId,audit,error,previousSignature){const signature=auditSignature(audit,error);if(signature===previousSignature)return signature;chrome.runtime.sendMessage({type:"AF_COMMAND_WATCH_AUDIT",search_id:searchId||null,anchor_turn_id:anchorTurnId||null,audit,reason:error||null},()=>void chrome.runtime.lastError);return signature;}
++  function captureStableCommand(anchorTurnId){const candidate=assistantCandidateAfterAnchor(anchorTurnId);if(candidate.missing_anchor)return{ok:false,error:"COMMAND_ANCHOR_NOT_FOUND",audit:commandAudit(anchorTurnId)};if(candidate.manual_interruption)return{ok:false,error:"MANUAL_USER_TURN_AFTER_ANCHOR",audit:commandAudit(anchorTurnId)};if(!candidate.assistant)return{ok:false,error:"NO_NEW_VALID_WRITING_BLOCK_COMMAND",audit:commandAudit(anchorTurnId)};if(!candidate.writing_block)return{ok:false,error:"LATEST_COMMAND_IS_NOT_WRITING_BLOCK",audit:commandAudit(anchorTurnId)};if(!candidate.copy_ready)return{ok:false,error:"WRITING_BLOCK_COPY_NOT_READY",audit:commandAudit(anchorTurnId)};const copied=confirmLocalWritingBlockCopyAndExtract(candidate.assistant);if(!copied.ok)return{ok:false,error:copied.error,audit:commandAudit(anchorTurnId)};const parsed=Core.parseCommandForm(copied.text);if(!parsed.valid){const audit=commandAudit(anchorTurnId);audit.form_valid=false;audit.form_errors=parsed.errors;return{ok:false,error:`WRITING_BLOCK_COMMAND_INVALID:${parsed.errors.join(",")}`,audit};}const audit=commandAudit(anchorTurnId);audit.form_valid=true;audit.form_errors=[];return{ok:true,command:{turnId:candidate.assistant_turn_id,anchorTurnId,parsed,raw:copied.text,writing_block:true,copy_confirmed:true,copy_source:copied.source,structural_signature:candidate.structural_signature},audit};}
++  function waitForCommand(anchorTurnId,timeoutMs,searchId){const generation=++commandWaitGeneration;const timeout=Number.isFinite(timeoutMs)?Math.max(1000,Math.min(timeoutMs,120000)):90000;return new Promise((resolve)=>{let complete=false,timer=null,candidateFirstSeen=null,lastSignature="";const observer=new MutationObserver(()=>check(false));function finish(result){if(complete)return;complete=true;observer.disconnect();if(timer)clearTimeout(timer);resolve(result);}function emit(reason){const audit=commandAudit(anchorTurnId);lastSignature=publishAudit(searchId,anchorTurnId,audit,reason,lastSignature);}function check(forceStableCheck){if(generation!==commandWaitGeneration){const audit=commandAudit(anchorTurnId);lastSignature=publishAudit(searchId,anchorTurnId,audit,"COMMAND_WAIT_CANCELLED",lastSignature);finish({ok:false,error:"COMMAND_WAIT_CANCELLED",audit});return;}const candidate=assistantCandidateAfterAnchor(anchorTurnId);if(candidate.missing_anchor){emit("COMMAND_ANCHOR_NOT_FOUND");return;}if(candidate.manual_interruption){const audit=commandAudit(anchorTurnId);lastSignature=publishAudit(searchId,anchorTurnId,audit,"MANUAL_USER_TURN_AFTER_ANCHOR",lastSignature);finish({ok:false,error:"MANUAL_USER_TURN_AFTER_ANCHOR",audit});return;}if(!candidate.assistant){emit("NO_ASSISTANT_AFTER_ANCHOR");return;}if(!candidate.writing_block){candidateFirstSeen=null;emit("WAITING_FOR_WRITING_BLOCK");return;}if(!candidate.copy_ready){candidateFirstSeen=null;emit("WAITING_FOR_LOCAL_COPY_READY");return;}const changed=!candidateFirstSeen||candidateFirstSeen.structural_signature!==candidate.structural_signature;if(changed){candidateFirstSeen={structural_signature:candidate.structural_signature,first_seen_ms:Date.now()};emit("WAITING_FOR_DOM_STABILITY");setTimeout(()=>check(true),PROMPT_STABILITY_MS);return;}const stableForMs=Date.now()-candidateFirstSeen.first_seen_ms;if(!forceStableCheck||stableForMs<PROMPT_STABILITY_MS){emit("WAITING_FOR_DOM_STABILITY");setTimeout(()=>check(true),Math.max(1,PROMPT_STABILITY_MS-stableForMs));return;}const result=captureStableCommand(anchorTurnId);if(!result.ok){lastSignature=publishAudit(searchId,anchorTurnId,result.audit||commandAudit(anchorTurnId),result.error,lastSignature);finish(result);return;}lastSignature=publishAudit(searchId,anchorTurnId,result.audit||commandAudit(anchorTurnId),null,lastSignature);finish(result);}observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,characterData:true});timer=setTimeout(()=>{const audit=commandAudit(anchorTurnId);publishAudit(searchId,anchorTurnId,audit,"COMMAND_WAIT_TIMEOUT",lastSignature);finish({ok:false,error:"COMMAND_WAIT_TIMEOUT",audit});},timeout);check(false);});}
++  function cancelCommandWait(){commandWaitGeneration+=1;return{ok:true};}
+ 
+-  function captureStableCommand(anchorTurnId) {
+-    const candidate = assistantCandidateAfterAnchor(anchorTurnId);
+-    if (candidate.missing_anchor) return {ok: false, error: "COMMAND_ANCHOR_NOT_FOUND", audit: commandAudit(anchorTurnId)};
+-    if (candidate.manual_interruption) return {ok: false, error: "MANUAL_USER_TURN_AFTER_ANCHOR", audit: commandAudit(anchorTurnId)};
+-    if (!candidate.assistant) return {ok: false, error: "NO_NEW_VALID_WRITING_BLOCK_COMMAND", audit: commandAudit(anchorTurnId)};
+-    if (!candidate.writing_block) return {ok: false, error: "LATEST_COMMAND_IS_NOT_WRITING_BLOCK", audit: commandAudit(anchorTurnId)};
+-    if (!candidate.copy_ready) return {ok: false, error: "WRITING_BLOCK_COPY_NOT_READY", audit: commandAudit(anchorTurnId)};
+-    const copied = confirmLocalWritingBlockCopyAndExtract(candidate.assistant);
+-    if (!copied.ok) return {ok: false, error: copied.error, audit: commandAudit(anchorTurnId)};
+-    const parsed = Core.parseCommandForm(copied.text);
+-    if (!parsed.valid) {
+-      const audit = commandAudit(anchorTurnId);
+-      audit.form_valid = false;
+-      audit.form_errors = parsed.errors;
+-      return {ok: false, error: `WRITING_BLOCK_COMMAND_INVALID:${parsed.errors.join(",")}`, audit};
+-    }
+-    const audit = commandAudit(anchorTurnId);
+-    audit.form_valid = true;
+-    audit.form_errors = [];
+-    return {ok: true, command: {turnId: candidate.assistant_turn_id, anchorTurnId, parsed, raw: copied.text, writing_block: true, copy_confirmed: true, copy_source: copied.source, structural_signature: candidate.structural_signature}, audit};
+-  }
++  function elementEvidence(selector,limit=10){return Array.from(document.querySelectorAll(selector)).filter(visible).slice(0,limit).map((element)=>({selector,tag:element.tagName.toLowerCase(),id:element.id||null,role:element.getAttribute("role"),aria_label:element.getAttribute("aria-label"),placeholder:element.getAttribute("placeholder"),contenteditable:element.getAttribute("contenteditable"),text:textOf(element,180)}));}
++  function selectorSummary(selector){const nodes=Array.from(document.querySelectorAll(selector));return{selector,count:nodes.length,sample:nodes.length?textOf(nodes[0],180):""};}
++  function inspect(){const messageSelectors=["section[data-turn][data-turn-id]","[data-message-author-role]","article","main [role='article']"],composerSelectors=["textarea","[contenteditable='true']","[role='textbox']"],sendSelectors=["button[aria-label*='Send' i]","button[aria-label*='Отправ' i]","button[data-testid*='send' i]"];return{url:location.href,title:document.title,captured_at:new Date().toISOString(),message_container_count:turnSections().length,exact_turn_section_count:turnSections().length,last_user_turn_id_present:Boolean(latestUserTurnId()),composer_count:composerSelectors.reduce((total,selector)=>total+elementEvidence(selector).length,0),send_button_count:sendSelectors.reduce((total,selector)=>total+elementEvidence(selector).length,0),selector_summaries:messageSelectors.concat(composerSelectors,sendSelectors).map(selectorSummary),composer_candidates:composerSelectors.flatMap((selector)=>elementEvidence(selector,8)),send_button_candidates:sendSelectors.flatMap((selector)=>elementEvidence(selector,8)),actions_performed:"none_read_only"};}
+ 
+-  function auditSignature(audit, error) { return Core.stableShortHash(JSON.stringify({audit, error: error || ""})); }
+-  function publishAudit(searchId, anchorTurnId, audit, error, previousSignature) {
+-    const signature = auditSignature(audit, error);
+-    if (signature === previousSignature) return signature;
+-    chrome.runtime.sendMessage({type: "AF_COMMAND_WATCH_AUDIT", search_id: searchId || null, anchor_turn_id: anchorTurnId || null, audit, reason: error || null}, () => void chrome.runtime.lastError);
+-    return signature;
+-  }
+-
+-  function waitForCommand(anchorTurnId, timeoutMs, searchId) {
+-    const generation = ++commandWaitGeneration;
+-    const timeout = Number.isFinite(timeoutMs) ? Math.max(1000, Math.min(timeoutMs, 120000)) : 90000;
+-    return new Promise((resolve) => {
+-      let complete = false;
+-      let timer = null;
+-      let candidateFirstSeen = null;
+-      let lastSignature = "";
+-      const observer = new MutationObserver(() => check(false));
+-      function finish(result) {
+-        if (complete) return;
+-        complete = true;
+-        observer.disconnect();
+-        if (timer) clearTimeout(timer);
+-        resolve(result);
+-      }
+-      function emit(candidate, reason) { lastSignature = publishAudit(searchId, anchorTurnId, candidate ? commandAudit(anchorTurnId) : commandAudit(anchorTurnId), reason, lastSignature); }
+-      function check(forceStableCheck) {
+-        if (generation !== commandWaitGeneration) {
+-          const audit = commandAudit(anchorTurnId); lastSignature = publishAudit(searchId, anchorTurnId, audit, "COMMAND_WAIT_CANCELLED", lastSignature); finish({ok: false, error: "COMMAND_WAIT_CANCELLED", audit}); return;
+-        }
+-        const candidate = assistantCandidateAfterAnchor(anchorTurnId);
+-        if (candidate.missing_anchor) { const audit = commandAudit(anchorTurnId); lastSignature = publishAudit(searchId, anchorTurnId, audit, "COMMAND_ANCHOR_NOT_FOUND", lastSignature); return; }
+-        if (candidate.manual_interruption) { const audit = commandAudit(anchorTurnId); lastSignature = publishAudit(searchId, anchorTurnId, audit, "MANUAL_USER_TURN_AFTER_ANCHOR", lastSignature); finish({ok: false, error: "MANUAL_USER_TURN_AFTER_ANCHOR", audit}); return; }
+-        if (!candidate.assistant) { emit(candidate, "NO_ASSISTANT_AFTER_ANCHOR"); return; }
+-        if (!candidate.writing_block) { candidateFirstSeen = null; emit(candidate, "WAITING_FOR_WRITING_BLOCK"); return; }
+-        if (!candidate.copy_ready) { candidateFirstSeen = null; emit(candidate, "WAITING_FOR_LOCAL_COPY_READY"); return; }
+-        const changed = !candidateFirstSeen || candidateFirstSeen.structural_signature !== candidate.structural_signature;
+-        if (changed) {
+-          candidateFirstSeen = {structural_signature: candidate.structural_signature, first_seen_ms: Date.now()};
+-          emit(candidate, "WAITING_FOR_DOM_STABILITY");
+-          setTimeout(() => check(true), PROMPT_STABILITY_MS);
+-          return;
+-        }
+-        const stableForMs = Date.now() - candidateFirstSeen.first_seen_ms;
+-        if (!forceStableCheck || stableForMs < PROMPT_STABILITY_MS) {
+-          emit(candidate, "WAITING_FOR_DOM_STABILITY");
+-          setTimeout(() => check(true), Math.max(1, PROMPT_STABILITY_MS - stableForMs));
+-          return;
+-        }
+-        const result = captureStableCommand(anchorTurnId);
+-        if (!result.ok) {
+-          lastSignature = publishAudit(searchId, anchorTurnId, result.audit || commandAudit(anchorTurnId), result.error, lastSignature);
+-          if (result.error === "WRITING_BLOCK_COMMAND_INVALID:" || result.error.startsWith("WRITING_BLOCK_COMMAND_INVALID:")) finish(result);
+-          return;
+-        }
+-        lastSignature = publishAudit(searchId, anchorTurnId, result.audit || commandAudit(anchorTurnId), null, lastSignature);
+-        finish(result);
+-      }
+-      observer.observe(document.documentElement, {subtree: true, childList: true, attributes: true, characterData: true});
+-      timer = setTimeout(() => { const audit = commandAudit(anchorTurnId); publishAudit(searchId, anchorTurnId, audit, "COMMAND_WAIT_TIMEOUT", lastSignature); finish({ok: false, error: "COMMAND_WAIT_TIMEOUT", audit}); }, timeout);
+-      check(false);
+-    });
+-  }
+-
+-  function cancelCommandWait() { commandWaitGeneration += 1; return {ok: true}; }
+-
+-  function inspect() {
+-    const messageSelectors = ["section[data-turn][data-turn-id]", "[data-message-author-role]", "article", "main [role='article']"];
+-    const composerSelectors = ["textarea", "[contenteditable='true']", "[role='textbox']"];
+-    const sendSelectors = ["button[aria-label*='Send' i]", "button[aria-label*='Отправ' i]", "button[data-testid*='send' i]"];
+-    const latestAnchor = latestUserTurnId();
+-    const candidate = latestAnchor ? assistantCandidateAfterAnchor(latestAnchor) : {assistant: null};
+-    return {
+-      url: location.href, title: document.title, captured_at: new Date().toISOString(),
+-      message_container_count: turnSections().length, exact_turn_section_count: turnSections().length,
+-      last_user_turn_id_present: Boolean(latestAnchor), latest_assistant_after_user_present: Boolean(candidate.assistant),
+-      composer_count: composerSelectors.reduce((total, selector) => total + elementEvidence(selector).length, 0),
+-      send_button_count: sendSelectors.reduce((total, selector) => total + elementEvidence(selector).length, 0),
+-      selector_summaries: messageSelectors.concat(composerSelectors, sendSelectors).map(selectorSummary),
+-      composer_candidates: composerSelectors.flatMap((selector) => elementEvidence(selector, 8)), send_button_candidates: sendSelectors.flatMap((selector) => elementEvidence(selector, 8)),
+-      actions_performed: "none_read_only"
+-    };
+-  }
+-
+-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+-    try {
+-      if (message && message.type === "AF_INSPECT_CHATGPT_DOM") { sendResponse({ok: true, snapshot: inspect()}); return; }
+-      if (message && message.type === "AF_GET_COMMAND_ANCHOR") {
+-        const anchorTurnId = latestUserTurnId();
+-        sendResponse(anchorTurnId ? {ok: true, anchor_turn_id: anchorTurnId, exact_turn_section_count: turnSections().length} : {ok: false, error: "NO_USER_TURN_FOR_COMMAND_ANCHOR"}); return;
+-      }
+-      if (message && message.type === "AF_CAPTURE_COMMAND") { sendResponse(captureStableCommand(message.anchor_turn_id)); return; }
+-      if (message && message.type === "AF_AUDIT_COMMAND_CANDIDATE") { sendResponse({ok: true, audit: commandAudit(message.anchor_turn_id)}); return; }
+-      if (message && message.type === "AF_CANCEL_COMMAND_WAIT") { sendResponse(cancelCommandWait()); return; }
+-      if (message && message.type === "AF_WAIT_FOR_COMMAND") { waitForCommand(message.anchor_turn_id, message.timeout_ms, message.search_id).then(sendResponse).catch((error) => sendResponse({ok: false, error: String(error && error.message || error || "COMMAND_WAIT_FAILED")})); return true; }
+-      sendResponse({ok: false, error: "UNKNOWN_MESSAGE"});
+-    } catch (error) { sendResponse({ok: false, error: error && error.message ? error.message : "INSPECTION_FAILED"}); }
+-  });
++  chrome.runtime.onMessage.addListener((message,_sender,sendResponse)=>{try{if(message?.type==="AF_INSPECT_CHATGPT_DOM"){sendResponse({ok:true,snapshot:inspect()});return;}if(message?.type==="AF_SEND_START_COMMAND_AND_CAPTURE_ANCHOR"){sendStartMessageAndCaptureAnchor(message.message_text).then(sendResponse).catch((error)=>sendResponse({ok:false,error:String(error?.message||error||"START_COMMAND_SEND_FAILED")}));return true;}if(message?.type==="AF_CAPTURE_COMMAND"){sendResponse(captureStableCommand(message.anchor_turn_id));return;}if(message?.type==="AF_AUDIT_COMMAND_CANDIDATE"){sendResponse({ok:true,audit:commandAudit(message.anchor_turn_id)});return;}if(message?.type==="AF_CANCEL_COMMAND_WAIT"){sendResponse(cancelCommandWait());return;}if(message?.type==="AF_WAIT_FOR_COMMAND"){waitForCommand(message.anchor_turn_id,message.timeout_ms,message.search_id).then(sendResponse).catch((error)=>sendResponse({ok:false,error:String(error?.message||error||"COMMAND_WAIT_FAILED")}));return true;}sendResponse({ok:false,error:"UNKNOWN_MESSAGE"});}catch(error){sendResponse({ok:false,error:error?.message||"INSPECTION_FAILED"});}});
+ })();
+
+--- v0.2.4/core.js
++++ v0.2.5/core.js
+@@ -66,6 +66,16 @@
+       hash = Math.imul(hash, 16777619);
+     }
+     return (hash >>> 0).toString(36);
++  }
++
++
++  function createStartCommandMessage() {
++    return [
++      "Avito Finder запущен.",
++      "Верни следующую команду строго в одной assistant writing-block форме с разделами: Цель, Рабочая область, Изменения, Проверка.",
++      "Сейчас требуется только read-only обследование фильтров Avito: не вводить текст на Avito, не менять фильтры, не запускать поиск, не открывать объявления и не отправлять сообщения.",
++      "В разделе Проверка укажи последовательность вкладок ChatGPT → Avito → ChatGPT и возврат списка видимых элементов фильтров в popup."
++    ].join("\n");
+   }
+ 
+   function parseLabeledSections(text) {
+@@ -171,7 +181,7 @@
+ 
+   function makeState(overrides) {
+     return Object.assign({
+-      version: 5,
++      version: 6,
+       search_id: null,
+       status: "IDLE",
+       phase: "IDLE",
+@@ -290,6 +300,7 @@
+     normalizeText,
+     makeSearchId,
+     stableShortHash,
++    createStartCommandMessage,
+     parseLabeledSections,
+     parseCommandForm,
+     validateReadOnlyFilterInspectionCommand,
+
+--- v0.2.4/manifest.json
++++ v0.2.5/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder — Command & Filter Inspector",
+   "short_name": "Avito Finder",
+-  "version": "0.2.4",
+-  "version_name": "0.2.4-bridge-exact-last-assistant-stable-copy-transplant",
+-  "description": "Avito Finder: отдельный read-only захват writing-block команды с прямым переносом порядка Bridge.",
++  "version": "0.2.5",
++  "version_name": "0.2.5-bridge-start-exact-anchor-stable-copy-cycle",
++  "description": "Avito Finder: отдельный read-only захват writing-block команды с прямым переносом полного стартового контура Bridge.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.2.4/popup.html
++++ v0.2.5/popup.html
+@@ -9,10 +9,10 @@
+ <body>
+   <main>
+     <h1>Avito Finder</h1>
+-    <p class="sub">Этап 2: заякоренное ожидание новой assistant writing-block формы и read-only обследование фильтров Avito.</p>
++    <p class="sub">Этап 2: точный стартовый user-turn → ответная assistant writing-block форма → read-only обследование фильтров Avito.</p>
+     <section class="status" aria-live="polite"><strong id="status">Загрузка…</strong><span id="detail"></span></section>
+-    <div class="actions"><button id="inspect" type="button">Обследовать DOM</button><button id="command-filter" type="button">Ждать команду и фильтры</button><button id="stop" type="button" class="secondary">Стоп</button></div>
+-    <p class="hint">После нажатия расширение запоминает последний user-turn и ждёт только следующую assistant writing-block форму: Цель / Рабочая область / Изменения / Проверка. На этом этапе расширение не вводит текст, не меняет фильтры, не запускает поиск и не отправляет сообщения.</p>
++    <div class="actions"><button id="inspect" type="button">Обследовать DOM</button><button id="command-filter" type="button">Запустить цикл и фильтры</button><button id="stop" type="button" class="secondary">Стоп</button></div>
++    <p class="hint">После нажатия расширение через нижний composer отправляет обычное стартовое сообщение, захватывает только созданный им user-turn и ждёт следующую assistant writing-block форму: Цель / Рабочая область / Изменения / Проверка. На Avito расширение ничего не вводит, не меняет фильтры, не запускает поиск и не отправляет сообщения.</p>
+     <label for="logs">Живой журнал</label><pre id="logs" aria-live="polite"></pre>
+     <label for="report">Последний отчёт</label><textarea id="report" readonly rows="11" spellcheck="false"></textarea><button id="copy" type="button" class="secondary">Скопировать отчёт</button>
+   </main>
+
+--- v0.2.4/popup.js
++++ v0.2.5/popup.js
+@@ -33,7 +33,7 @@
+   else await refresh();
+ }
+ inspectButton.addEventListener("click", () => start("AF_START_READONLY_INSPECTION", "Запуск read-only обследования…"));
+-commandFilterButton.addEventListener("click", () => start("AF_START_COMMAND_FILTER_INSPECTION", "Заякоренное ожидание writing-block команды…"));
++commandFilterButton.addEventListener("click", () => start("AF_START_COMMAND_FILTER_INSPECTION", "Стартовый user-turn и ожидание writing-block команды…"));
+ stopButton.addEventListener("click", async () => { await send({type: "AF_STOP"}); await refresh(); });
+ copyButton.addEventListener("click", async () => { if (!reportNode.value) return; try { await navigator.clipboard.writeText(reportNode.value); copyButton.textContent = "Скопировано"; setTimeout(() => { copyButton.textContent = "Скопировать отчёт"; }, 1200); } catch (_) { reportNode.focus(); reportNode.select(); document.execCommand("copy"); } });
+ chrome.storage.onChanged.addListener((_changes, areaName) => { if (areaName === "local") refresh(); });
+
+--- v0.2.4/service_worker.js
++++ v0.2.5/service_worker.js
+@@ -7,7 +7,7 @@
+ const LOG_KEY = Core.STORAGE.logs;
+ const INSPECTION_KEY = Core.STORAGE.lastInspection;
+ const COMMAND_KEY = Core.STORAGE.lastCommand;
+-const COMMAND_CAPTURE_CONTRACT = "bridge_exact_last_assistant_stable_copy_v1";
++const COMMAND_CAPTURE_CONTRACT = "bridge_start_exact_anchor_then_stable_copy_v1";
+ let operationInFlight = null;
+ 
+ function callbackToPromise(callbackInvoker) {
+@@ -150,51 +150,87 @@
+ }
+ 
+ async function runCommandFilterInspection() {
+-  const window = await currentWindow(); const windowId = window.id; const now = new Date().toISOString(); const searchId = Core.makeSearchId(Date.now());
++  const window = await currentWindow();
++  const windowId = window.id;
++  const now = new Date().toISOString();
++  const searchId = Core.makeSearchId(Date.now());
++  const startMessage = Core.createStartCommandMessage();
+   let state = await setState({
+-    search_id: searchId, status: "PREPARING_COMMAND_ANCHOR", phase: "COMMAND_ANCHOR", started_at: now,
+-    current_window_id: windowId, user_started: true, inspection_only: true,
+-    command_capture_contract: COMMAND_CAPTURE_CONTRACT, processed_command_turn_id: null,
+-    command_anchor_turn_id: null, command_waiting: true, candidate_audit: null,
+-    blocked_reason: null, report: "Avito Finder: подготавливаю точный user-turn anchor для новой assistant writing-block формы. Avito не активируется до захвата команды."
++    search_id: searchId,
++    status: "SENDING_START_COMMAND",
++    phase: "START_EXACT_ANCHOR",
++    started_at: now,
++    current_window_id: windowId,
++    user_started: true,
++    inspection_only: true,
++    command_capture_contract: COMMAND_CAPTURE_CONTRACT,
++    processed_command_turn_id: null,
++    command_anchor_turn_id: null,
++    command_waiting: true,
++    candidate_audit: null,
++    blocked_reason: null,
++    report: "Avito Finder: через обычный нижний composer отправляю стартовое сообщение, захватываю только созданный им user-turn и жду ответную writing-block форму. Avito не активируется до захвата команды."
+   });
+   await storageSet({[INSPECTION_KEY]: null});
+   await log("COMMAND_FILTER_INSPECTION_STARTED", {search_id: searchId, window_id: windowId, capture_contract: COMMAND_CAPTURE_CONTRACT});
+   try {
+     const chatTab = await findTabInWindow("chatgpt", windowId);
+     if (!chatTab) throw new Error("CHATGPT_TAB_NOT_FOUND_CURRENT_WINDOW");
+-    const activeChat = await activateTab(chatTab, "chatgpt_command");
+-    const anchorTurnId = await getCommandAnchor(activeChat.id);
+-    state = await setState(Object.assign({}, state, {status: "WAITING_FOR_COMMAND", phase: "COMMAND_WAIT", chatgpt_tab_id: activeChat.id, command_anchor_turn_id: anchorTurnId, report: "Avito Finder: жду writing-block форму после заякоренного user-turn. Живой журнал показан выше отчёта."}));
+-    await log("COMMAND_WATCH_STARTED", {search_id: searchId, tab_id: activeChat.id, anchor_turn_id: anchorTurnId});
++    const activeChat = await activateTab(chatTab, "chatgpt_start_command");
++    const start = await sendToRole(activeChat.id, "chatgpt", {type: "AF_SEND_START_COMMAND_AND_CAPTURE_ANCHOR", message_text: startMessage});
++    if (!start || start.ok !== true || !start.anchor_turn_id) throw new Error(start && start.error ? start.error : "START_EXACT_USER_ANCHOR_NOT_FOUND");
++    const anchorTurnId = start.anchor_turn_id;
++    state = await setState(Object.assign({}, state, {
++      status: "WAITING_FOR_COMMAND",
++      phase: "COMMAND_WAIT",
++      chatgpt_tab_id: activeChat.id,
++      command_anchor_turn_id: anchorTurnId,
++      report: "Avito Finder: стартовое сообщение отправлено через нижний composer. Захвачен его точный user-turn; жду только следующую assistant writing-block форму. Живой журнал показан выше отчёта."
++    }));
++    await log("START_COMMAND_SENT_AND_ANCHORED", {
++      search_id: searchId,
++      tab_id: activeChat.id,
++      anchor_turn_id: anchorTurnId,
++      anchor_mode: start.anchor_mode || "start_exact",
++      anchor_policy: start.anchor_policy || "exact_text_only"
++    });
+ 
+     let command;
+-    try { command = await waitForCommand(activeChat.id, anchorTurnId, searchId); }
+-    catch (error) {
+-      const reason = String(error.message || error); const audit = error.audit || null;
++    try {
++      command = await waitForCommand(activeChat.id, anchorTurnId, searchId);
++    } catch (error) {
++      const reason = String(error.message || error);
++      const audit = error.audit || null;
+       const report = Core.formatCommandWaitReport({reason, audit});
+-      state = await setState(Object.assign({}, state, {status: reason === "COMMAND_WAIT_CANCELLED" ? "CANCELLED_BY_USER" : "COMMAND_CAPTURE_BLOCKED", phase: "COMMAND_MISSING_OR_TIMEOUT", blocked_reason: reason, command_waiting: false, candidate_audit: audit, report}));
+-      const inspection = {version: 5, search_id: searchId, captured_at: new Date().toISOString(), mode: "COMMAND_WAIT_DIAGNOSTIC", reason, audit, report};
++      state = await setState(Object.assign({}, state, {
++        status: reason === "COMMAND_WAIT_CANCELLED" ? "CANCELLED_BY_USER" : "COMMAND_CAPTURE_BLOCKED",
++        phase: "COMMAND_MISSING_OR_TIMEOUT",
++        blocked_reason: reason,
++        command_waiting: false,
++        candidate_audit: audit,
++        report
++      }));
++      const inspection = {version: 6, search_id: searchId, captured_at: new Date().toISOString(), mode: "COMMAND_WAIT_DIAGNOSTIC", reason, audit, report};
+       await storageSet({[INSPECTION_KEY]: inspection});
+       await log("COMMAND_WAIT_FINISHED_WITHOUT_CAPTURE", {search_id: searchId, anchor_turn_id: anchorTurnId, reason, exact_turn_section_count: audit && audit.exact_turn_section_count || null, writing_block_present: audit && audit.writing_block_present === true, form_valid: audit && audit.form_valid === true});
+       return {ok: false, state, inspection, error: reason};
+     }
+ 
+-    // The writing block has already been selected structurally by the direct
+-    // Bridge transplant. Interpret its body only now, after stable local Copy.
+     const readOnlyValidation = Core.validateReadOnlyFilterInspectionCommand(command.parsed);
+     if (!readOnlyValidation.valid) {
+       const reason = `CAPTURED_COMMAND_UNSUPPORTED_FOR_READONLY_STAGE:${readOnlyValidation.errors.join(",")}`;
+       const report = Core.formatCommandWaitReport({reason, audit: {candidate_assistant_turn_id: command.turnId, writing_block_present: true, writing_block_source: command.copy_source, local_copy_present: command.copy_confirmed === true, local_copy_enabled: command.copy_confirmed === true, form_valid: false, form_errors: readOnlyValidation.errors}});
+       state = await setState(Object.assign({}, state, {status: "COMMAND_CAPTURED_UNSUPPORTED", phase: "COMMAND_STAGE_VALIDATION", processed_command_turn_id: command.turnId, command_waiting: false, blocked_reason: reason, report}));
+-      await storageSet({[COMMAND_KEY]: command, [INSPECTION_KEY]: {version: 5, search_id: searchId, mode: "CAPTURED_COMMAND_STAGE_REJECTED", reason, command, report}});
++      await storageSet({[COMMAND_KEY]: command, [INSPECTION_KEY]: {version: 6, search_id: searchId, mode: "CAPTURED_COMMAND_STAGE_REJECTED", reason, command, report}});
+       await log("WRITING_BLOCK_COMMAND_CAPTURED_UNSUPPORTED", {search_id: searchId, anchor_turn_id: anchorTurnId, turn_id: command.turnId, errors: readOnlyValidation.errors, copy_source: command.copy_source || null});
+       return {ok: false, state, error: reason};
+     }
++
+     command.parsed.mode = readOnlyValidation.mode;
+     state = await setState(Object.assign({}, state, {status: "COMMAND_CAPTURED", phase: "COMMAND_CAPTURED", processed_command_turn_id: command.turnId, command_waiting: false, blocked_reason: null, report: null}));
+     await storageSet({[COMMAND_KEY]: command});
+     await log("WRITING_BLOCK_COMMAND_CAPTURED", {search_id: searchId, anchor_turn_id: anchorTurnId, turn_id: command.turnId, mode: command.parsed.mode, copy_confirmed: command.copy_confirmed === true, copy_source: command.copy_source || null});
++
+     const avito = await ensureAvitoTab(windowId, true);
+     const activeAvito = await activateTab(avito.tab, "avito_filter_scan");
+     state = await setState(Object.assign({}, state, {status: "AVITO_TAB_ACTIVE", avito_tab_id: activeAvito.id, phase: "INSPECTING_FILTERS"}));
+@@ -202,14 +238,16 @@
+     await log("AVITO_FILTER_SURFACE_CAPTURED", {search_id: searchId, tab_id: activeAvito.id, filter_control_count: filterSurface.filter_control_count, created: avito.created});
+     const returnedChat = await activateTab(activeChat, "chatgpt_return");
+     const report = Core.formatCommandFilterReport({search_id: searchId, command, filterSurface});
+-    const inspection = {version: 5, search_id: searchId, captured_at: new Date().toISOString(), mode: "COMMAND_AND_FILTER_SURFACE_READ_ONLY", command, filterSurface, report};
++    const inspection = {version: 6, search_id: searchId, captured_at: new Date().toISOString(), mode: "COMMAND_AND_FILTER_SURFACE_READ_ONLY", command, filterSurface, report};
+     state = await setState(Object.assign({}, state, {status: "COMMAND_AND_FILTER_SURFACE_COMPLETE", phase: "READONLY_COMPLETE", chatgpt_tab_id: returnedChat.id, report, blocked_reason: filterSurface.blocked_reason || null}));
+-    await storageSet({[INSPECTION_KEY]: inspection}); await log("COMMAND_FILTER_INSPECTION_COMPLETE", {search_id: searchId, status: state.status});
++    await storageSet({[INSPECTION_KEY]: inspection});
++    await log("COMMAND_FILTER_INSPECTION_COMPLETE", {search_id: searchId, status: state.status});
+     return {ok: true, state, inspection};
+   } catch (error) {
+     const reason = error && error.message ? error.message : "UNKNOWN_ERROR";
+     state = await setState(Object.assign({}, state, {status: reason, phase: "COMMAND_FILTER_INSPECTION_BLOCKED", blocked_reason: reason, command_waiting: false}));
+-    await log("COMMAND_FILTER_INSPECTION_BLOCKED", {search_id: searchId, reason}); return {ok: false, state, error: reason};
++    await log("COMMAND_FILTER_INSPECTION_BLOCKED", {search_id: searchId, reason});
++    return {ok: false, state, error: reason};
+   }
+ }
+ 
+

@@ -1,3 +1,14 @@
+# Rule 20 full-history audit authority
+
+`FULL_HISTORY_AUDIT=PASS` for the 2026-09-13 pre-patch authority. Before any future runtime patch, read in full:
+
+- `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md`;
+- `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json`;
+- `подбор авито расширение/history_audit/2026-09-13/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13_RECEIPT.json`;
+- Rule 20 in `PATCH_ENGINEERING_RULES.md`.
+
+The audit PASS closes only the historical-analysis gate. It does **not** make v1.0.38 live-accepted: v1.0.38 remains `LIVE_UNVERIFIED / installed Chrome E2E NOT_RUN`. Every future patch still requires a new exact live observation → RED regression on the exact installed target before runtime changes. Historical source gaps/mismatches in the audit must not be silently filled.
+
 # Обязательный порядок работы с Avito Finder
 
 Перед любой работой полностью прочитать:

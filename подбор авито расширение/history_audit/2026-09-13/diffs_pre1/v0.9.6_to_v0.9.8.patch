@@ -1,0 +1,553 @@
+--- v0.9.6/avito_content.js
++++ v0.9.8/avito_content.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.6 — visible UI, public listing passports, fixed command timing profiles. */
++/* Avito Finder v0.9.8 — visible public result harvest and bounded parallel listing passports. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+@@ -779,6 +779,21 @@
+     catch (_) { for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256); }
+     return `afdt-${Date.now().toString(36)}-${Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("")}`;
+   }
++  function typedValueMatchesVisibleControl(element, actualValue, expectedValue) {
++    const actual = String(actualValue || "");
++    const expected = String(expectedValue || "");
++    if (actual === expected) return true;
++    // Avito formats the visible price fields (for example, "10 000").
++    // Accept only a digit-for-digit match for these two explicit public controls;
++    // all other editable controls retain exact string confirmation.
++    const marker = String(element?.getAttribute?.("data-marker") || "");
++    if (marker === "price-from/input" || marker === "price-to/input") {
++      const actualDigits = actual.replace(/\D/gu, "");
++      const expectedDigits = expected.replace(/\D/gu, "");
++      return Boolean(expectedDigits) && actualDigits === expectedDigits;
++    }
++    return false;
++  }
+   function debuggerTargetState(token, expectedValue) {
+     const record = debuggerTypeTokens.get(String(token || ""));
+     if (!record) return { ok: false, reason: "DEBUGGER_TARGET_TOKEN_UNKNOWN" };
+@@ -791,10 +806,19 @@
+       token: record.token,
+       intact,
+       focused,
+-      expected_value_matches: typeof expectedValue === "string" ? actualValue === expectedValue : null,
++      expected_value_matches: typeof expectedValue === "string" ? typedValueMatchesVisibleControl(element, actualValue, expectedValue) : null,
+       value_length: actualValue.length,
+       target_description: record.description
+     };
++  }
++  async function waitForTypedValueConfirmation(token, expectedValue, timeoutMs = 1200) {
++    const deadline = Date.now() + Math.max(0, Math.min(Number(timeoutMs) || 0, 1200));
++    let state = debuggerTargetState(token, expectedValue);
++    while (state.ok && state.intact && state.focused && !state.expected_value_matches && Date.now() < deadline) {
++      await uiDelay(80);
++      state = debuggerTargetState(token, expectedValue);
++    }
++    return state;
+   }
+   function requestDebuggerType(request) {
+     return new Promise((resolve) => {
+@@ -920,7 +944,7 @@
+         previous_value_length: readEditableValue(element).length
+       });
+       if (!result?.ok || !result?.data?.ok) return { ok: false, reason: "debugger_failed", detail: result?.error || result?.data?.error || "CDP_INPUT_FAILED" };
+-      const state = debuggerTargetState(token, nextValue);
++      const state = await waitForTypedValueConfirmation(token, nextValue);
+       if (!state.ok || !state.intact || !state.focused) return { ok: false, reason: "debugger_focus_lost", detail: state.reason || "CDP_INPUT_FOCUS_CONFIRMATION_FAILED" };
+       if (!state.expected_value_matches) return { ok: false, reason: "debugger_value_mismatch", detail: "CDP_INPUT_VALUE_CONFIRMATION_FAILED" };
+       return {
+@@ -943,6 +967,9 @@
+       step_index: Number(index),
+       step_type: "CLICK",
+       target_description: normalizedClickDispatchTarget(target),
++      // This is derived only from the resolved, visible anchor and is used solely
++      // to validate a same-window child tab created by that click.
++      expected_navigation_path: navigationHrefForVisibleClick(target?.element),
+       page_url: location.href
+     };
+     return new Promise((resolve) => {
+@@ -1031,6 +1058,88 @@
+     return records;
+   }
+ 
++  function canonicalListingHref(href) {
++    const parsed = safeUrl(href);
++    if (!parsed || !Core.isAvitoUrl(parsed.href)) return "";
++    return `${parsed.origin}${parsed.pathname}`;
++  }
++  function loadedListingRecords(limit) {
++    const records = []; const seen = new Set();
++    for (const item of collectPublicListings(Math.max(1, Math.min(Number(limit || 120), 160)))) {
++      const key = canonicalListingHref(item.href);
++      if (!key || seen.has(key)) continue;
++      seen.add(key); records.push({ ...item, href: key });
++      if (records.length >= limit) break;
++    }
++    return records;
++  }
++  function nextResultsPage() {
++    const current = safeUrl(location.href); if (!current) return null;
++    const links = Array.from(document.querySelectorAll("a[href]")).filter(visible);
++    for (const node of links) {
++      const label = Core.normalizeText(`${textOf(node, 140)} ${node.getAttribute("aria-label") || ""} ${node.getAttribute("title") || ""}`);
++      if (!/(?:следующ|далее|впер[её]д|next)/iu.test(label)) continue;
++      const href = safeHref(node); const target = safeUrl(href);
++      if (!target || target.origin !== current.origin || target.pathname !== current.pathname || target.href === current.href) continue;
++      return { href: target.href, text: label.slice(0, 160), source: "visible_next_results_anchor" };
++    }
++    return null;
++  }
++  function waitForResultDomChange(previousCount, timeoutMs = 900) {
++    return new Promise((resolve) => {
++      let finished = false;
++      const done = () => { if (finished) return; finished = true; observer.disconnect(); clearTimeout(timer); resolve(); };
++      const observer = new MutationObserver(() => {
++        const count = visibleTitleAnchors(document).length;
++        if (count !== previousCount || document.documentElement.scrollHeight > previousCount) done();
++      });
++      observer.observe(document.documentElement, { childList: true, subtree: true });
++      const timer = setTimeout(done, Math.max(60, Math.min(Number(timeoutMs) || 900, 1100)));
++    });
++  }
++  async function bulkScanPublicResultsPage(request = {}) {
++    const limit = Math.max(1, Math.min(Number(request.limit || 120), 160));
++    const seen = new Map(); let stableBottomRounds = 0; let rounds = 0;
++    const maxRounds = Math.max(8, Math.min(Number(request.max_rounds || 60), 80));
++    while (seen.size < limit && rounds < maxRounds) {
++      for (const record of loadedListingRecords(limit)) if (!seen.has(record.href)) seen.set(record.href, record);
++      const beforeY = window.scrollY; const viewport = Math.max(260, window.innerHeight || 700);
++      const maxY = Math.max(0, document.documentElement.scrollHeight - viewport);
++      if (beforeY >= maxY - 4) { stableBottomRounds += 1; if (stableBottomRounds >= 2) break; }
++      else stableBottomRounds = 0;
++      const beforeVisibleCount = visibleTitleAnchors(document).length;
++      window.scrollBy({ top: Math.max(220, Math.floor(viewport * 0.88)), left: 0, behavior: "instant" });
++      await new Promise((resolve) => requestAnimationFrame(resolve));
++      await waitForResultDomChange(beforeVisibleCount, 700);
++      rounds += 1;
++      if (window.scrollY === beforeY && beforeY >= maxY - 4) stableBottomRounds += 1;
++    }
++    for (const record of loadedListingRecords(limit)) if (!seen.has(record.href)) seen.set(record.href, record);
++    return {
++      ok: true,
++      url: location.href,
++      listings: Array.from(seen.values()).slice(0, limit),
++      next_page: nextResultsPage(),
++      scroll_rounds: rounds,
++      source: "visible_rendered_result_cards",
++      actions_performed: "visible_scroll_and_public_dom_read_only"
++    };
++  }
++  async function waitForPublicListingSurface(timeoutMs = 4200) {
++    const deadline = Date.now() + Math.max(300, Math.min(Number(timeoutMs) || 4200, 6000));
++    let details = collectPublicListingDetails();
++    while (details.blocked_reason && Date.now() < deadline) {
++      await new Promise((resolve) => {
++        let ended = false;
++        const done = () => { if (ended) return; ended = true; observer.disconnect(); clearTimeout(timer); resolve(); };
++        const observer = new MutationObserver(done);
++        observer.observe(document.documentElement, { childList: true, subtree: true });
++        const timer = setTimeout(done, 180);
++      });
++      details = collectPublicListingDetails();
++    }
++    return details;
++  }
+   function publicText(value, limit = 1800) {
+     return Core.normalizeText(String(value || "")).replace(/(?:\+?7|8)[\s()\-]*\d{3}[\s()\-]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}/gu, "[контакт скрыт]").slice(0, limit);
+   }
+@@ -1293,7 +1402,7 @@
+   }
+   if (globalThis.__AF_TEST_EXPORTS) {
+     globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, adaptiveOptionCandidates, startVisibleMenuCapture, waitForVisibleMenu, modelVisibleMenu, publicMenuModel, menuLabelKey, pointerReachable, candidateInMenuBand, fieldStateMessage, queryKey, queryRelatedToOption, inputStateIsSettled };
+-    globalThis.__AF_TEST_EXPORTS.uiPlan = { executeUiActionPlan, recordUiClickDispatch, collectPublicListings, collectPublicListingDetails, routeContext };
++    globalThis.__AF_TEST_EXPORTS.uiPlan = { executeUiActionPlan, recordUiClickDispatch, collectPublicListings, collectPublicListingDetails, canonicalListingHref, bulkScanPublicResultsPage, waitForPublicListingSurface, routeContext, typedValueMatchesVisibleControl, waitForTypedValueConfirmation };
+   }
+   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+     try {
+@@ -1305,6 +1414,8 @@
+       if (message?.type === "AF_CONFIRM_DEBUGGER_TYPE_VALUE") { sendResponse({ ok: true, data: debuggerTargetState(message.token, String(message.expected_value || "")) }); return; }
+       if (message?.type === "AF_CONFIRM_DEBUGGER_CLICK_TARGET_VISIBLE" || message?.type === "AF_CONFIRM_DEBUGGER_OPTION_TARGET_VISIBLE") { sendResponse({ ok: true, data: debuggerClickTargetState(message.token) }); return; }
+       if (message?.type === "AF_EXECUTE_AVITO_UI_PLAN") { executeUiActionPlan(message.plan || {}).then((result) => sendResponse({ ok: true, result })).catch((error) => sendResponse({ ok: false, error: error?.message || "AVITO_UI_PLAN_FAILED" })); return true; }
++      if (message?.type === "AF_BULK_SCAN_PUBLIC_RESULTS") { bulkScanPublicResultsPage(message.request || {}).then((result) => sendResponse({ ok: true, result })).catch((error) => sendResponse({ ok: false, error: error?.message || "BULK_RESULTS_SCAN_FAILED" })); return true; }
++      if (message?.type === "AF_BULK_COLLECT_PUBLIC_LISTING_DETAILS") { waitForPublicListingSurface(message.timeout_ms || 4200).then((details) => sendResponse({ ok: true, details })).catch((error) => sendResponse({ ok: false, error: error?.message || "BULK_DETAILS_FAILED" })); return true; }
+       sendResponse({ ok: false, error: "UNKNOWN_MESSAGE" });
+     } catch (error) { sendResponse({ ok: false, error: error?.message || "AVITO_DIAGNOSTIC_FAILED" }); }
+   });
+
+--- v0.9.6/core.js
++++ v0.9.8/core.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.6 — command timing profiles; current-context core. */
++/* Avito Finder v0.9.8 — bulk public-result harvest and bounded parallel detail collection. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+   const STORAGE = Object.freeze({
+@@ -12,10 +12,11 @@
+   const VALID_MODES = new Set(["INSPECT_FILTERS", "SEARCH", "DIAGNOSE_DOM", "AVITO_UI"]);
+   // These are generic action verbs, not per-element features. Targets remain
+   // visible public controls resolved locally by marker/label/placeholder.
+-  const UI_ACTION_TYPES = new Set(["CLICK", "TYPE", "COLLECT_MENU", "SELECT_OPTION", "WAIT", "WAIT_FOR", "SNAPSHOT", "COLLECT_LISTINGS", "COLLECT_LISTING_DETAILS"]);
++  const UI_ACTION_TYPES = new Set(["CLICK", "TYPE", "COLLECT_MENU", "SELECT_OPTION", "WAIT", "WAIT_FOR", "SNAPSHOT", "COLLECT_LISTINGS", "COLLECT_LISTING_DETAILS", "BULK_PUBLIC_HARVEST"]);
+   const UI_PLAN_MAX_STEPS = 12;
+   const UI_PLAN_MAX_TYPED_TEXT = 160;
+-  const UI_PLAN_MAX_LISTINGS = 30;
++  const UI_PLAN_MAX_LISTINGS = 120;
++  const BULK_DETAIL_CONCURRENCY = 4;
+   // Command timing is deliberately a fixed allowlist, not arbitrary milliseconds.
+   // Omitted profile preserves the prior visible-control behavior.
+   const UI_TIMING_PROFILES = new Set(["CONTROL_VISIBLE", "COLLECTION_FAST"]);
+@@ -255,9 +256,11 @@
+     }
+     const collectMenu = clean.match(/^(?:собери|верни|покажи|сними)\s+(?:видим(?:ое|ый)\s+)?(?:выпадающ(?:ее|ий)\s+)?(?:меню|список|подсказк)/iu);
+     if (collectMenu) return { type: "COLLECT_MENU", source_line: clean };
++    const bulkHarvest = clean.match(/^(?:собери|получи|обработай)\s+(?:быстро\s+)?(?:публичн(?:ые|ых)?\s+)?(?:паспорта|детали|характеристики|полные\s+данные)\s+(?:всех|все)\s+(?:найденных\s+|отфильтрованных\s+)?(?:объявлен(?:ий|ия)?|карточ(?:ек|ки)?)(?:\s+(?:до|не\s+более)\s*(\d{1,3}))?/iu);
++    if (bulkHarvest) return { type: "BULK_PUBLIC_HARVEST", limit: Math.max(1, Math.min(Number(bulkHarvest[1] || UI_PLAN_MAX_LISTINGS), UI_PLAN_MAX_LISTINGS)), concurrency: BULK_DETAIL_CONCURRENCY, source_line: clean };
+     const collectDetails = clean.match(/^(?:собери|верни|покажи)\s+(?:публичн\w*\s+)?(?:паспорт|детал\w*|характеристик\w*|описани\w*)\s+(?:текущ\w*\s+)?(?:объявлен\w*|лота|карточк\w*)/iu);
+     if (collectDetails) return { type: "COLLECT_LISTING_DETAILS", source_line: clean };
+-    const collect = clean.match(/^(?:собери|верни)\s+(?:первые\s+|до\s+)?(\d{1,2})?\s*(?:объявлен|карточк|вариант)/iu);
++    const collect = clean.match(/^(?:собери|верни)\s+(?:первые\s+|до\s+)?(\d{1,3})?\s*(?:видим(?:ые|ых)\s+)?(?:объявлен|карточк|вариант)/iu);
+     if (collect) return { type: "COLLECT_LISTINGS", limit: Math.max(1, Math.min(Number(collect[1] || 10), UI_PLAN_MAX_LISTINGS)), source_line: clean };
+     if (/^(?:сними|верни|покажи)(?=\s|$|[.:;]).*(?:dom|html|сним|разметк)/iu.test(clean)) return { type: "SNAPSHOT", scope: firstScope(clean), source_line: clean };
+     const selectOption = clean.match(/^(?:выбери|выберите)(?=\s|$|[.:;])/iu);
+@@ -477,6 +480,20 @@
+       "", "Характеристики:", renderPairs(details.specifications),
+       "", "Описание продавца:", details.description || "нет данных",
+       "", "Недостающие для оценки сведения:", (details.missing_fields || []).join("; ") || "не определены"
++    ] : [];
++    const bulk = plan.bulk || null;
++    const bulkRanked = Array.isArray(bulk?.ranked) ? bulk.ranked : [];
++    const bulkSection = bulk ? [
++      "", "Массовый сбор публичных данных:",
++      `Статус: ${bulk.blocked_reason || "завершён"}`,
++      `Карточек в очереди: ${bulk.candidate_count ?? 0}`,
++      `Страниц выдачи: ${bulk.pages_visited ?? 0}`,
++      `Паспортов собрано: ${bulk.details_collected ?? 0}`,
++      `Не удалось собрать: ${bulk.details_failed ?? 0}`,
++      `Параллельных вкладок: ${bulk.concurrency ?? 0}`,
++      `Искусственные паузы: нет; ожидались только DOM/загрузка страниц.`,
++      "", "Предварительный технический порядок (не окончательная рекомендация):",
++      bulkRanked.length ? bulkRanked.map((item, index) => `${index + 1}. ${item.title || "без названия"}${item.price ? ` — ${item.price}` : ""}${item.cpu ? `; ${item.cpu}` : ""}${item.ram ? `; ОЗУ ${item.ram}` : ""}${item.storage ? `; ${item.storage}` : ""}${item.screen ? `; ${item.screen}` : ""}${item.seller ? `; ${item.seller}` : ""}${item.seller_rating ? ` (${item.seller_rating})` : ""}${item.missing_fields?.length ? `; не хватает: ${item.missing_fields.join(", ")}` : ""}`).join("\n") : "нет кандидатов с достаточными публичными данными"
+     ] : [];
+     const blockedCandidates = Array.isArray(plan.steps) ? plan.steps.filter((step) => Array.isArray(step.candidates) && step.candidates.length).map((step) => {
+       const items = step.candidates.slice(0, 8).map((candidate) => `${candidate.description || "?"}${candidate.scope ? ` [${candidate.scope}]` : ""}${candidate.kind ? ` {${candidate.kind}}` : ""}`).join(" | ");
+@@ -517,6 +534,7 @@
+       "", "Шаги:", steps || "нет данных",
+       ...(blockedCandidates ? ["", "Диагностические кандидаты заблокированных шагов:", blockedCandidates] : []),
+       "", "Карточки:", listings || "не собирались",
++      ...bulkSection,
+       ...listingPassportSection,
+       ...menuSection,
+       ...snapshotSection,
+
+--- v0.9.6/manifest.json
++++ v0.9.8/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.9.6",
+-  "version_name": "0.9.6-command-timing-profiles-tab-lifecycle-locked-test-candidate",
+-  "description": "Отдельный Avito Finder: visible-UI с фиксированными профилями темпа CONTROL_VISIBLE и COLLECTION_FAST. На явный «Ищи» переиспользует видимую Avito-вкладку в том же окне либо, когда такой вкладки нет, открывает ровно одну активную публичную https://www.avito.ru/ только для нового run. Внутри run переиспользует тот же tabId и не восстанавливает старую страницу. Без сообщений, телефона, покупки, Runtime, Network, cookies или скрытых API.",
++  "version": "0.9.8",
++  "version_name": "0.9.8-bulk-public-harvest-parallel-details-test-candidate",
++  "description": "Отдельный Avito Finder: после видимой настройки города и фильтров массово читает только публично отрисованные карточки, проходит по наблюдаемой пагинации и собирает публичные паспорта в четырёх фактических дочерних Avito-вкладках без искусственных 2-секундных пауз. Не использует Avito API, Network, Fetch, Runtime, cookies, сообщения, телефон, покупку или скрытые эндпоинты. Новые вкладки принадлежат текущему запуску и закрываются только если остаются неактивными.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.9.6/service_worker.js
++++ v0.9.8/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.6 — fixed command timing profiles; fresh-run public-root lifecycle preserved byte-for-byte. */
++/* Avito Finder v0.9.8 — bounded parallel public listing detail harvest; retained safe tab lifecycle. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -10,6 +10,10 @@
+ const AVITO_READY_TIMEOUT_MS = 30000;
+ const UI_CLICK_RECONCILE_TIMEOUT_MS = 16000;
+ const UI_CLICK_RECONCILE_DELAY_MS = 900;
++const BULK_MAX_LISTINGS = 120;
++const BULK_MAX_PAGES = 24;
++const BULK_DETAIL_CONCURRENCY = 4;
++const BULK_TAB_READY_TIMEOUT_MS = 12000;
+ // Default production pauses are deliberately visible: the user can observe an
+ // Avito tab activation, bounded snapshot moment and return transition.
+ const AVITO_VISIBLE_ACTIVATION_DELAY_MS = Number.isFinite(Number(globalThis.__AF_TEST_VISIBLE_DELAY_MS)) ? Number(globalThis.__AF_TEST_VISIBLE_DELAY_MS) : 2500;
+@@ -32,6 +36,7 @@
+ const tabsUpdate = (tabId, props) => cb((done) => chrome.tabs.update(tabId, props, done));
+ const tabsCreate = (props) => cb((done) => chrome.tabs.create(props, done));
+ const tabsSend = (tabId, message) => cb((done) => chrome.tabs.sendMessage(tabId, message, done));
++const tabsRemove = (tabId) => cb((done) => chrome.tabs.remove(tabId, done));
+ const execute = (details) => cb((done) => chrome.scripting.executeScript(details, done));
+ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+ 
+@@ -416,10 +421,12 @@
+   if (String(dispatch.step_type || "") !== "CLICK" || expectedStep?.type !== "CLICK") throw new Error("UI_CLICK_DISPATCH_STEP_MISMATCH");
+   if (!plan.plan_fingerprint || String(dispatch.plan_fingerprint || "") !== String(plan.plan_fingerprint)) throw new Error("UI_CLICK_DISPATCH_PLAN_MISMATCH");
+   if (!Core.isAvitoUrl(dispatch.page_url || "") || new URL(dispatch.page_url).origin !== new URL(current.url).origin) throw new Error("UI_CLICK_DISPATCH_PAGE_MISMATCH");
++  const expectedNavigationPath = String(dispatch.expected_navigation_path || "");
++  if (expectedNavigationPath && !expectedNavigationPath.startsWith("/")) throw new Error("UI_CLICK_DISPATCH_EXPECTED_PATH_INVALID");
+   const targetDescription = safeDispatchText(dispatch.target_description);
+   if (!targetDescription) throw new Error("UI_CLICK_DISPATCH_TARGET_REQUIRED");
+   const dispatchId = `${state.search_id}:click:${stepIndex}:${Date.now().toString(36)}`;
+-  const pending = { dispatch_id: dispatchId, step_index: stepIndex, target_description: targetDescription, tab_id: tab.id, page_url: String(dispatch.page_url).slice(0, 500), dispatched_at: new Date().toISOString() };
++  const pending = { dispatch_id: dispatchId, step_index: stepIndex, target_description: targetDescription, tab_id: tab.id, page_url: String(dispatch.page_url).slice(0, 500), expected_navigation_path: expectedNavigationPath.slice(0, 500), child_tab_ids: [], dispatched_at: new Date().toISOString() };
+   const next = await saveState({ ...state, pending_ui_click: pending, blocked_reason: null });
+   await log("AVITO_UI_CLICK_DISPATCH_RECORDED", { search_id: next.search_id, tab_id: tab.id, dispatch_id: dispatchId, step_index: stepIndex, target_description: targetDescription });
+   return { ok: true, data: { dispatch_id: dispatchId } };
+@@ -457,6 +464,122 @@
+   const response = await sendAvito(tabId, windowId, { type: "AF_EXECUTE_AVITO_UI_PLAN", plan });
+   if (!response?.ok) throw new Error(`AVITO_UI_PLAN_UNAVAILABLE:${response?.error || "unknown"}`);
+   return response.result || { ok: false, blocked_reason: "AVITO_UI_PLAN_EMPTY_RESULT", steps: [] };
++}
++function canonicalPublicListingUrl(value) {
++  try { const u = new URL(value); return Core.isAvitoUrl(u.href) ? `${u.origin}${u.pathname}` : ""; } catch (_) { return ""; }
++}
++function samePublicResultsPath(a, b) {
++  try { const left = new URL(a); const right = new URL(b); return left.origin === right.origin && left.pathname === right.pathname; } catch (_) { return false; }
++}
++async function waitForBulkTabReady(tabId, windowId, timeoutMs = BULK_TAB_READY_TIMEOUT_MS) {
++  const deadline = Date.now() + Math.max(500, Math.min(Number(timeoutMs) || BULK_TAB_READY_TIMEOUT_MS, BULK_TAB_READY_TIMEOUT_MS));
++  while (Date.now() < deadline) {
++    const tab = await getTab(tabId);
++    if (!tab) throw new Error(`BULK_TAB_MISSING:${tabId}`);
++    if (tab.windowId !== windowId || !Core.isAvitoUrl(tab.url || "")) throw new Error(`BULK_TAB_CONTEXT_INVALID:${tabId}`);
++    if (tab.status === "complete") return tab;
++    await wait(70);
++  }
++  throw new Error(`BULK_TAB_READY_TIMEOUT:${tabId}`);
++}
++async function scanBulkPublicResults(tabId, windowId, limit) {
++  const response = await sendAvito(tabId, windowId, { type: "AF_BULK_SCAN_PUBLIC_RESULTS", request: { limit, max_rounds: 60 } });
++  if (!response?.ok || !response.result?.ok) throw new Error(`BULK_RESULTS_SCAN_UNAVAILABLE:${response?.error || response?.result?.blocked_reason || "unknown"}`);
++  return response.result;
++}
++async function collectBulkPublicListingDetails(tabId) {
++  const response = await tabsSend(tabId, { type: "AF_BULK_COLLECT_PUBLIC_LISTING_DETAILS", timeout_ms: 4200 });
++  if (!response?.ok) throw new Error(`BULK_DETAILS_UNAVAILABLE:${response?.error || "unknown"}`);
++  return response.details || { blocked_reason: "BULK_DETAILS_EMPTY" };
++}
++function publicRankRecord(summary, details) {
++  const specs = Array.isArray(details?.specifications) ? details.specifications : [];
++  const specText = specs.map((x) => `${x.label || ""} ${x.value || ""}`).join(" ");
++  const text = `${details?.title || summary?.title || ""} ${specText} ${details?.description || ""}`.toLowerCase();
++  const pick = (pattern) => { const hit = specs.find((x) => pattern.test(`${x.label || ""}`)); return hit?.value || ""; };
++  const cpu = pick(/процессор/iu) || (text.match(/(?:intel\s+core\s*i[357][^,;\n]{0,45}|amd\s+ryzen\s*[357][^,;\n]{0,45})/iu)?.[0] || "");
++  const ram = pick(/оперативн.*памят/iu) || (text.match(/(?:\b(?:4|8|12|16|32)\s*(?:gb|гб)\b)/iu)?.[0] || "");
++  const storage = pick(/накопител|ssd|hdd/iu) || (text.match(/(?:\b(?:ssd|hdd)\b[^,;\n]{0,28})/iu)?.[0] || "");
++  const screen = pick(/диагональ|разрешение/iu) || (text.match(/(?:\b(?:fhd|full\s*hd|1920\s*[x×]\s*1080)\b)/iu)?.[0] || "");
++  let score = 0;
++  if (/(?:core\s*i[57].*(?:8|9|10|11|12|13)|ryzen\s*[57])/iu.test(text)) score += 20;
++  if (/(?:i3\s*[- ]?6100|celeron|atom|pentium)/iu.test(text)) score -= 18;
++  if (/\b16\s*(?:gb|гб)\b/iu.test(text)) score += 15; else if (/\b8\s*(?:gb|гб)\b/iu.test(text)) score += 8; else if (/\b4\s*(?:gb|гб)\b/iu.test(text)) score -= 10;
++  if (/\bssd\b/iu.test(text)) score += 9;
++  if (/(?:fhd|full\s*hd|1920\s*[x×]\s*1080)/iu.test(text)) score += 6;
++  if (/(?:гаранти|надежн(?:ый|ая) продавец|проверенн|5,0|5\.0)/iu.test(`${details?.seller_badges || []} ${details?.seller_rating || ""} ${details?.description || ""}`)) score += 4;
++  const missing = Array.isArray(details?.missing_fields) ? details.missing_fields : [];
++  score -= Math.min(8, missing.length * 2);
++  return { title: details?.title || summary?.title || "", href: canonicalPublicListingUrl(summary?.href || ""), price: details?.price || summary?.price || "", seller: details?.seller || summary?.seller || "", seller_rating: details?.seller_rating || "", cpu, ram, storage, screen, missing_fields: missing, preliminary_score: score };
++}
++async function closeOwnedBulkTab(tabId, parentTabId, windowId) {
++  const tab = await getTab(tabId);
++  if (!tab || tab.windowId !== windowId || Number(tab.openerTabId) !== Number(parentTabId) || tab.active) return false;
++  try { await tabsRemove(tabId); return true; } catch (_) { return false; }
++}
++async function runBulkPublicHarvest(state, parentTab, plan) {
++  const action = (plan.steps || []).find((step) => String(step?.type || "") === "BULK_PUBLIC_HARVEST") || {};
++  const limit = Math.max(1, Math.min(Number(action.limit || BULK_MAX_LISTINGS), BULK_MAX_LISTINGS));
++  const concurrency = Math.max(1, Math.min(Number(action.concurrency || BULK_DETAIL_CONCURRENCY), BULK_DETAIL_CONCURRENCY));
++  const candidates = new Map(); const visitedPages = new Set(); let pagesVisited = 0; let current = null; let scanFailure = null; let scanTab = null;
++  try {
++    scanTab = await tabsCreate({ url: parentTab.url, active: false, windowId: state.current_window_id, openerTabId: parentTab.id });
++    current = await waitForBulkTabReady(scanTab.id, state.current_window_id);
++    if (Number(current.openerTabId) !== Number(parentTab.id) || !samePublicResultsPath(parentTab.url, current.url)) throw new Error("BULK_SCAN_TAB_OWNERSHIP_OR_URL_MISMATCH");
++  } catch (error) {
++    scanFailure = `BULK_SCAN_TAB_CREATE_FAILED:${String(error?.message || error).slice(0, 140)}`;
++  }
++  while (!scanFailure && candidates.size < limit && pagesVisited < BULK_MAX_PAGES) {
++    current = await waitForBulkTabReady(current.id, state.current_window_id);
++    if (visitedPages.has(current.url)) break;
++    visitedPages.add(current.url);
++    const scan = await scanBulkPublicResults(current.id, state.current_window_id, limit - candidates.size);
++    for (const item of Array.isArray(scan.listings) ? scan.listings : []) {
++      const key = canonicalPublicListingUrl(item.href);
++      if (key && !candidates.has(key)) candidates.set(key, { ...item, href: key });
++      if (candidates.size >= limit) break;
++    }
++    pagesVisited += 1;
++    const nextHref = String(scan?.next_page?.href || "");
++    if (!nextHref || !samePublicResultsPath(current.url, nextHref) || visitedPages.has(nextHref) || candidates.size >= limit) break;
++    try { current = await tabsUpdate(current.id, { url: nextHref }); }
++    catch (error) { scanFailure = `BULK_NEXT_RESULTS_NAVIGATION_FAILED:${String(error?.message || error).slice(0, 120)}`; break; }
++  }
++  if (scanTab?.id) await closeOwnedBulkTab(scanTab.id, parentTab.id, state.current_window_id);
++  const queue = Array.from(candidates.values()).slice(0, limit); const details = []; const failed = [];
++  let cursor = 0;
++  const worker = async () => {
++    while (cursor < queue.length) {
++      const position = cursor; cursor += 1; const summary = queue[position]; let child = null;
++      try {
++        child = await tabsCreate({ url: summary.href, active: false, windowId: state.current_window_id, openerTabId: parentTab.id });
++        const ready = await waitForBulkTabReady(child.id, state.current_window_id);
++        if (Number(ready.openerTabId) !== Number(parentTab.id) || canonicalPublicListingUrl(ready.url || "") !== canonicalPublicListingUrl(summary.href)) throw new Error("BULK_CHILD_TAB_OWNERSHIP_OR_URL_MISMATCH");
++        const detail = await collectBulkPublicListingDetails(ready.id);
++        if (detail?.blocked_reason) failed.push({ href: summary.href, title: summary.title || "", reason: detail.blocked_reason });
++        else details.push({ summary, details: detail });
++      } catch (error) {
++        failed.push({ href: summary.href, title: summary.title || "", reason: String(error?.message || error).slice(0, 180) });
++      } finally {
++        if (child?.id) await closeOwnedBulkTab(child.id, parentTab.id, state.current_window_id);
++      }
++    }
++  };
++  await Promise.all(Array.from({ length: Math.min(concurrency, Math.max(1, queue.length)) }, worker));
++  const ranked = details.map(({ summary, details: data }) => publicRankRecord(summary, data)).sort((a,b) => b.preliminary_score - a.preliminary_score || a.title.localeCompare(b.title, "ru")).slice(0, 25);
++  return {
++    ok: !scanFailure,
++    url: parentTab.url || null,
++    plan_fingerprint: plan.plan_fingerprint || "",
++    steps: [
++      { index: 1, type: "BULK_PUBLIC_HARVEST", status: "completed", count: queue.length, text: `pages=${pagesVisited}; parallel=${concurrency}` },
++      { index: 2, type: "BULK_COLLECT_LISTING_DETAILS", status: failed.length ? "completed_with_failures" : "completed", count: details.length, text: failed.length ? `failed=${failed.length}` : "" }
++    ],
++    listings: queue.slice(0, 30),
++    bulk: { candidate_count: queue.length, pages_visited: pagesVisited, details_collected: details.length, details_failed: failed.length, concurrency, ranked, failed: failed.slice(0, 25), blocked_reason: scanFailure || null },
++    listing_details: null,
++    blocked_reason: scanFailure || null
++  };
+ }
+ 
+ async function deliverReportToPinnedChat(state, report, reportKind) {
+@@ -544,6 +667,53 @@
+   const pending = state?.pending_ui_click || null;
+   return Boolean(pending && pending.tab_id === tabId && Number.isInteger(Number(pending.step_index)) && pending.dispatch_id);
+ }
++function expectedNavigationPathMatches(candidateUrl, expectedPath) {
++  if (!candidateUrl || !expectedPath) return false;
++  try {
++    const candidate = new URL(candidateUrl);
++    const expected = new URL(expectedPath, "https://www.avito.ru/");
++    // Avito may rewrite opaque context query values. The public pathname includes
++    // the actual listing identity, so require same origin plus exact pathname.
++    return candidate.origin === "https://www.avito.ru" && expected.origin === "https://www.avito.ru" && candidate.pathname === expected.pathname;
++  } catch (_) { return false; }
++}
++function pendingChildTabIds(state) {
++  const ids = Array.isArray(state?.pending_ui_click?.child_tab_ids) ? state.pending_ui_click.child_tab_ids : [];
++  return ids.filter((id) => Number.isInteger(id));
++}
++function isPendingUiClickChildTab(state, tab) {
++  const pending = state?.pending_ui_click || null;
++  if (!pending || !tab?.id || tab.windowId !== state.current_window_id) return false;
++  if (!pendingChildTabIds(state).includes(tab.id)) return false;
++  return Number(tab.openerTabId) === Number(pending.tab_id);
++}
++async function rememberPendingUiClickChildTab(tab, source) {
++  const state = await getState();
++  const pending = state?.pending_ui_click || null;
++  const allowedState = state.status === "AVITO_TAB_ACTIVE" || state.status === "WAITING_FOR_UI_CLICK_RECONCILIATION";
++  if (!allowedState || !pending || !tab?.id || tab.windowId !== state.current_window_id) return false;
++  if (Number(tab.openerTabId) !== Number(pending.tab_id)) return false;
++  const known = pendingChildTabIds(state);
++  if (known.includes(tab.id)) return true;
++  const childTabIds = [...known, tab.id].slice(-8);
++  await saveState({ ...state, pending_ui_click: { ...pending, child_tab_ids: childTabIds, child_tab_observed_at: new Date().toISOString() } });
++  await log("AVITO_UI_CHILD_TAB_CAPTURED", { search_id: state.search_id, source, source_tab_id: pending.tab_id, child_tab_id: tab.id, child_opener_tab_id: tab.openerTabId ?? null, child_url: tab.url || tab.pendingUrl || null });
++  return true;
++}
++async function choosePendingUiClickNavigationTab(state) {
++  const pending = state?.pending_ui_click || {};
++  const sourceTab = await getTab(pending.tab_id);
++  if (isAvitoPageReady(sourceTab, state.current_window_id) && String(sourceTab.url || "") !== String(pending.page_url || "") && (!pending.expected_navigation_path || expectedNavigationPathMatches(sourceTab.url, pending.expected_navigation_path))) {
++    return { tab: sourceTab, source: "same_tab_navigation" };
++  }
++  for (const childTabId of pendingChildTabIds(state)) {
++    const child = await getTab(childTabId);
++    if (!isPendingUiClickChildTab(state, child) || !isAvitoPageReady(child, state.current_window_id)) continue;
++    if (!expectedNavigationPathMatches(child.url, pending.expected_navigation_path)) continue;
++    return { tab: child, source: "visible_child_tab" };
++  }
++  return null;
++}
+ async function finishUiClickReconciliationFailure(state, reason) {
+   clearUiClickReconcileDeadline(state.search_id);
+   const terminal = await saveState({ ...state, status: "UI_CLICK_RECONCILIATION_REPORT_READY", phase: "AVITO_UI_CLICK_HANDOFF", blocked_reason: reason, pending_ui_click: { ...(state.pending_ui_click || {}), reconciliation: "unconfirmed" } });
+@@ -556,16 +726,17 @@
+   await deliverReportToPinnedChat(ready, report, "ui_action_plan");
+ }
+ async function completeUiClickReconciliation(state, readyTab, source) {
+-  if (state.status !== "WAITING_FOR_UI_CLICK_RECONCILIATION" || !pendingUiClickMatches(state, readyTab.id)) return;
++  if (state.status !== "WAITING_FOR_UI_CLICK_RECONCILIATION") return;
++  const pending = state.pending_ui_click || {};
++  const isSourceTab = pendingUiClickMatches(state, readyTab.id);
++  const isChildTab = isPendingUiClickChildTab(state, readyTab);
++  if (!isSourceTab && !isChildTab) return;
++  if (!isAvitoPageReady(readyTab, state.current_window_id)) return;
++  if (!pending.expected_navigation_path || !expectedNavigationPathMatches(readyTab.url, pending.expected_navigation_path)) return;
+   clearUiClickReconcileDeadline(state.search_id);
+-  const pending = state.pending_ui_click || {};
+-  if (String(readyTab.url || "") === String(pending.page_url || "")) {
+-    await finishUiClickReconciliationFailure(state, `UI_CLICK_NAVIGATION_UNCONFIRMED:${readyTab.id}`);
+-    return;
+-  }
+-  const active = await activate(readyTab, "avito_ui_post_click_reconciliation");
++  const active = readyTab.active ? readyTab : await activate(readyTab, "avito_ui_post_click_reconciliation");
+   const verified = await requireReadyAvitoTarget(active.id, state.current_window_id);
+-  let working = await saveState({ ...state, status: "AVITO_TAB_ACTIVE", phase: "AVITO_UI_POST_CLICK_RECONCILIATION", avito_tab_id: verified.id, blocked_reason: null, pending_ui_click: { ...pending, reconciliation: "resuming" } });
++  let working = await saveState({ ...state, status: "AVITO_TAB_ACTIVE", phase: "AVITO_UI_POST_CLICK_RECONCILIATION", avito_tab_id: verified.id, avito_target_binding_source: isChildTab ? "visible_child_tab" : (state.avito_target_binding_source || "current_run"), blocked_reason: null, pending_ui_click: { ...pending, reconciliation: "resuming", reconciled_tab_id: verified.id, reconciliation_source: source } });
+   const plan = working.ui_action_plan || { steps: [] };
+   const clickIndex = Number(pending.step_index || 0);
+   const remainingSteps = Array.isArray(plan.steps) ? plan.steps.slice(Math.max(0, clickIndex)) : [];
+@@ -615,11 +786,11 @@
+   const state = await getState();
+   if (state.status !== "WAITING_FOR_UI_CLICK_RECONCILIATION" || !state.avito_tab_id || !pendingUiClickMatches(state, state.avito_tab_id)) return;
+   const deadline = Date.parse(state.ui_click_reconcile_deadline_at || "");
+-  const tab = await getTab(state.avito_tab_id);
+-  if (!tab) { await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_TAB_MISSING:${state.avito_tab_id}`); return; }
+-  if (tab.windowId !== state.current_window_id) { await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_TAB_WINDOW_MISMATCH:${state.avito_tab_id}`); return; }
+-  const pending = state.pending_ui_click || {};
+-  if (isAvitoPageReady(tab, state.current_window_id) && String(tab.url || "") !== String(pending.page_url || "")) { await completeUiClickReconciliation(state, tab, "reconcile"); return; }
++  const sourceTab = await getTab(state.avito_tab_id);
++  if (!sourceTab) { await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_TAB_MISSING:${state.avito_tab_id}`); return; }
++  if (sourceTab.windowId !== state.current_window_id) { await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_TAB_WINDOW_MISMATCH:${state.avito_tab_id}`); return; }
++  const target = await choosePendingUiClickNavigationTab(state);
++  if (target?.tab) { await completeUiClickReconciliation(state, target.tab, target.source); return; }
+   if (Number.isFinite(deadline) && Date.now() >= deadline) { await finishUiClickReconciliationFailure(state, `UI_CLICK_NAVIGATION_UNCONFIRMED:${state.avito_tab_id}`); return; }
+   scheduleUiClickReconcile(state);
+ }
+@@ -669,7 +840,11 @@
+     await log("AVITO_UI_PLAN_REQUESTED", { search_id: working.search_id, tab_id: verified.id, plan_fingerprint: plan.plan_fingerprint || null, step_count: Array.isArray(plan.steps) ? plan.steps.length : 0 });
+     let result;
+     try {
+-      result = await executeAvitoUiActionPlan(verified.id, working.current_window_id, plan);
++      const hasBulk = Array.isArray(plan.steps) && plan.steps.some((step) => String(step?.type || "") === "BULK_PUBLIC_HARVEST");
++      if (hasBulk) {
++        if (plan.steps.length !== 1) throw new Error("BULK_PLAN_MUST_CONTAIN_EXACTLY_ONE_BULK_ACTION");
++        result = await runBulkPublicHarvest(working, verified, plan);
++      } else result = await executeAvitoUiActionPlan(verified.id, working.current_window_id, plan);
+     } catch (error) {
+       if (asyncResponseChannelClosed(error) && await startUiClickReconciliation(working, verified.id, error)) return;
+       throw error;
+@@ -979,11 +1154,16 @@
+ 
+ if (globalThis.__AF_TEST_EXPORTS) {
+   globalThis.__AF_TEST_EXPORTS.debuggerInput = { DEBUGGER_ALLOWED_METHODS, validDebuggerBounds, validDebuggerText, validDebuggerOptionText, debuggerSend, inputMouseFocus, inputClearExistingValue, typeVisibleAvitoTargetWithDebugger, clickVisibleTargetWithDebugger, clickVisibleOptionWithDebugger };
+-  globalThis.__AF_TEST_EXPORTS.uiClickHandoff = { asyncResponseChannelClosed, pendingUiClickMatches };
++  globalThis.__AF_TEST_EXPORTS.uiClickHandoff = { asyncResponseChannelClosed, pendingUiClickMatches, expectedNavigationPathMatches, pendingChildTabIds, isPendingUiClickChildTab };
+   globalThis.__AF_TEST_EXPORTS.targetBinding = { ensureAvitoTarget, selectVisibleAvitoTab };
+ }
+ chrome.runtime.onInstalled.addListener(async () => { const current = await getState(); await saveState(current); await log("EXTENSION_INSTALLED_OR_UPDATED", { version: chrome.runtime.getManifest().version }); });
+-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => { (async () => {
++chrome.tabs.onCreated.addListener((tab) => { (async () => {
++  const accepted = await rememberPendingUiClickChildTab(tab, "tabs.onCreated");
++  if (accepted) reconcilePendingUiClickHandoff().catch(() => {});
++})().catch(() => {}); });
++chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => { (async () => {
++  if (tab) await rememberPendingUiClickChildTab(tab, "tabs.onUpdated");
+   reconcilePendingAvitoReadiness().catch(async (error) => { const state = await getState(); if (state.status === "WAITING_FOR_AVITO_PAGE_READY") await blockAvitoPageReady(state, `AVITO_READY_EVENT_FAILED:${String(error?.message || error)}`); });
+   reconcilePendingUiClickHandoff().catch(async (error) => { const state = await getState(); if (state.status === "WAITING_FOR_UI_CLICK_RECONCILIATION") await finishUiClickReconciliationFailure(state, `UI_CLICK_RECONCILIATION_EVENT_FAILED:${String(error?.message || error)}`); });
+   if (changeInfo.status === "complete") setTimeout(() => { observeManualContextChange(tabId, "VISIBLE_AVITO_CONTEXT_CHANGED").catch(() => {}); }, 450);
+

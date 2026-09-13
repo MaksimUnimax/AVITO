@@ -1,0 +1,223 @@
+--- v0.9.14/avito_content.js
++++ v0.9.15/avito_content.js
+@@ -1060,6 +1060,8 @@
+   }
+   function collectPublicListings(limit) {
+     const records = []; const seen = new Set();
++    const bounded = Number.isFinite(Number(limit));
++    const max = bounded ? Math.max(1, Number(limit)) : Number.POSITIVE_INFINITY;
+     const titleAnchors = visibleTitleAnchors(document);
+     for (const titleAnchor of titleAnchors) {
+       const href = safeHref(titleAnchor);
+@@ -1081,7 +1083,7 @@
+         card_bound: true
+       });
+       seen.add(href);
+-      if (records.length >= limit) break;
++      if (records.length >= max) break;
+     }
+     return records;
+   }
+@@ -1156,25 +1158,27 @@
+     if (blocked) return { ok: false, blocked_reason: blocked, total_result_count: null, listings: [], visible_filters: visibleFilterLabels() };
+     const cap = Math.max(1, Math.min(Number(request.limit || 30), 30));
+     const mode = String(request.mode || "discovery").toLowerCase();
++    const allForQueue = mode === "queue_all";
+     const headingTotal = filteredResultTotalCount();
+     const filters = visibleFilterLabels();
+     const beforeY = window.scrollY;
+     let scanned;
+     try {
+-      const readLimit = mode === "queue" ? cap : cap + 1;
+-      scanned = await scanVisibleResultsPage({ limit: readLimit, max_rounds: Math.max(12, Math.min(40, readLimit * 2 + 6)) });
++      const readLimit = allForQueue ? "all" : (mode === "queue" ? cap : cap + 1);
++      scanned = await scanVisibleResultsPage({ limit: readLimit, all: allForQueue });
+     } finally {
+       window.scrollTo({ top: beforeY, left: 0, behavior: "instant" });
+     }
+-    if (mode === "queue") {
+-      const listings = Array.isArray(scanned?.listings) ? scanned.listings.slice(0, cap) : [];
++    if (mode === "queue" || allForQueue) {
++      const scannedListings = Array.isArray(scanned?.listings) ? scanned.listings : [];
++      const listings = allForQueue ? scannedListings : scannedListings.slice(0, cap);
+       const exact = Number.isInteger(headingTotal) ? true : (scanned?.reached_end === true && scanned?.has_next_page !== true);
+       const total = Number.isInteger(headingTotal) ? headingTotal : (exact ? listings.length : null);
+       return {
+         ok: true, queue_ready: listings.length > 0, total_result_count: total,
+         total_result_count_exact: exact, discovered_count: listings.length,
+-        listings, visible_filters: filters, source: "current_visible_avito_order",
+-        scroll_rounds: Number(scanned?.scroll_rounds || 0),
++        listings, visible_filters: filters, source: allForQueue ? "full_visible_result_stream" : "current_visible_avito_order",
++        scroll_rounds: Number(scanned?.scroll_rounds || 0), has_next_page: Boolean(scanned?.has_next_page),
+         actions_performed: "visible_result_scroll_and_public_dom_read_only"
+       };
+     }
+@@ -1193,11 +1197,13 @@
+   }
+   function loadedListingRecords(limit) {
+     const records = []; const seen = new Set();
+-    for (const item of collectPublicListings(Math.max(1, Math.min(Number(limit || 120), 160)))) {
++    const bounded = Number.isFinite(Number(limit));
++    const max = bounded ? Math.max(1, Number(limit)) : Number.POSITIVE_INFINITY;
++    for (const item of collectPublicListings(max)) {
+       const key = canonicalListingHref(item.href);
+       if (!key || seen.has(key)) continue;
+       seen.add(key); records.push({ ...item, href: key });
+-      if (records.length >= limit) break;
++      if (records.length >= max) break;
+     }
+     return records;
+   }
+@@ -1226,10 +1232,14 @@
+     });
+   }
+   async function scanVisibleResultsPage(request = {}) {
+-    const limit = Math.max(1, Math.min(Number(request.limit || 120), 160));
++    const scanAll = request?.all === true || String(request?.limit || "").toLowerCase() === "all";
++    const requested = Number(request?.limit);
++    const limit = scanAll ? Number.POSITIVE_INFINITY : Math.max(1, Math.min(Number.isFinite(requested) ? requested : 120, 160));
+     const seen = new Map(); let stableBottomRounds = 0; let rounds = 0; let reachedEnd = false;
+-    const maxRounds = Math.max(8, Math.min(Number(request.max_rounds || 60), 80));
+-    while (seen.size < limit && rounds < maxRounds) {
++    // No result-count barrier. In full-inventory mode this loop ends only when
++    // the public result stream reaches its actual visible end; it never opens a
++    // listing or follows a hidden endpoint.
++    while (seen.size < limit) {
+       for (const record of loadedListingRecords(limit)) if (!seen.has(record.href)) seen.set(record.href, record);
+       const beforeY = window.scrollY; const viewport = Math.max(260, window.innerHeight || 700);
+       const maxY = Math.max(0, document.documentElement.scrollHeight - viewport);
+@@ -1249,11 +1259,11 @@
+     return {
+       ok: true,
+       url: location.href,
+-      listings: Array.from(seen.values()).slice(0, limit),
++      listings: Array.from(seen.values()).slice(0, Number.isFinite(limit) ? limit : undefined),
+       next_page: next,
+       has_next_page: Boolean(next),
+       reached_end: reachedEnd,
+-      stopped_at_limit: seen.size >= limit,
++      stopped_at_limit: Number.isFinite(limit) && seen.size >= limit,
+       scroll_rounds: rounds,
+       source: "visible_rendered_result_cards",
+       actions_performed: "visible_scroll_and_public_dom_read_only"
+
+--- v0.9.14/core.js
++++ v0.9.15/core.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.14 — discovery report, explicit sort selection, and capped detail queue. */
++/* Avito Finder v0.9.15 — search-card signals are ranked before sequential detail reading. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+   const STORAGE = Object.freeze({
+@@ -238,7 +238,15 @@
+     return source.split("\n").map((line) => line.replace(/^\s*(?:\d+[.)]|[-•])\s*/u, "").trim()).filter(Boolean);
+   }
+   function planLineForbidden(line) {
+-    return /(?:написать|сообщени|чат\b|продавц|позвон|звонок|купить|оплат|заказ|корзин|оформить\s+достав|брон)/iu.test(String(line || ""));
++    return /(?:написать|сообщени|чат\b|позвон|звонок|купить|оплат|заказ|корзин|оформить\s+достав|брон)/iu.test(String(line || ""));
++  }
++  function queueSortStrategy(line) {
++    const value = String(line || "").toLowerCase();
++    if (/(?:рейтинг\w*\s+продавц|продавц\w*\s+рейтинг|отзыв)/iu.test(value)) return "seller_rating_reviews_desc";
++    if (/(?:срок\w*\s+доставк|быстр\w*\s+доставк|доставк\w*\s+быстр)/iu.test(value)) return "delivery_fastest";
++    if (/(?:цен\w*\s+(?:по\s+)?возрастан|сначала\s+дешев|дешев\w*\s+сначала)/iu.test(value)) return "price_asc";
++    if (/(?:coreldraw|корел|характеристик\w*\s+ноутбук|локальн\w*\s+рейтинг)/iu.test(value)) return "coreldraw_visible_card_score_desc";
++    return "current_avito_order";
+   }
+   function parseGenericStep(line) {
+     const clean = String(line || "").trim();
+@@ -257,8 +265,8 @@
+     }
+     const collectMenu = clean.match(/^(?:собери|верни|покажи|сними)\s+(?:видим(?:ое|ый)\s+)?(?:выпадающ(?:ее|ий)\s+)?(?:меню|список|подсказк)/iu);
+     if (collectMenu) return { type: "COLLECT_MENU", source_line: clean };
+-    const queuePrepare = clean.match(/^(?:сформируй|подготовь|отбери|выдай)\s+(?:очередь|список)\s+(?:из\s+)?(?:первых\s+)?(\d{1,2})\s+(?:отфильтрован(?:ных|ные)\s+)?(?:объявлен(?:ий|ия)?|карточ(?:ек|ки)?)(?:\s+по\s+(?:текущей\s+)?(?:сортировке|выбранному\s+порядку))?/iu);
+-    if (queuePrepare) return { type: "PREPARE_FILTERED_CANDIDATE_QUEUE", limit: Math.max(1, Math.min(Number(queuePrepare[1] || FILTERED_REVIEW_MAX_CANDIDATES), FILTERED_REVIEW_MAX_CANDIDATES)), source_line: clean };
++    const queuePrepare = clean.match(/^(?:сформируй|подготовь|отбери|выдай)\s+(?:очередь|список)\s+(?:из\s+)?(?:первых\s+)?(\d{1,2})\s+(?:отфильтрован(?:ных|ные)\s+)?(?:объявлен(?:ий|ия)?|карточ(?:ек|ки)?)/iu);
++    if (queuePrepare) return { type: "PREPARE_FILTERED_CANDIDATE_QUEUE", limit: Math.max(1, Math.min(Number(queuePrepare[1] || FILTERED_REVIEW_MAX_CANDIDATES), FILTERED_REVIEW_MAX_CANDIDATES)), sort_strategy: queueSortStrategy(clean), source_line: clean };
+     const preparedStart = clean.match(/^(?:начни|запусти)\s+(?:(?:поочер[её]дн[\p{L}]*|последовательн[\p{L}]*)\s+)?(?:проверку|чтение|сбор|обзор)\s+(?:подготовлен(?:ной|ную)\s+)?(?:очеред(?:и|ь)|списк(?:а|ок))(?:\s+(?:пакет(?:ом)?|за\s+раз)\s*(\d{1,2}))?/iu);
+     if (preparedStart) return { type: "START_PREPARED_FILTERED_QUEUE", batch: Math.max(1, Math.min(Number(preparedStart[1] || FILTERED_REVIEW_DEFAULT_BATCH), FILTERED_REVIEW_DEFAULT_BATCH)), source_line: clean };
+     const sequentialStart = clean.match(/^(?:собери|начни|запусти)\s+(?:(?:поочер[её]дн[\p{L}]*|последовательн[\p{L}]*)\s+)?(?:проверку|сбор|обзор)\s+(?:только\s+)?(?:текущих\s+)?(?:отфильтрован(?:ных|ные)\s+)?(?:объявлен(?:ий|ия)?|карточ(?:ек|ки)?)(?:\s+(?:до|не\s+более)\s*(\d{1,2}))?(?:\s+(?:пакет(?:ом)?|за\s+раз)\s*(\d{1,2}))?/iu);
+@@ -472,7 +480,7 @@
+       const detail = [step.target_description || "", step.blocked_reason || "", step.text || "", step.count !== undefined ? `count=${step.count}` : ""].filter(Boolean).join("; ");
+       return `${step.index}. ${step.type || "?"}: ${step.status || "?"}${detail ? ` — ${detail}` : ""}`;
+     }).join("\n") : "";
+-    const listings = Array.isArray(plan.listings) ? plan.listings.map((item, index) => `${index + 1}. ${item.title || "без названия"}${item.price ? ` — ${item.price}` : ""}${item.location ? ` — ${item.location}` : ""}${item.seller ? ` — ${item.seller}` : ""}${item.card_bound ? " {card-bound}" : ""}${item.href ? ` — ${item.href}` : ""}`).join("\n") : "";
++    const listings = Array.isArray(plan.listings) ? plan.listings.map((item, index) => `${index + 1}. ${item.title || "без названия"}${item.price ? ` — ${item.price}` : ""}${item.location ? ` — ${item.location}` : ""}${item.seller ? ` — ${item.seller}` : ""}${item.seller_rating ? `; рейтинг/отзывы: ${item.seller_rating}` : ""}${Array.isArray(item.seller_badges) && item.seller_badges.length ? `; признаки продавца: ${item.seller_badges.join(", ")}` : ""}${item.delivery ? `; доставка: ${item.delivery}` : ""}${item.card_bound ? " {card-bound}" : ""}${item.href ? ` — ${item.href}` : ""}`).join("\n") : "";
+     const details = plan.listing_details || null;
+     const renderPairs = (pairs) => Array.isArray(pairs) && pairs.length ? pairs.map((item) => `- ${item.label || "?"}: ${item.value || "?"}`).join("\n") : "нет данных";
+     const listingPassportSection = details ? [
+
+--- v0.9.14/manifest.json
++++ v0.9.15/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.9.14",
+-  "version_name": "0.9.14-sort-selection-before-queue-test-candidate",
+-  "description": "Отдельный Avito Finder: число найденных объявлений не является запретом. Перед деталями расширение только сообщает точное число либо нижнюю границу «31 или больше» и ждёт выбранную стратегию сортировки. Затем формирует очередь максимум из 30 карточек в выбранном порядке; только отдельная команда запускает последовательное чтение одной карточки за раз. CAPTCHA не решает и не обходит; при ней сохраняет checkpoint. Не использует Avito API, Network, Fetch, Runtime, cookies, сообщения, телефон, покупку или скрытые эндпоинты.",
++  "version": "0.9.15",
++  "version_name": "0.9.15-search-card-ranking-before-details-test-candidate",
++  "description": "Отдельный Avito Finder: публичные поля карточек поиска (цена, продавец, рейтинг, отзывы, бейджи, доставка и краткое описание) собираются до открытия объявлений. Число результатов не блокирует работу; пользователь выбирает порядок, затем формируется очередь до 30 карточек и детали читаются строго по одной. CAPTCHA не решается и не обходится.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.9.14/service_worker.js
++++ v0.9.15/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.14 — discovery report, explicit queue preparation, then sequential review. */
++/* Avito Finder v0.9.15 — rank public search-card signals before sequential detail review. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -528,6 +528,24 @@
+   return response.result.details || { blocked_reason: "SEQUENTIAL_LISTING_DETAILS_EMPTY" };
+ }
+ function reviewNumber(text) { const m = String(text || "").replace(/\s+/g, " ").match(/\b(\d{1,6})\b/); return m ? Number(m[1]) : null; }
++function sellerRatingParts(text) {
++  const match = String(text || "").replace(/\s+/g, " ").match(/(\d(?:[,.]\d)?)\s*(?:·|•)?\s*(\d{1,6})\s*отзыв/iu);
++  return { rating: match ? Number(String(match[1]).replace(",", ".")) : 0, reviews: match ? Number(match[2]) : 0 };
++}
++function priceNumber(text) { const value = String(text || "").replace(/[^\d]/g, ""); return value ? Number(value) : Number.POSITIVE_INFINITY; }
++function deliveryDays(text) { const value = String(text || "").toLowerCase(); if (/(?:сегодня|за\s*0\s*дн)/iu.test(value)) return 0; const match = value.match(/(?:от\s*)?(\d{1,2})\s*(?:дн|дня|день|дней)/iu); return match ? Number(match[1]) : Number.POSITIVE_INFINITY; }
++function sortPublicCandidates(rows, strategy) {
++  const items = Array.isArray(rows) ? rows.slice() : [];
++  const mode = String(strategy || "current_avito_order");
++  if (mode === "seller_rating_reviews_desc") return items.sort((a, b) => {
++    const ar = sellerRatingParts(a?.seller_rating), br = sellerRatingParts(b?.seller_rating);
++    return br.rating - ar.rating || br.reviews - ar.reviews || priceNumber(a?.price) - priceNumber(b?.price);
++  });
++  if (mode === "delivery_fastest") return items.sort((a, b) => deliveryDays(a?.delivery) - deliveryDays(b?.delivery) || priceNumber(a?.price) - priceNumber(b?.price));
++  if (mode === "price_asc") return items.sort((a, b) => priceNumber(a?.price) - priceNumber(b?.price));
++  if (mode === "coreldraw_visible_card_score_desc") return items.sort((a, b) => rankFilteredSummary(b).preliminary_score - rankFilteredSummary(a).preliminary_score || priceNumber(a?.price) - priceNumber(b?.price));
++  return items;
++}
+ function scoreReviewText(text) {
+   const value = String(text || "").toLowerCase(); let score = 0;
+   if (/(?:core\s*i[57].*(?:8|9|10|11|12|13)|ryzen\s*[357])/iu.test(value)) score += 22;
+@@ -697,15 +715,19 @@
+   if (isPrepare) {
+     if (!checkpoint) throw new Error("FILTERED_QUEUE_PREPARATION_REQUIRES_DISCOVERY");
+     await assertSequentialParent(state, parentTab);
+-    const inventory = await readFilteredCandidateInventory(parentTab.id, parentTab.windowId, queueCap, "queue");
+-    const candidates = (inventory.listings || []).map((item) => ({ ...item, href: canonicalPublicListingUrl(item.href) })).filter((item) => item.href).slice(0, queueCap);
++    const strategy = String(action.sort_strategy || "current_avito_order");
++    const inventory = await readFilteredCandidateInventory(parentTab.id, parentTab.windowId, queueCap, "queue_all");
++    const candidates = sortPublicCandidates((inventory.listings || []).map((item) => ({ ...item, href: canonicalPublicListingUrl(item.href) })).filter((item) => item.href), strategy).slice(0, queueCap);
+     checkpoint = {
+       ...checkpoint, parent_url: parentTab.url || checkpoint.parent_url || "", candidate_limit: queueCap, candidates,
++      total_result_count: inventory.total_result_count ?? checkpoint.total_result_count ?? null,
++      total_result_count_exact: inventory.total_result_count_exact !== false,
++      discovery_count: inventory.discovered_count ?? checkpoint.discovery_count ?? 0,
+       cursor: 0, batch_size: batchSize, details: [], failed: [], cards_closed: 0, captcha: null,
+-      sort_strategy: "current_avito_order", status: candidates.length ? "queued_waiting_for_start" : "queue_empty", blocked_reason: candidates.length ? null : "FILTERED_CANDIDATE_QUEUE_EMPTY"
++      sort_strategy: strategy, status: candidates.length ? "queued_waiting_for_start" : "queue_empty", blocked_reason: candidates.length ? null : "FILTERED_CANDIDATE_QUEUE_EMPTY"
+     };
+     await persistSequentialCheckpoint(state, checkpoint);
+-    await log("FILTERED_CANDIDATE_QUEUE_PREPARED", { search_id: state.search_id, candidate_count: candidates.length, queue_cap: queueCap, strategy: checkpoint.sort_strategy, source: inventory.source || null });
++    await log("FILTERED_CANDIDATE_QUEUE_PREPARED", { search_id: state.search_id, candidate_count: candidates.length, discovered_count: checkpoint.discovery_count, queue_cap: queueCap, strategy: checkpoint.sort_strategy, source: inventory.source || null, has_next_page: Boolean(inventory.has_next_page) });
+     const review = compactSequentialCheckpoint(checkpoint);
+     return {
+       ok: candidates.length > 0, url: parentTab.url || null, plan_fingerprint: plan.plan_fingerprint || "",
+

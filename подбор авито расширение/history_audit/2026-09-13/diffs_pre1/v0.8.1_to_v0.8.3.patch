@@ -1,0 +1,263 @@
+--- v0.8.1/avito_content.js
++++ v0.8.3/avito_content.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.8.1 — run-owned target lifecycle plus bounded visible filter discovery. */
++/* Avito Finder v0.8.3 — read-only public listing passports. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+@@ -912,25 +912,144 @@
+       }
+     });
+   }
++  function visibleTitleAnchors(root) {
++    return Array.from(root.querySelectorAll("a[data-marker='item-title']")).filter((node) => visible(node) && Boolean(safeHref(node)));
++  }
++  function cardForListingTitle(titleAnchor) {
++    let node = titleAnchor instanceof Element ? titleAnchor.parentElement : null;
++    let fallback = null;
++    while (node && node !== document.body && node !== document.documentElement) {
++      if (visible(node)) {
++        const titles = visibleTitleAnchors(node);
++        if (titles.length === 1 && titles[0] === titleAnchor) {
++          const body = textOf(node, 1400);
++          const hasPrice = /(?:\d[\d\s]{1,12})\s*₽/u.test(body);
++          const hasCardSignal = Boolean(node.querySelector("a[data-marker='item-photo-sliderLink'],a[data-marker='messenger-button/link'],button[data-marker*='item-phone'],[data-marker*='seller']"));
++          if (!fallback && (hasPrice || hasCardSignal)) fallback = node;
++          if (hasPrice && hasCardSignal) return node;
++        }
++      }
++      node = node.parentElement;
++    }
++    return fallback;
++  }
++  function priceInListingCard(card) {
++    const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
++    let node = walker.nextNode();
++    while (node) {
++      const raw = Core.normalizeText(node.nodeValue || "");
++      const matches = Array.from(raw.matchAll(/(?:^|[^\d])((?:\d{1,3}(?:[\s\u00a0]\d{3})+|\d{1,6})\s*₽)/gu));
++      if (matches.length) return String(matches[0][1] || "").replace(/\s+/g, " ").trim();
++      node = walker.nextNode();
++    }
++    return "";
++  }
++  function sellerInListingCard(card) {
++    const candidate = Array.from(card.querySelectorAll("a[href*='/user/'],a[data-marker*='seller']"))
++      .find((node) => visible(node) && !/^(?:написать|показать телефон)$/iu.test(textOf(node, 180)));
++    return candidate ? textOf(candidate, 180) : "";
++  }
++  function locationInListingCard(card) {
++    const lines = textOf(card, 1400).split(/\n+/u).map((value) => Core.normalizeText(value)).filter(Boolean);
++    return lines.find((value) => /(?:область|край|республика|район|округ|\bг\.?\s*[А-ЯЁ])/iu.test(value)) || "";
++  }
+   function collectPublicListings(limit) {
+     const records = []; const seen = new Set();
+-    const anchors = Array.from(document.querySelectorAll("a[href]")).filter(visible);
+-    for (const anchor of anchors) {
+-      const href = safeHref(anchor);
++    const titleAnchors = visibleTitleAnchors(document);
++    for (const titleAnchor of titleAnchors) {
++      const href = safeHref(titleAnchor);
+       if (!href || seen.has(href)) continue;
+-      const card = anchor.closest("[data-marker*='item'],[data-marker*='catalog'],article,li");
++      const card = cardForListingTitle(titleAnchor);
+       if (!card || !visible(card)) continue;
+-      const title = textOf(anchor, 240) || textOf(card, 240);
+-      if (!title || /(?:продать|разместить|войти|сообщени|продавц)/iu.test(title)) continue;
+-      const body = textOf(card, 900);
+-      const price = (body.match(/(?:\d[\d\s]{1,12})\s*₽/u) || [""])[0].replace(/\s+/g, " ");
+-      records.push({ title, price, location: "", href }); seen.add(href);
++      const title = textOf(titleAnchor, 240);
++      if (!title) continue;
++      records.push({
++        title,
++        price: priceInListingCard(card),
++        location: locationInListingCard(card),
++        seller: sellerInListingCard(card),
++        href,
++        card_bound: true
++      });
++      seen.add(href);
+       if (records.length >= limit) break;
+     }
+     return records;
+   }
++
++  function publicText(value, limit = 1800) {
++    return Core.normalizeText(String(value || "")).replace(/(?:\+?7|8)[\s()\-]*\d{3}[\s()\-]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}/gu, "[контакт скрыт]").slice(0, limit);
++  }
++  function firstVisibleText(selectors, limit = 400) {
++    for (const selector of selectors) {
++      const node = Array.from(document.querySelectorAll(selector)).find(visible);
++      if (node) { const value = publicText(textOf(node, limit), limit); if (value) return value; }
++    }
++    return "";
++  }
++  function visibleLeafTexts(root, limit = 80) {
++    if (!(root instanceof Element)) return [];
++    const out = []; const seen = new Set();
++    for (const node of Array.from(root.querySelectorAll("*"))) {
++      if (!visible(node)) continue;
++      const direct = Array.from(node.childNodes).filter((child) => child.nodeType === Node.TEXT_NODE).map((child) => Core.normalizeText(child.nodeValue || "")).filter(Boolean).join(" ");
++      const value = publicText(direct || (node.children.length === 0 ? textOf(node, 220) : ""), 220);
++      if (!value || seen.has(value)) continue;
++      seen.add(value); out.push(value); if (out.length >= limit) break;
++    }
++    return out;
++  }
++  function findVisibleHeading(label) {
++    const wanted = Core.normalizeText(label).toLowerCase();
++    return Array.from(document.querySelectorAll("h1,h2,h3,h4,div,p,span,strong")).find((node) => visible(node) && Core.normalizeText(textOf(node, 120)).toLowerCase() === wanted) || null;
++  }
++  function boundedSectionRoot(heading) {
++    let node = heading instanceof Element ? heading.parentElement : null; let fallback = null;
++    for (let depth = 0; node && node !== document.body && depth < 6; depth += 1, node = node.parentElement) {
++      if (!visible(node)) continue;
++      const value = publicText(textOf(node, 2200), 2200); if (!fallback && value) fallback = node;
++      if (value.length >= 20 && value.length <= 1800) return node;
++    }
++    return fallback;
++  }
++  function sectionPairs(headingText, knownLabels) {
++    const root = boundedSectionRoot(findVisibleHeading(headingText)); if (!root) return [];
++    const leaves = visibleLeafTexts(root, 96); const normalized = new Set((knownLabels || []).map((value) => Core.normalizeText(value).toLowerCase())); const pairs = [];
++    for (let index = 0; index < leaves.length - 1; index += 1) {
++      const label = leaves[index]; const next = leaves[index + 1];
++      if (!normalized.has(Core.normalizeText(label).toLowerCase()) || !next || normalized.has(Core.normalizeText(next).toLowerCase())) continue;
++      if (!pairs.some((item) => item.label === label)) pairs.push({ label, value: next });
++    }
++    return pairs.slice(0, 16);
++  }
++  function sellerBadges() {
++    const root = Array.from(document.querySelectorAll("[data-marker='item-view/seller-info'],[data-marker='sellerInfo'],[data-marker*='seller-info']")).find(visible); if (!root) return [];
++    return visibleLeafTexts(root, 36).filter((value) => !/^(?:написать|показать телефон|купить)$/iu.test(value)).filter((value) => /(?:над[её]жн|документ|провер|помога|отзыв|частн|магазин|компан|авито)/iu.test(value)).slice(0, 12);
++  }
++  function deliveryLabels() {
++    const out = []; const seen = new Set();
++    for (const node of Array.from(document.querySelectorAll("[data-marker*='delivery'],[data-marker*='safedeal']"))) { if (!visible(node)) continue; const value = publicText(textOf(node, 240), 240); if (!value || /^(?:купить|доставка)$/iu.test(value) || seen.has(value)) continue; seen.add(value); out.push(value); if (out.length >= 10) break; }
++    return out;
++  }
++  function collectPublicListingDetails() {
++    const title = firstVisibleText(["[data-marker='item-view/title-info']", "h1[itemprop='name']", "h1"], 360);
++    const price = firstVisibleText(["[data-marker='item-view/item-price']", "[itemprop='price']"], 120);
++    const description = firstVisibleText(["[data-marker='item-view/item-description']"], 2600);
++    const seller = firstVisibleText(["[data-marker='seller-info/name']", "[data-marker='seller-link/link']", "[data-marker='item-view/seller-info'] [title]"], 240);
++    const sellerRating = firstVisibleText(["[data-marker='rating-caption/rating']", "[data-marker='sellerRate']"], 240);
++    const condition = sectionPairs("О ноутбуке", ["Состояние", "Экран", "Корпус", "Состояние клавиатуры", "Комплект", "Клавиатура"]);
++    const specifications = sectionPairs("Характеристики", ["Производитель", "Модель", "Оперативная память, ГБ", "Конфигурация накопителей", "Объем накопителей, ГБ", "Операционная система", "Процессор", "Диагональ экрана, дюйм", "Разрешение экрана", "Видеокарта"]);
++    const locationRoot = boundedSectionRoot(findVisibleHeading("Местоположение")); const location = visibleLeafTexts(locationRoot, 16).filter((value) => !/^местоположение$/iu.test(value))[0] || "";
++    const imageCount = Array.from(document.querySelectorAll("[data-marker='image-preview/item'],[data-marker='image-frame/image']")).filter(visible).length || null;
++    const missing = []; const specValues = specifications.map((item) => `${item.label}: ${item.value}`).join(" ").toLowerCase();
++    if (!/(?:процессор|intel|amd|ryzen|core\s*i)/iu.test(specValues)) missing.push("точный процессор");
++    if (!/(?:диагональ|разрешение)/iu.test(specValues)) missing.push("диагональ и разрешение экрана");
++    if (!/(?:видеокарт|gpu|radeon|geforce|intel\s*(?:hd|uhd|iris))/iu.test(specValues)) missing.push("графика/видеокарта");
++    if (!/(?:аккумулятор|батаре|заряд)/iu.test(description)) missing.push("фактическое состояние аккумулятора");
++    return { title, price, location, seller, seller_rating: sellerRating, seller_badges: sellerBadges(), delivery: deliveryLabels(), image_count: imageCount, condition, specifications, description, missing_fields: missing, source: "visible_public_listing_dom", blocked_reason: title ? null : "LISTING_PUBLIC_SURFACE_UNAVAILABLE" };
++  }
+   async function executeUiActionPlan(plan) {
+-    const result = { ok: true, url: location.href, plan_fingerprint: String(plan?.plan_fingerprint || ""), steps: [], listings: [], blocked_reason: null };
++    const result = { ok: true, url: location.href, plan_fingerprint: String(plan?.plan_fingerprint || ""), steps: [], listings: [], listing_details: null, blocked_reason: null };
+     if (!Core.isAvitoUrl(location.href)) return { ...result, ok: false, blocked_reason: "UI_TARGET_NOT_AVITO" };
+     const steps = Array.isArray(plan?.steps) ? plan.steps.slice(0, UI_PLAN_MAX_STEPS) : [];
+     let latestTypeContext = null;
+@@ -952,6 +1071,11 @@
+       }
+       if (step.type === "COLLECT_LISTINGS") {
+         const listings = collectPublicListings(Math.max(1, Math.min(Number(step.limit || 10), 30))); result.listings = listings; result.steps.push({ index, type: "COLLECT_LISTINGS", status: "completed", count: listings.length }); continue;
++      }
++      if (step.type === "COLLECT_LISTING_DETAILS") {
++        const listingDetails = collectPublicListingDetails(); result.listing_details = listingDetails;
++        if (listingDetails.blocked_reason) { result.ok = false; result.blocked_reason = listingDetails.blocked_reason; result.steps.push({ index, type: "COLLECT_LISTING_DETAILS", status: "blocked", blocked_reason: listingDetails.blocked_reason }); break; }
++        result.steps.push({ index, type: "COLLECT_LISTING_DETAILS", status: "completed", count: 1 }); continue;
+       }
+       if (step.type === "COLLECT_MENU") {
+         const context = latestTypeContext || { element: document.activeElement instanceof Element ? document.activeElement : null, expected_query: "", menu_capture: null };
+@@ -1035,7 +1159,7 @@
+   }
+   if (globalThis.__AF_TEST_EXPORTS) {
+     globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, adaptiveOptionCandidates, startVisibleMenuCapture, waitForVisibleMenu, modelVisibleMenu, publicMenuModel, menuLabelKey, pointerReachable, candidateInMenuBand, fieldStateMessage, queryKey, queryRelatedToOption, inputStateIsSettled };
+-    globalThis.__AF_TEST_EXPORTS.uiPlan = { executeUiActionPlan, recordUiClickDispatch };
++    globalThis.__AF_TEST_EXPORTS.uiPlan = { executeUiActionPlan, recordUiClickDispatch, collectPublicListings, collectPublicListingDetails };
+   }
+   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+     try {
+
+--- v0.8.1/core.js
++++ v0.8.3/core.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.8.0 clean run-owned target lifecycle baseline. */
++/* Avito Finder v0.8.3 — public listing passport extension. */
+ (function attachAvitoFinderCore(root) {
+   "use strict";
+   const STORAGE = Object.freeze({
+@@ -12,7 +12,7 @@
+   const VALID_MODES = new Set(["INSPECT_FILTERS", "SEARCH", "DIAGNOSE_DOM", "AVITO_UI"]);
+   // These are generic action verbs, not per-element features. Targets remain
+   // visible public controls resolved locally by marker/label/placeholder.
+-  const UI_ACTION_TYPES = new Set(["CLICK", "TYPE", "COLLECT_MENU", "SELECT_OPTION", "WAIT", "WAIT_FOR", "SNAPSHOT", "COLLECT_LISTINGS"]);
++  const UI_ACTION_TYPES = new Set(["CLICK", "TYPE", "COLLECT_MENU", "SELECT_OPTION", "WAIT", "WAIT_FOR", "SNAPSHOT", "COLLECT_LISTINGS", "COLLECT_LISTING_DETAILS"]);
+   const UI_PLAN_MAX_STEPS = 12;
+   const UI_PLAN_MAX_TYPED_TEXT = 160;
+   const UI_PLAN_MAX_LISTINGS = 30;
+@@ -252,6 +252,8 @@
+     }
+     const collectMenu = clean.match(/^(?:собери|верни|покажи|сними)\s+(?:видим(?:ое|ый)\s+)?(?:выпадающ(?:ее|ий)\s+)?(?:меню|список|подсказк)/iu);
+     if (collectMenu) return { type: "COLLECT_MENU", source_line: clean };
++    const collectDetails = clean.match(/^(?:собери|верни|покажи)\s+(?:публичн\w*\s+)?(?:паспорт|детал\w*|характеристик\w*|описани\w*)\s+(?:текущ\w*\s+)?(?:объявлен\w*|лота|карточк\w*)/iu);
++    if (collectDetails) return { type: "COLLECT_LISTING_DETAILS", source_line: clean };
+     const collect = clean.match(/^(?:собери|верни)\s+(?:первые\s+|до\s+)?(\d{1,2})?\s*(?:объявлен|карточк|вариант)/iu);
+     if (collect) return { type: "COLLECT_LISTINGS", limit: Math.max(1, Math.min(Number(collect[1] || 10), UI_PLAN_MAX_LISTINGS)), source_line: clean };
+     if (/^(?:сними|верни|покажи)(?=\s|$|[.:;]).*(?:dom|html|сним|разметк)/iu.test(clean)) return { type: "SNAPSHOT", scope: firstScope(clean), source_line: clean };
+@@ -392,7 +394,25 @@
+       const detail = [step.target_description || "", step.blocked_reason || "", step.text || "", step.count !== undefined ? `count=${step.count}` : ""].filter(Boolean).join("; ");
+       return `${step.index}. ${step.type || "?"}: ${step.status || "?"}${detail ? ` — ${detail}` : ""}`;
+     }).join("\n") : "";
+-    const listings = Array.isArray(plan.listings) ? plan.listings.map((item, index) => `${index + 1}. ${item.title || "без названия"}${item.price ? ` — ${item.price}` : ""}${item.location ? ` — ${item.location}` : ""}${item.href ? ` — ${item.href}` : ""}`).join("\n") : "";
++    const listings = Array.isArray(plan.listings) ? plan.listings.map((item, index) => `${index + 1}. ${item.title || "без названия"}${item.price ? ` — ${item.price}` : ""}${item.location ? ` — ${item.location}` : ""}${item.seller ? ` — ${item.seller}` : ""}${item.card_bound ? " {card-bound}" : ""}${item.href ? ` — ${item.href}` : ""}`).join("\n") : "";
++    const details = plan.listing_details || null;
++    const renderPairs = (pairs) => Array.isArray(pairs) && pairs.length ? pairs.map((item) => `- ${item.label || "?"}: ${item.value || "?"}`).join("\n") : "нет данных";
++    const listingPassportSection = details ? [
++      "", "Паспорт текущего объявления:",
++      `Статус: ${details.blocked_reason || "публичные видимые данные собраны"}`,
++      `Заголовок: ${details.title || "нет данных"}`,
++      `Цена: ${details.price || "нет данных"}`,
++      `Местоположение: ${details.location || "нет данных"}`,
++      `Продавец: ${details.seller || "нет данных"}`,
++      `Рейтинг/отзывы: ${details.seller_rating || "нет данных"}`,
++      `Бейджи продавца: ${(details.seller_badges || []).join("; ") || "нет данных"}`,
++      `Доставка: ${(details.delivery || []).join("; ") || "нет данных"}`,
++      `Фото: ${details.image_count === null || details.image_count === undefined ? "нет данных" : details.image_count}`,
++      "", "О ноутбуке:", renderPairs(details.condition),
++      "", "Характеристики:", renderPairs(details.specifications),
++      "", "Описание продавца:", details.description || "нет данных",
++      "", "Недостающие для оценки сведения:", (details.missing_fields || []).join("; ") || "не определены"
++    ] : [];
+     const blockedCandidates = Array.isArray(plan.steps) ? plan.steps.filter((step) => Array.isArray(step.candidates) && step.candidates.length).map((step) => {
+       const items = step.candidates.slice(0, 8).map((candidate) => `${candidate.description || "?"}${candidate.scope ? ` [${candidate.scope}]` : ""}${candidate.kind ? ` {${candidate.kind}}` : ""}`).join(" | ");
+       return `Шаг ${step.index} ${step.type || "?"}: ${items}`;
+@@ -432,6 +452,7 @@
+       "", "Шаги:", steps || "нет данных",
+       ...(blockedCandidates ? ["", "Диагностические кандидаты заблокированных шагов:", blockedCandidates] : []),
+       "", "Карточки:", listings || "не собирались",
++      ...listingPassportSection,
+       ...menuSection,
+       ...snapshotSection,
+       "", "Ограничения: применялись только видимые элементы Avito. Сообщения продавцам, звонки, сделки, оплата, скрытые API и произвольный JavaScript не использовались."
+
+--- v0.8.1/manifest.json
++++ v0.8.3/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.8.1",
+-  "version_name": "0.8.1-visible-filter-surface-test-candidate",
+-  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; перед любым обычным CLICK расширение фиксирует отправку действия в Worker и при выгрузке страницы переходит к отдельной проверке результата без повторного клика. Без Runtime, Network, cookies или скрытых API.",
++  "version": "0.8.3",
++  "version_name": "0.8.3-public-listing-passport-test-candidate",
++  "description": "Отдельный Avito Finder: локальный разбор Copy и bounded visible-UI plans. Для уже открытой публичной карточки объявления разрешён только read-only сбор паспорта: заголовок, цена, местоположение, публично видимый продавец/рейтинг/бейджи, доставка, состояние, характеристики и ограниченное описание. Без сообщений, телефона, покупки, Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+

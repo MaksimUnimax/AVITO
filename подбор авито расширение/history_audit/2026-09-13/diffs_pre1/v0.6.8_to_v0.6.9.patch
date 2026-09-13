@@ -1,0 +1,360 @@
+--- v0.6.8/avito_content.js
++++ v0.6.9/avito_content.js
+@@ -1,9 +1,9 @@
+-/* Avito Finder v0.6.8 — bounded public diagnostics, trusted visible type and portal-bound dropdown option selection. */
++/* Avito Finder v0.6.9 — bounded public diagnostics, trusted visible type and portal-bound dropdown option selection. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+-  if (globalThis.__avitoFinderAvitoContentV068) return;
+-  globalThis.__avitoFinderAvitoContentV068 = true;
++  if (globalThis.__avitoFinderAvitoContentV069) return;
++  globalThis.__avitoFinderAvitoContentV069 = true;
+ 
+   const Core = AvitoFinderCore;
+   const MAX_TREE_NODES = 160;
+@@ -19,7 +19,8 @@
+   const DEBUGGER_TYPE_TIMEOUT_MS = Number.isFinite(Number(globalThis.__AF_TEST_DEBUGGER_TYPE_TIMEOUT_MS)) ? Number(globalThis.__AF_TEST_DEBUGGER_TYPE_TIMEOUT_MS) : 10000;
+   const debuggerTypeTokens = new Map();
+   const debuggerClickTokens = new Map();
+-  const SAFE_ATTRIBUTES = new Set(["id", "class", "role", "aria-label", "aria-expanded", "aria-controls", "placeholder", "name", "type", "title", "data-marker", "href", "disabled", "checked"]);
++  const debuggerNativeSelectTokens = new Map();
++  const SAFE_ATTRIBUTES = new Set(["id", "class", "role", "aria-label", "aria-expanded", "aria-controls", "placeholder", "name", "type", "title", "data-marker", "href", "disabled", "checked", "label"]);
+ 
+   function visible(element) {
+     if (!(element instanceof Element)) return false;
+@@ -332,6 +333,51 @@
+     const horizontal = rect.left >= dialogRect.left - 32 && rect.right <= dialogRect.right + 32;
+     const vertical = rect.top >= inputRect.top - 12 && rect.bottom <= dialogRect.bottom + 32;
+     return horizontal && vertical;
++  }
++  function nativeOptionText(option) {
++    if (!(option instanceof HTMLOptionElement)) return "";
++    const values = [option.label, option.text, option.value, option.textContent];
++    for (const value of values) {
++      const normalized = Core.normalizeText(value || "");
++      if (normalized) return normalized;
++    }
++    return "";
++  }
++  function selectBelongsToInput(select, input, dialog) {
++    if (!(select instanceof HTMLSelectElement) || !dialog.contains(select)) return false;
++    const combobox = input.closest("[role='combobox']");
++    if (combobox && combobox.contains(select)) return true;
++    const inputMarker = String(input.getAttribute("data-marker") || "");
++    const selectMarker = String(select.getAttribute("data-marker") || "");
++    if (inputMarker && selectMarker) {
++      const prefix = inputMarker.replace(/\/(?:search-input|input)$/u, "");
++      if (prefix && (selectMarker === `${prefix}/select` || selectMarker.startsWith(`${prefix}/`))) return true;
++    }
++    const wrapper = input.parentElement?.parentElement;
++    return Boolean(wrapper && wrapper.contains(select));
++  }
++  function nativeSelectOptionCandidates(wanted, dialog, input) {
++    const matches = [];
++    const selects = Array.from(dialog.querySelectorAll("select"));
++    for (const select of selects) {
++      if (!selectBelongsToInput(select, input, dialog) || !visible(select)) continue;
++      const exact = Array.from(select.options || []).map((option, index) => ({ option, index, text: nativeOptionText(option) }))
++        .filter((entry) => !entry.option.disabled && normalizedMatch(entry.text) === wanted);
++      if (exact.length !== 1) continue;
++      const entry = exact[0];
++      matches.push({
++        selection_kind: "native_select",
++        element: select,
++        input,
++        option_index: entry.index,
++        option_text: entry.text,
++        description: `${select.tagName.toLowerCase()}${select.getAttribute("data-marker") ? ` data-marker=${select.getAttribute("data-marker")}` : ""} option=${entry.index} text=${entry.text}`.slice(0, 360),
++        score: 120,
++        text: entry.text,
++        scope: "dialog_native_select"
++      });
++    }
++    return matches;
+   }
+   function dialogScopedOptionCandidates(text, rememberedContext) {
+     const wanted = normalizedMatch(text);
+@@ -362,6 +408,7 @@
+       if (seen.has(identity)) continue;
+       seen.add(identity);
+       matches.push({
++        selection_kind: "dom_click",
+         // Keep the exact, currently painted text node as click geometry. A delegated
+         // click bubbles to an option-row parent without guessing an enclosing node.
+         element: node,
+@@ -371,9 +418,15 @@
+         scope: dialog.contains(node) ? "dialog" : "portal_bound"
+       });
+     }
++    // Some public controls expose an open browser-native select popup. Browser
++    // paints its rows outside the DOM tree, so ordinary descendant/portal walking
++    // cannot see them. The fallback remains exact-text, one-dialog, one-input and
++    // one-associated-select only; it drives the already visible native control via
++    // bounded mouse/key Input, never by mutating select.value or calling site code.
++    matches.push(...nativeSelectOptionCandidates(wanted, dialog, input));
+     const max = matches.reduce((value, item) => Math.max(value, item.score), 0);
+     const winners = matches.filter((item) => item.score === max);
+-    const evidence = matches.slice(0, 8).map((item) => ({ description: item.description, score: item.score, scope: item.scope }));
++    const evidence = matches.slice(0, 8).map((item) => ({ description: item.description, score: item.score, scope: item.scope, kind: item.selection_kind }));
+     if (!winners.length) return { ok: false, blocked_reason: "UI_OPTION_NOT_VISIBLE", candidates: evidence };
+     if (winners.length !== 1) return { ok: false, blocked_reason: "UI_OPTION_AMBIGUOUS", candidates: evidence };
+     return { ok: true, target: winners[0], candidates: evidence };
+@@ -516,6 +569,83 @@
+       debuggerClickTokens.delete(token);
+     }
+   }
++  function makeDebuggerNativeSelectToken() {
++    const bytes = new Uint8Array(12);
++    try { crypto.getRandomValues(bytes); }
++    catch (_) { for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256); }
++    return `afdn-${Date.now().toString(36)}-${Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("")}`;
++  }
++  function debuggerNativeSelectState(token, verifyCommitted) {
++    const record = debuggerNativeSelectTokens.get(String(token || ""));
++    if (!record) return { ok: false, reason: "DEBUGGER_NATIVE_SELECT_TOKEN_UNKNOWN" };
++    const select = record.select;
++    const option = select?.options?.[record.option_index];
++    const intact = Boolean(select?.isConnected && visible(select) && option);
++    const expected = intact && normalizedMatch(nativeOptionText(option)) === normalizedMatch(record.option_text);
++    return {
++      ok: true,
++      token: record.token,
++      intact,
++      focused: Boolean(intact && document.activeElement === select),
++      expected_option_matches: expected,
++      selected_option_matches: verifyCommitted === true ? Boolean(expected && select.selectedIndex === record.option_index) : null,
++      option_index: record.option_index,
++      target_description: record.description
++    };
++  }
++  function requestDebuggerNativeSelect(request) {
++    return new Promise((resolve) => {
++      let settled = false;
++      const finish = (result) => {
++        if (settled) return;
++        settled = true;
++        clearTimeout(timer);
++        const error = chrome.runtime.lastError;
++        if (error) resolve({ ok: false, error: `DEBUGGER_RUNTIME_MESSAGE_FAILED:${error.message}` });
++        else resolve(result || { ok: false, error: "DEBUGGER_RUNTIME_EMPTY_RESPONSE" });
++      };
++      const timer = setTimeout(() => finish({ ok: false, error: "DEBUGGER_RUNTIME_TIMEOUT" }), DEBUGGER_TYPE_TIMEOUT_MS);
++      try { chrome.runtime.sendMessage({ type: "AF_DEBUGGER_SELECT_NATIVE_VISIBLE_OPTION", request }, finish); }
++      catch (error) { finish({ ok: false, error: `DEBUGGER_RUNTIME_THROW:${error?.message || String(error)}` }); }
++    });
++  }
++  async function selectNativeVisibleOptionWithDebugger(target, optionText) {
++    const select = target?.element;
++    if (!(select instanceof HTMLSelectElement) || !visible(select)) return { ok: false, reason: "native_select_not_visible" };
++    const bounds = select.getBoundingClientRect();
++    if (!Number.isFinite(bounds.left) || !Number.isFinite(bounds.top) || bounds.width <= 0 || bounds.height <= 0) return { ok: false, reason: "native_select_invalid_bounds" };
++    const optionIndex = Number(target?.option_index);
++    if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= select.options.length) return { ok: false, reason: "native_select_option_index_invalid" };
++    const actualText = nativeOptionText(select.options[optionIndex]);
++    if (normalizedMatch(actualText) !== normalizedMatch(optionText)) return { ok: false, reason: "native_select_option_text_mismatch" };
++    const token = makeDebuggerNativeSelectToken();
++    const record = {
++      token,
++      select,
++      option_index: optionIndex,
++      option_text: actualText,
++      description: target.description || `${select.tagName.toLowerCase()} option=${optionIndex}`
++    };
++    debuggerNativeSelectTokens.set(token, record);
++    const expiry = setTimeout(() => debuggerNativeSelectTokens.delete(token), DEBUGGER_TYPE_TIMEOUT_MS + 1000);
++    try {
++      const result = await requestDebuggerNativeSelect({
++        token,
++        intent: "SELECT_NATIVE_OPTION",
++        option_text: actualText.slice(0, 220),
++        option_index: optionIndex,
++        option_count: select.options.length,
++        page_url: location.href,
++        target: { tag: "select", marker: select.getAttribute("data-marker") || "", role: select.getAttribute("role") || "" },
++        bounds: { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }
++      });
++      if (!result?.ok || !result?.data?.ok) return { ok: false, reason: "debugger_failed", detail: result?.error || result?.data?.error || "CDP_NATIVE_SELECT_FAILED" };
++      return { ok: true, strategy: String(result.data.strategy || "chrome_debugger_native_select_exact_option"), cdp_methods: Array.isArray(result.data.cdp_methods) ? result.data.cdp_methods.slice(0, 2) : [] };
++    } finally {
++      clearTimeout(expiry);
++      debuggerNativeSelectTokens.delete(token);
++    }
++  }
+   async function setVisibleControlValue(element, value) {
+     const nextValue = String(value || "");
+     if (!editableControl(element)) return { ok: false, reason: "not_editable" };
+@@ -525,7 +655,7 @@
+ 
+     // Synthetic DOM events were live-proven insufficient for Avito's reactive city
+     // control. This handoff does not run arbitrary JavaScript in the page. The service
+-    // worker is allowed to attach only to the active Avito tab and only to the three
++    // worker is allowed to attach only to the active Avito tab and only to the two
+     // CDP Input methods listed in its hardcoded whitelist. It first performs an actual
+     // visible mouse focus, then the content script confirms that this exact resolved
+     // control owns focus before any text command is sent.
+@@ -617,7 +747,12 @@
+       let typeResult = null;
+       let selectResult = null;
+       if (step.type === "CLICK") { resolved.target.element.click(); applied = true; }
+-      if (step.type === "SELECT_OPTION") { selectResult = await clickVisibleOptionWithDebugger(resolved.target.element, String(step.text || "")); applied = Boolean(selectResult?.ok); }
++      if (step.type === "SELECT_OPTION") {
++        selectResult = resolved.target.selection_kind === "native_select"
++          ? await selectNativeVisibleOptionWithDebugger(resolved.target, String(step.text || ""))
++          : await clickVisibleOptionWithDebugger(resolved.target.element, String(step.text || ""));
++        applied = Boolean(selectResult?.ok);
++      }
+       if (step.type === "TYPE") { typeResult = await setVisibleControlValue(resolved.target.element, String(step.text || "")); applied = Boolean(typeResult?.ok); if (applied) latestTypeContext = { element: resolved.target.element, captured_at: Date.now() }; }
+       if (!applied) {
+         result.ok = false;
+@@ -654,7 +789,7 @@
+     const links = Array.from(document.querySelectorAll("a[href*='/item/'],a[data-marker*='item']")).filter(visible);
+     return { url: location.href, title: document.title, captured_at: new Date().toISOString(), blocked_reason: detectBlock(), input_count: inputs.length, button_count: buttons.length, listing_link_count: links.length, actions_performed: "none_read_only" };
+   }
+-  if (globalThis.__AF_TEST_EXPORTS) globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, portalOptionBoundToDialog, pointerReachable };
++  if (globalThis.__AF_TEST_EXPORTS) globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, portalOptionBoundToDialog, pointerReachable, nativeOptionText, nativeSelectOptionCandidates };
+   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+     try {
+       if (message?.type === "AF_INSPECT_AVITO_DOM") { sendResponse({ ok: true, snapshot: inspect() }); return; }
+@@ -663,6 +798,8 @@
+       if (message?.type === "AF_CONFIRM_DEBUGGER_TYPE_TARGET_FOCUSED") { sendResponse({ ok: true, data: debuggerTargetState(message.token) }); return; }
+       if (message?.type === "AF_CONFIRM_DEBUGGER_TYPE_VALUE") { sendResponse({ ok: true, data: debuggerTargetState(message.token, String(message.expected_value || "")) }); return; }
+       if (message?.type === "AF_CONFIRM_DEBUGGER_OPTION_TARGET_VISIBLE") { sendResponse({ ok: true, data: debuggerClickTargetState(message.token) }); return; }
++      if (message?.type === "AF_CONFIRM_DEBUGGER_NATIVE_SELECT_TARGET") { sendResponse({ ok: true, data: debuggerNativeSelectState(message.token, false) }); return; }
++      if (message?.type === "AF_CONFIRM_DEBUGGER_NATIVE_SELECT_COMMITTED") { sendResponse({ ok: true, data: debuggerNativeSelectState(message.token, true) }); return; }
+       if (message?.type === "AF_EXECUTE_AVITO_UI_PLAN") { executeUiActionPlan(message.plan || {}).then((result) => sendResponse({ ok: true, result })).catch((error) => sendResponse({ ok: false, error: error?.message || "AVITO_UI_PLAN_FAILED" })); return true; }
+       sendResponse({ ok: false, error: "UNKNOWN_MESSAGE" });
+     } catch (error) { sendResponse({ ok: false, error: error?.message || "AVITO_DIAGNOSTIC_FAILED" }); }
+
+--- v0.6.8/core.js
++++ v0.6.9/core.js
+@@ -381,6 +381,10 @@
+       return `${step.index}. ${step.type || "?"}: ${step.status || "?"}${detail ? ` — ${detail}` : ""}`;
+     }).join("\n") : "";
+     const listings = Array.isArray(plan.listings) ? plan.listings.map((item, index) => `${index + 1}. ${item.title || "без названия"}${item.price ? ` — ${item.price}` : ""}${item.location ? ` — ${item.location}` : ""}${item.href ? ` — ${item.href}` : ""}`).join("\n") : "";
++    const blockedCandidates = Array.isArray(plan.steps) ? plan.steps.filter((step) => Array.isArray(step.candidates) && step.candidates.length).map((step) => {
++      const items = step.candidates.slice(0, 8).map((candidate) => `${candidate.description || "?"}${candidate.scope ? ` [${candidate.scope}]` : ""}${candidate.kind ? ` {${candidate.kind}}` : ""}`).join(" | ");
++      return `Шаг ${step.index} ${step.type || "?"}: ${items}`;
++    }).join("\n") : "";
+     const snapshot = plan.snapshot || null;
+     const controls = Array.isArray(snapshot?.controls) ? snapshot.controls.map((item, index) =>
+       `${index + 1}. ${item.tag}${item.role ? ` role=${item.role}` : ""}${item.type ? ` type=${item.type}` : ""}${item.text ? ` — ${item.text}` : ""}${item.aria_label ? ` [${item.aria_label}]` : ""}`).join("\n") : "";
+@@ -402,6 +406,7 @@
+       `Статус: ${plan.blocked_reason || (plan.ok === false ? "остановлен безопасно" : "выполнен")}`,
+       `План: ${plan.plan_fingerprint || "?"}`,
+       "", "Шаги:", steps || "нет данных",
++      ...(blockedCandidates ? ["", "Диагностические кандидаты заблокированных шагов:", blockedCandidates] : []),
+       "", "Карточки:", listings || "не собирались",
+       ...snapshotSection,
+       "", "Ограничения: применялись только видимые элементы Avito. Сообщения продавцам, звонки, сделки, оплата, скрытые API и произвольный JavaScript не использовались."
+
+--- v0.6.8/manifest.json
++++ v0.6.9/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.6.8",
+-  "version_name": "0.6.8-portal-bound-trusted-dropdown-selection-test-candidate",
+-  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; выбор возможен только по точному тексту уже видимого выпадающего списка, включая безопасно привязанный к текущему диалогу portal-слой, без Runtime, Network, cookies или скрытых API.",
++  "version": "0.6.9",
++  "version_name": "0.6.9-native-select-visible-option-test-candidate",
++  "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; выбор возможен только по точному тексту уже видимого выпадающего списка, включая безопасно привязанный к текущему диалогу portal-слой и стандартный select, без Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.6.8/service_worker.js
++++ v0.6.9/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.6.8 — portal-bound exact dropdown selection with trusted visible option click. */
++/* Avito Finder v0.6.9 — portal-bound exact dropdown selection with trusted visible option click. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -160,6 +160,67 @@
+   const target = request.target || {};
+   if (!['button', 'a', 'div', 'span', 'li', 'label'].includes(String(target.tag || '').toLowerCase())) throw new Error("DEBUGGER_TARGET_TAG_INVALID");
+   return { state, tab: current, request };
++}
++function validDebuggerOptionIndex(value, count) {
++  return Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) < 64
++    && Number.isInteger(Number(count)) && Number(count) > 0 && Number(count) <= 64 && Number(value) < Number(count);
++}
++async function verifyDebuggerNativeSelectCaller(message, sender) {
++  const state = await getState();
++  const tab = sender?.tab;
++  const request = message?.request || {};
++  if (!state.search_id || state.command_mode !== "AVITO_UI" || state.status !== "AVITO_TAB_ACTIVE") throw new Error("DEBUGGER_STATE_NOT_ACTIVE_UI_PLAN");
++  if (!tab?.id || tab.id !== state.avito_tab_id || tab.windowId !== state.current_window_id) throw new Error("DEBUGGER_SENDER_TAB_MISMATCH");
++  const current = await getTab(tab.id);
++  if (!current || !current.active || !isAvitoPageReady(current, state.current_window_id)) throw new Error("DEBUGGER_AVITO_TAB_NOT_ACTIVE_OR_READY");
++  if (!Core.isAvitoUrl(request.page_url || "") || new URL(request.page_url).origin !== new URL(current.url).origin) throw new Error("DEBUGGER_PAGE_URL_MISMATCH");
++  if (request.intent !== "SELECT_NATIVE_OPTION") throw new Error("DEBUGGER_NATIVE_SELECT_INTENT_REJECTED");
++  if (!/^afdn-[a-z0-9-]{12,}$/iu.test(String(request.token || ""))) throw new Error("DEBUGGER_TOKEN_INVALID");
++  if (!validDebuggerBounds(request.bounds)) throw new Error("DEBUGGER_BOUNDS_INVALID");
++  if (!validDebuggerOptionText(request.option_text) || !validDebuggerOptionIndex(request.option_index, request.option_count)) throw new Error("DEBUGGER_NATIVE_SELECT_OPTION_INVALID");
++  const target = request.target || {};
++  if (String(target.tag || "").toLowerCase() !== "select") throw new Error("DEBUGGER_TARGET_TAG_INVALID");
++  return { state, tab: current, request };
++}
++async function inputNavigationKey(target, key, code, windowsVirtualKeyCode) {
++  await inputKey(target, "keyDown", { key, code, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode });
++  await inputKey(target, "keyUp", { key, code, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode });
++}
++async function selectNativeVisibleOptionWithDebugger(message, sender) {
++  let verified;
++  try { verified = await verifyDebuggerNativeSelectCaller(message, sender); }
++  catch (error) { return { ok: false, error: `CDP_NATIVE_SELECT_REQUEST_BLOCKED:${debuggerErrorCode(error)}` }; }
++  const { state, tab, request } = verified;
++  const target = { tabId: tab.id };
++  let attached = false;
++  let detachError = null;
++  try {
++    await debuggerAttach(target);
++    attached = true;
++    await log("CDP_NATIVE_SELECT_ATTACHED", { search_id: state.search_id, tab_id: tab.id, protocol: DEBUGGER_PROTOCOL_VERSION, allowed_methods: Array.from(DEBUGGER_ALLOWED_METHODS), option_text_length: Array.from(String(request.option_text || "")).length, option_index: Number(request.option_index) });
++    const before = await tabsSend(tab.id, { type: "AF_CONFIRM_DEBUGGER_NATIVE_SELECT_TARGET", token: request.token });
++    if (!before?.ok || !before?.data?.ok || !before.data.intact || !before.data.expected_option_matches) throw new Error("CDP_NATIVE_SELECT_TARGET_CONFIRMATION_FAILED");
++    await inputMouseFocus(target, request.bounds);
++    const focused = await tabsSend(tab.id, { type: "AF_CONFIRM_DEBUGGER_NATIVE_SELECT_TARGET", token: request.token });
++    if (!focused?.ok || !focused?.data?.ok || !focused.data.intact || !focused.data.focused || !focused.data.expected_option_matches) throw new Error("CDP_NATIVE_SELECT_FOCUS_CONFIRMATION_FAILED");
++    await inputNavigationKey(target, "Home", "Home", 36);
++    for (let index = 0; index < Number(request.option_index); index += 1) await inputNavigationKey(target, "ArrowDown", "ArrowDown", 40);
++    await inputNavigationKey(target, "Enter", "Enter", 13);
++    const committed = await tabsSend(tab.id, { type: "AF_CONFIRM_DEBUGGER_NATIVE_SELECT_COMMITTED", token: request.token });
++    if (!committed?.ok || !committed?.data?.ok || !committed.data.intact || !committed.data.expected_option_matches || !committed.data.selected_option_matches) throw new Error("CDP_NATIVE_SELECT_COMMIT_CONFIRMATION_FAILED");
++    await log("CDP_NATIVE_SELECT_COMPLETED", { search_id: state.search_id, tab_id: tab.id, target_marker: String(request.target?.marker || "").slice(0, 160), option_text_length: Array.from(String(request.option_text || "")).length, option_index: Number(request.option_index) });
++    return { ok: true, data: { ok: true, strategy: "chrome_debugger_native_select_home_arrow_enter_exact_option", cdp_methods: Array.from(DEBUGGER_ALLOWED_METHODS) } };
++  } catch (error) {
++    const reason = debuggerErrorCode(error);
++    await log("CDP_NATIVE_SELECT_FAILED", { search_id: state.search_id, tab_id: tab.id, reason, option_text_length: Array.from(String(request.option_text || "")).length, option_index: Number(request.option_index) });
++    return { ok: false, error: `CDP_NATIVE_SELECT_FAILED:${reason}` };
++  } finally {
++    if (attached) {
++      try { await debuggerDetach(target); await log("CDP_NATIVE_SELECT_DETACHED", { search_id: state.search_id, tab_id: tab.id }); }
++      catch (error) { detachError = debuggerErrorCode(error); await log("CDP_NATIVE_SELECT_DETACH_FAILED", { search_id: state.search_id, tab_id: tab.id, reason: detachError }); }
++    }
++    if (detachError) return { ok: false, error: `CDP_NATIVE_SELECT_DETACH_FAILED:${detachError}` };
++  }
+ }
+ async function inputMouseFocus(target, bounds) {
+   const x = Number(bounds.left) + Number(bounds.width) / 2;
+@@ -674,7 +735,7 @@
+ }
+ async function contextBlockedFromContent(message, sender) { const state = await getState(); if (!state.search_id || message.search_id !== state.search_id || sender?.tab?.id !== state.chatgpt_tab_id) return { ok: true, data: { ignored: true } }; const next = await blockConversationContext(state, message.reason || "CONTENT_CONTEXT_CHANGED", { actual_conversation_id: message.actual_identity?.conversation_id || null, actual_chat_path: message.actual_identity?.chat_path || null, actual_tab: shortTab(sender?.tab) }); return { ok: true, data: { blocked: true, state: next } }; }
+ 
+-if (globalThis.__AF_TEST_EXPORTS) globalThis.__AF_TEST_EXPORTS.debuggerInput = { DEBUGGER_ALLOWED_METHODS, validDebuggerBounds, validDebuggerText, validDebuggerOptionText, debuggerSend, inputMouseFocus, inputClearExistingValue, typeVisibleAvitoTargetWithDebugger, clickVisibleOptionWithDebugger };
++if (globalThis.__AF_TEST_EXPORTS) globalThis.__AF_TEST_EXPORTS.debuggerInput = { DEBUGGER_ALLOWED_METHODS, validDebuggerBounds, validDebuggerText, validDebuggerOptionText, validDebuggerOptionIndex, debuggerSend, inputMouseFocus, inputClearExistingValue, typeVisibleAvitoTargetWithDebugger, clickVisibleOptionWithDebugger, selectNativeVisibleOptionWithDebugger };
+ chrome.runtime.onInstalled.addListener(async () => { const current = await getState(); await saveState(current); await log("EXTENSION_INSTALLED_OR_UPDATED", { version: chrome.runtime.getManifest().version }); });
+ chrome.tabs.onUpdated.addListener(() => { reconcilePendingAvitoReadiness().catch(async (error) => { const state = await getState(); if (state.status === "WAITING_FOR_AVITO_PAGE_READY") await blockAvitoPageReady(state, `AVITO_READY_EVENT_FAILED:${String(error?.message || error)}`); }); });
+ chrome.tabs.onRemoved.addListener((tabId) => { (async () => { const state = await getState(); if (state.status === "WAITING_FOR_AVITO_PAGE_READY" && state.avito_tab_id === tabId) await blockAvitoPageReady(state, `AVITO_TAB_CLOSED:${tabId}`, { source: "tabs.onRemoved" }); })().catch(() => {}); });
+@@ -692,6 +753,7 @@
+     case "AF_CAPTURE_FULL_TEXT": sendResponse(await handleFullText(message, sender)); return;
+     case "AF_DEBUGGER_TYPE_VISIBLE_TARGET": sendResponse(await typeVisibleAvitoTargetWithDebugger(message, sender)); return;
+     case "AF_DEBUGGER_CLICK_VISIBLE_OPTION": sendResponse(await clickVisibleOptionWithDebugger(message, sender)); return;
++    case "AF_DEBUGGER_SELECT_NATIVE_VISIBLE_OPTION": sendResponse(await selectNativeVisibleOptionWithDebugger(message, sender)); return;
+     case "AF_CAPTURE_RECOVER_CONTINUOUS": sendResponse(await recoverContinuousPromptPoll(message, sender)); return;
+     default: sendResponse({ ok: false, error: "UNKNOWN_MESSAGE" }); return;
+   }
+

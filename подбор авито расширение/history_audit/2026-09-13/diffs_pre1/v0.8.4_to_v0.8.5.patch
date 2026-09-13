@@ -1,0 +1,96 @@
+--- v0.8.4/avito_content.js
++++ v0.8.5/avito_content.js
+@@ -48,6 +48,19 @@
+       return `${url.pathname}${url.search}`.slice(0, 500);
+     } catch (_) { return ""; }
+   }
++  function navigationHrefForVisibleClick(element) {
++    if (!(element instanceof HTMLAnchorElement)) return "";
++    const href = safeHref(element);
++    if (!href) return "";
++    try {
++      const next = new URL(href, location.href);
++      const current = new URL(location.href);
++      const nextPath = `${next.pathname}${next.search}`;
++      const currentPath = `${current.pathname}${current.search}`;
++      if (next.origin !== current.origin || nextPath === currentPath) return "";
++      return nextPath.slice(0, 500);
++    } catch (_) { return ""; }
++  }
+   function compactNode(element) {
+     return {
+       tag: element.tagName.toLowerCase(),
+@@ -1069,7 +1082,7 @@
+     return { title, price, location, seller, seller_rating: sellerRating, seller_badges: sellerBadges(), delivery: deliveryLabels(), image_count: imageCount, condition, specifications, description, missing_fields: listingMissingFields(description, specifications), source: "visible_public_listing_dom", blocked_reason: null };
+   }
+   async function executeUiActionPlan(plan) {
+-    const result = { ok: true, url: location.href, plan_fingerprint: String(plan?.plan_fingerprint || ""), steps: [], listings: [], listing_details: null, blocked_reason: null };
++    const result = { ok: true, url: location.href, plan_fingerprint: String(plan?.plan_fingerprint || ""), steps: [], listings: [], listing_details: null, navigation_handoff: null, blocked_reason: null };
+     if (!Core.isAvitoUrl(location.href)) return { ...result, ok: false, blocked_reason: "UI_TARGET_NOT_AVITO" };
+     const steps = Array.isArray(plan?.steps) ? plan.steps.slice(0, UI_PLAN_MAX_STEPS) : [];
+     const stepIndexOffset = Math.max(0, Math.floor(Number(plan?.step_index_offset || 0)));
+@@ -1146,6 +1159,12 @@
+         result.steps.push({ index, type: step.type, status: "blocked", blocked_reason: result.blocked_reason, target_description: resolved.target.description, text: failureDetail ? `diagnostic=${failureDetail}` : "", failure_detail: failureDetail || null });
+         break;
+       }
++      const navigationHref = step.type === "CLICK" ? navigationHrefForVisibleClick(resolved.target.element) : "";
++      if (navigationHref) {
++        result.steps.push({ index, type: "CLICK", status: "dispatched_pending_navigation", target_description: resolved.target.description, text: clickDispatch?.dispatch_id ? `dispatch_id=${clickDispatch.dispatch_id}` : "", click_strategy: clickResult?.strategy || "", dispatch_id: clickDispatch?.dispatch_id || null, expected_navigation_path: navigationHref });
++        result.navigation_handoff = { type: "VISIBLE_ANCHOR_NAVIGATION", step_index: index, dispatch_id: clickDispatch?.dispatch_id || null, page_url_before: location.href, expected_navigation_path: navigationHref, target_description: resolved.target.description };
++        return result;
++      }
+       const nextType = String(steps[offset + 1] && steps[offset + 1].type || "").toUpperCase();
+       const followupMenuStep = step.type === "TYPE" && (nextType === "COLLECT_MENU" || nextType === "SELECT_OPTION");
+       await uiDelay(followupMenuStep ? Math.min(120, UI_PLAN_POST_ACTION_DELAY_MS) : UI_PLAN_POST_ACTION_DELAY_MS);
+
+--- v0.8.4/manifest.json
++++ v0.8.5/manifest.json
+@@ -2,8 +2,8 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.8.4",
+-  "version_name": "0.8.4-debugger-click-navigation-and-listing-surface-fence-test-candidate",
++  "version": "0.8.5",
++  "version_name": "0.8.5-proactive-anchor-navigation-handoff-test-candidate",
+   "description": "Отдельный Avito Finder: локальный разбор Copy и bounded visible-UI plans. Для видимого перехода по разрешённой карточке используется только Chrome Debugger Input; публичный паспорт собирается лишь после подтверждения поверхности карточки: заголовок, цена, местоположение, публично видимый продавец/рейтинг/бейджи, доставка, состояние, характеристики и ограниченное описание. Без сообщений, телефона, покупки, Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+
+--- v0.8.4/service_worker.js
++++ v0.8.5/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.8.4 — debugger-backed visible clicks, navigation reconciliation, and listing-surface fence. */
++/* Avito Finder v0.8.5 — proactive anchor-navigation handoff and trusted debugger click lifecycle. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -173,10 +173,13 @@
+ async function inputMouseFocus(target, bounds, onStage = null) {
+   const x = Number(bounds.left) + Number(bounds.width) / 2;
+   const y = Number(bounds.top) + Number(bounds.height) / 2;
++  // Explicit pointer lifecycle fields make this a trusted mouse click for pages
++  // that reject incomplete press/release packets. No Runtime or Page commands are used.
++  await debuggerSend(target, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "none", buttons: 0, pointerType: "mouse" });
+   if (typeof onStage === "function") onStage("mouse_pressed");
+-  await debuggerSend(target, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
++  await debuggerSend(target, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", buttons: 1, clickCount: 1, pointerType: "mouse" });
+   if (typeof onStage === "function") onStage("mouse_released");
+-  await debuggerSend(target, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
++  await debuggerSend(target, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", buttons: 0, clickCount: 1, pointerType: "mouse" });
+ }
+ async function inputKey(target, type, params) { await debuggerSend(target, "Input.dispatchKeyEvent", { type, ...params }); }
+ async function inputClearExistingValue(target) {
+@@ -578,6 +581,11 @@
+       if (asyncResponseChannelClosed(error) && await startUiClickReconciliation(working, verified.id, error)) return;
+       throw error;
+     }
++    if (result?.navigation_handoff?.dispatch_id) {
++      await log("AVITO_UI_VISIBLE_ANCHOR_NAVIGATION_HANDOFF", { search_id: working.search_id, tab_id: verified.id, dispatch_id: result.navigation_handoff.dispatch_id, step_index: result.navigation_handoff.step_index || null, expected_navigation_path: result.navigation_handoff.expected_navigation_path || null });
++      if (await startUiClickReconciliation(working, verified.id, "VISIBLE_ANCHOR_NAVIGATION_HANDOFF")) return;
++      throw new Error("UI_CLICK_RECONCILIATION_START_FAILED");
++    }
+     for (const step of Array.isArray(result.steps) ? result.steps : []) {
+       await log("AVITO_UI_PLAN_STEP_RESULT", { search_id: working.search_id, tab_id: verified.id, index: step.index ?? null, type: step.type || null, status: step.status || null, blocked_reason: step.blocked_reason || null, target_description: step.target_description || null });
+     }
+

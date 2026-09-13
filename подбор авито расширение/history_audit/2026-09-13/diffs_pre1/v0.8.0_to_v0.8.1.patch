@@ -1,0 +1,200 @@
+--- v0.8.0/avito_content.js
++++ v0.8.1/avito_content.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.7.6 — bounded public diagnostics, trusted visible input and click-stage evidence. */
++/* Avito Finder v0.8.1 — run-owned target lifecycle plus bounded visible filter discovery. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+@@ -60,6 +60,7 @@
+       placeholder: element.getAttribute("placeholder") || "",
+       title: element.getAttribute("title") || "",
+       href: safeHref(element),
++      data_marker: element.getAttribute("data-marker") || "",
+       disabled: Boolean(element.disabled || element.getAttribute("aria-disabled") === "true"),
+       checked: Boolean(element.checked || element.getAttribute("aria-checked") === "true"),
+       text: textOf(element)
+@@ -165,6 +166,76 @@
+     if (!target) return { root: null, resolution: `${hit.selector}:parent_depth_${Number.isFinite(depth) ? depth : "invalid"}_unresolved`, candidates: reportableCandidates(candidates) };
+     return { root: target.root, resolution: `${hit.selector}:parent_depth=${target.depth}`, candidates: reportableCandidates(candidates) };
+   }
++
++  const FILTER_CONTROL_SELECTOR = "input,textarea,select,button,a,[role='button'],[role='combobox'],[role='checkbox'],[role='radio']";
++  const FILTER_SIGNAL_RE = /(?:\bprice\b|цен|\bfilter\b|фильтр|достав|состояни|сортиров|продав|покупател|\bот\b|\bдо\b)/iu;
++
++  function filterSignalText(element) {
++    return [
++      element.getAttribute("data-marker") || "",
++      element.getAttribute("aria-label") || "",
++      element.getAttribute("placeholder") || "",
++      element.getAttribute("title") || "",
++      element.getAttribute("name") || "",
++      element.getAttribute("class") || "",
++      textOf(element, 260)
++    ].join(" ");
++  }
++  function belongsToVisibleListing(element) {
++    return Boolean(element.closest("[data-marker*='item'],[itemtype*='Product'],article[data-marker],article[itemtype]"));
++  }
++  function firstVisibleListingTop() {
++    const listing = firstVisible(["[data-marker*='item']", "[itemtype*='Product']", "a[data-marker='title']"]);
++    const rect = listing?.element?.getBoundingClientRect?.();
++    return rect && rect.height > 0 ? rect.top : null;
++  }
++  function inlineFilterControls() {
++    const input = findSearchInput()?.element || null;
++    const searchBottom = input?.getBoundingClientRect?.()?.bottom || 0;
++    const listingTop = firstVisibleListingTop();
++    return Array.from(document.querySelectorAll(FILTER_CONTROL_SELECTOR)).filter((node) => {
++      if (!visible(node) || belongsToVisibleListing(node)) return false;
++      if (node.closest("[data-marker='header/navbar'],[data-marker='header-navigation'],header,nav")) return false;
++      const rect = node.getBoundingClientRect();
++      if (rect.bottom < searchBottom - 8) return false;
++      if (listingTop !== null && rect.top > listingTop + 8) return false;
++      return true;
++    }).slice(0, 24);
++  }
++  function lowestSharedAncestor(nodes) {
++    const first = nodes[0];
++    let current = first instanceof Element ? first : null;
++    while (current && current !== document.body && current !== document.documentElement) {
++      if (nodes.every((node) => current.contains(node)) && visible(current)) return current;
++      current = current.parentElement;
++    }
++    const main = firstVisible(["main", "[role='main']", "[data-marker*='main']"]);
++    return main?.element || (visible(document.body) ? document.body : null);
++  }
++  function filterSurfaceDetails() {
++    const all = Array.from(document.querySelectorAll(FILTER_CONTROL_SELECTOR)).filter(visible);
++    const byNode = new Map();
++    for (const node of all) {
++      if (!belongsToVisibleListing(node) && FILTER_SIGNAL_RE.test(filterSignalText(node))) byNode.set(node, "text_or_attribute");
++    }
++    for (const node of inlineFilterControls()) if (!byNode.has(node)) byNode.set(node, "inline_results_band");
++    const nodes = Array.from(byNode.keys()).slice(0, 24);
++    return {
++      nodes,
++      controls: nodes.map((node) => ({ ...compactNode(node), discovery: byNode.get(node) || "unknown" })),
++      root: nodes.length ? lowestSharedAncestor(nodes) : null
++    };
++  }
++  function resolveFiltersSurface() {
++    const details = filterSurfaceDetails();
++    const fallback = firstVisible(["main", "[role='main']", "[data-marker*='main']"]);
++    const root = details.root || fallback?.element || (visible(document.body) ? document.body : null);
++    return root ? {
++      root,
++      resolution: details.nodes.length ? `visible_filter_controls=${details.nodes.length}` : "visible_filter_controls_unresolved",
++      filter_controls: details.controls
++    } : null;
++  }
+   function resolveScope(scope, request = {}) {
+     if (scope === "PAGE_MAIN_VISIBLE") {
+       const hit = firstVisible(["main", "[role='main']", "[data-marker*='main']"]);
+@@ -174,6 +245,7 @@
+     if (scope === "SEARCH_SURFACE_VISIBLE") return resolveSearchSurface();
+     if (scope === "SEARCH_INPUT_ANCESTRY_VISIBLE") return resolveSearchInputAncestry();
+     if (scope === "SEARCH_INPUT_PARENT_VISIBLE") return resolveSearchInputParent(request);
++    if (scope === "FILTERS_VISIBLE") return resolveFiltersSurface();
+     if (scope === "DIALOG_VISIBLE") {
+       const dialog = firstVisible(["[role='dialog'][aria-modal='true']", "[role='dialog']", "[aria-modal='true']"]);
+       return dialog ? { root: dialog.element, resolution: dialog.selector } : null;
+@@ -255,6 +327,7 @@
+         blocked_reason: blocked || (resolved?.informational ? null : "BLOCKED_SCOPE_UNRESOLVED"),
+         root_description: resolved?.resolution || "область не найдена",
+         scope_candidates: Array.isArray(resolved?.candidates) ? resolved.candidates : [],
++        filter_controls: Array.isArray(resolved?.filter_controls) ? resolved.filter_controls : [],
+         actions_performed: "none_read_only"
+       };
+       snapshot.snapshot_fingerprint = Core.fingerprint(JSON.stringify({ scope: snapshot.scope, root: snapshot.root_description, candidates: snapshot.scope_candidates }));
+@@ -274,11 +347,12 @@
+       tree_text: tree.text,
+       tree_node_count: tree.count,
+       controls: controlsWithin(resolved.root),
++      filter_controls: Array.isArray(resolved.filter_controls) ? resolved.filter_controls : [],
+       bounded_html: html.html,
+       truncated: Boolean(tree.truncated || html.truncated),
+       actions_performed: "none_read_only"
+     };
+-    snapshot.snapshot_fingerprint = Core.fingerprint(JSON.stringify({ scope: snapshot.scope, root: snapshot.root_description, tree: snapshot.tree_text, html: snapshot.bounded_html }));
++    snapshot.snapshot_fingerprint = Core.fingerprint(JSON.stringify({ scope: snapshot.scope, root: snapshot.root_description, tree: snapshot.tree_text, filter_controls: snapshot.filter_controls, html: snapshot.bounded_html }));
+     return snapshot;
+   }
+   function uiDelay(ms) { return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0))); }
+@@ -956,7 +1030,8 @@
+     const inputs = Array.from(document.querySelectorAll("input,textarea,[contenteditable='true'],[role='combobox']")).filter(visible);
+     const buttons = Array.from(document.querySelectorAll("button,[role='button']")).filter(visible);
+     const links = Array.from(document.querySelectorAll("a[href*='/item/'],a[data-marker*='item']")).filter(visible);
+-    return { url: location.href, title: document.title, captured_at: new Date().toISOString(), blocked_reason: detectBlock(), input_count: inputs.length, button_count: buttons.length, listing_link_count: links.length, actions_performed: "none_read_only" };
++    const snapshot = diagnose({ scope: "FILTERS_VISIBLE" });
++    return { ...snapshot, input_count: inputs.length, button_count: buttons.length, listing_link_count: links.length, actions_performed: "none_read_only" };
+   }
+   if (globalThis.__AF_TEST_EXPORTS) {
+     globalThis.__AF_TEST_EXPORTS.optionSelection = { dialogScopedOptionCandidates, adaptiveOptionCandidates, startVisibleMenuCapture, waitForVisibleMenu, modelVisibleMenu, publicMenuModel, menuLabelKey, pointerReachable, candidateInMenuBand, fieldStateMessage, queryKey, queryRelatedToOption, inputStateIsSettled };
+
+--- v0.8.0/core.js
++++ v0.8.1/core.js
+@@ -22,6 +22,7 @@
+     "SEARCH_SURFACE_VISIBLE",
+     "SEARCH_INPUT_ANCESTRY_VISIBLE",
+     "SEARCH_INPUT_PARENT_VISIBLE",
++    "FILTERS_VISIBLE",
+     "DIALOG_VISIBLE",
+     "LISTING_CARD_VISIBLE",
+     "REVIEWS_VISIBLE"
+@@ -333,22 +334,29 @@
+   function appendLog(existing, type, fields) {
+     return [...(Array.isArray(existing) ? existing : []), Object.assign({ at: new Date().toISOString(), type }, fields || {})].slice(-MAX_LOGS);
+   }
++  function describeControl(item, index) {
++    return `${index + 1}. ${item.tag}${item.role ? ` role=${item.role}` : ""}${item.type ? ` type=${item.type}` : ""}${item.data_marker ? ` data-marker=${item.data_marker}` : ""}${item.placeholder ? ` placeholder=${item.placeholder}` : ""}${item.aria_label ? ` [${item.aria_label}]` : ""}${item.title ? ` title=${item.title}` : ""}${item.text ? ` — ${item.text}` : ""}${item.discovery ? ` {${item.discovery}}` : ""}`;
++  }
+   function formatInspectionReport(inspection) {
+     const a = inspection?.avito || {};
++    const filters = Array.isArray(a.filter_controls) ? a.filter_controls.map(describeControl).join("\n") : "";
+     return [
+       "Avito Finder: read-only обследование завершено", "",
+       `Задача: ${inspection?.search_id || "?"}`,
+-      `Статус Avito: ${a.blocked_reason || "DOM доступен"}`, "",
++      `Статус Avito: ${a.blocked_reason || "DOM доступен"}`,
++      `Страница: ${a.url || "?"}`,
++      `Корень фильтров: ${a.root_description || "не найден"}`, "",
+       `Формы/поля: ${a.input_count ?? "?"}`,
+       `Кнопки: ${a.button_count ?? "?"}`,
+       `Ссылки-кандидаты: ${a.listing_link_count ?? "?"}`,
++      "", "Видимые элементы фильтров:", filters || "не найдены; изменение не выполнялось",
+       "Поиск, ввод, изменение фильтров, открытие объявлений и отправка сообщений не выполнялись."
+     ].join("\n");
+   }
+   function formatDiagnosticReport(diagnostic) {
+     const d = diagnostic?.avito || {};
+-    const controls = Array.isArray(d.controls) ? d.controls.map((item, index) =>
+-      `${index + 1}. ${item.tag}${item.role ? ` role=${item.role}` : ""}${item.type ? ` type=${item.type}` : ""}${item.text ? ` — ${item.text}` : ""}${item.aria_label ? ` [${item.aria_label}]` : ""}`).join("\n") : "";
++    const controls = Array.isArray(d.controls) ? d.controls.map(describeControl).join("\n") : "";
++    const filterControls = Array.isArray(d.filter_controls) ? d.filter_controls.map(describeControl).join("\n") : "";
+     const candidates = Array.isArray(d.scope_candidates) ? d.scope_candidates.map((candidate, index) => {
+       const features = candidate?.features || {};
+       const labels = [
+@@ -373,6 +381,7 @@
+       "", "Кандидаты области:", candidates || "нет данных",
+       "", "DOM-дерево:", d.tree_text || "нет данных",
+       "", "Видимые элементы управления:", controls || "нет данных",
++      "", "Элементы фильтров:", filterControls || "нет данных",
+       "", "Ограниченный HTML-снимок:", d.bounded_html || "нет данных",
+       "", "Никакие поля, фильтры, поиск, объявления, сообщения продавцам и скрытые API не использовались."
+     ].join("\n").slice(0, 24000);
+
+--- v0.8.0/manifest.json
++++ v0.8.1/manifest.json
+@@ -2,8 +2,8 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.8.0",
+-  "version_name": "0.7.6-navigation-safe-ui-handoff-test-candidate",
++  "version": "0.8.1",
++  "version_name": "0.8.1-visible-filter-surface-test-candidate",
+   "description": "Отдельный Avito Finder: локальный разбор Copy, anchor-fenced continuous dialogue и generic visible-UI action plans. Для одного подтверждённо видимого TYPE допускается краткий chrome.debugger-сеанс только с CDP Input; перед любым обычным CLICK расширение фиксирует отправку действия в Worker и при выгрузке страницы переходит к отдельной проверке результата без повторного клика. Без Runtime, Network, cookies или скрытых API.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+

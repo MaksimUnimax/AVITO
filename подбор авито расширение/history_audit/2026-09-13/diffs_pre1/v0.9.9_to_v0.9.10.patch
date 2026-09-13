@@ -1,0 +1,120 @@
+--- v0.9.9/manifest.json
++++ v0.9.10/manifest.json
+@@ -2,9 +2,9 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "0.9.9",
+-  "version_name": "0.9.9-form-submit-reconciliation-immediate-fast-harvest-test-candidate",
+-  "description": "Отдельный Avito Finder: после видимой настройки города и фильтров быстро читает только публично отрисованные карточки и паспорта. Видимый submit без href немедленно reconciles только при подтверждённой смене URL исходной вкладки; сбор идёт без искусственных 2-секундных пауз. Не использует Avito API, Network, Fetch, Runtime, cookies, сообщения, телефон, покупку или скрытые эндпоинты.",
++  "version": "0.9.10",
++  "version_name": "0.9.10-bulk-tab-startup-readiness-parent-window-test-candidate",
++  "description": "Отдельный Avito Finder: после видимой настройки города и фильтров быстро читает только публично отрисованные карточки и паспорта. Массовый сбор ждёт, пока созданная дочерняя Avito-вкладка выйдет из временного chrome://newtab/ или pendingUrl состояния, и строго привязывается к фактическому окну вкладки выдачи. Не использует Avito API, Network, Fetch, Runtime, cookies, сообщения, телефон, покупку или скрытые эндпоинты.",
+   "minimum_chrome_version": "109",
+   "permissions": [
+     "tabs",
+
+--- v0.9.9/service_worker.js
++++ v0.9.10/service_worker.js
+@@ -1,4 +1,4 @@
+-/* Avito Finder v0.9.9 — immediate same-tab form-submit reconciliation; retained fast public harvest. */
++/* Avito Finder v0.9.10 — robust bulk child-tab startup readiness; retained immediate submit reconciliation and fast public harvest. */
+ "use strict";
+ importScripts("core.js");
+ const Core = AvitoFinderCore;
+@@ -471,16 +471,36 @@
+ function samePublicResultsPath(a, b) {
+   try { const left = new URL(a); const right = new URL(b); return left.origin === right.origin && left.pathname === right.pathname; } catch (_) { return false; }
+ }
++function bulkTabUrlState(tab, windowId) {
++  if (!tab) return { state: "missing", url: "" };
++  if (tab.windowId !== windowId) return { state: "wrong_window", url: "" };
++  const committedUrl = String(tab.url || "");
++  const pendingUrl = String(tab.pendingUrl || "");
++  if (Core.isAvitoUrl(committedUrl)) {
++    return { state: tab.status === "complete" ? "ready" : "loading_avito", url: committedUrl, committed_url: committedUrl, pending_url: pendingUrl };
++  }
++  if (Core.isAvitoUrl(pendingUrl)) {
++    return { state: "pending_avito", url: pendingUrl, committed_url: committedUrl, pending_url: pendingUrl };
++  }
++  if (!committedUrl || /^(?:about:blank|chrome:\/\/newtab\/?)(?:#.*)?$/iu.test(committedUrl)) {
++    return { state: "transient_blank", url: committedUrl, committed_url: committedUrl, pending_url: pendingUrl };
++  }
++  return { state: "invalid_url", url: committedUrl, committed_url: committedUrl, pending_url: pendingUrl };
++}
+ async function waitForBulkTabReady(tabId, windowId, timeoutMs = BULK_TAB_READY_TIMEOUT_MS) {
+   const deadline = Date.now() + Math.max(500, Math.min(Number(timeoutMs) || BULK_TAB_READY_TIMEOUT_MS, BULK_TAB_READY_TIMEOUT_MS));
++  let last = null;
+   while (Date.now() < deadline) {
+     const tab = await getTab(tabId);
+-    if (!tab) throw new Error(`BULK_TAB_MISSING:${tabId}`);
+-    if (tab.windowId !== windowId || !Core.isAvitoUrl(tab.url || "")) throw new Error(`BULK_TAB_CONTEXT_INVALID:${tabId}`);
+-    if (tab.status === "complete") return tab;
++    const state = bulkTabUrlState(tab, windowId);
++    if (state.state === "missing") throw new Error(`BULK_TAB_MISSING:${tabId}`);
++    if (state.state === "wrong_window") throw new Error(`BULK_TAB_CONTEXT_INVALID:${tabId}:WRONG_WINDOW`);
++    if (state.state === "ready") return tab;
++    if (state.state === "invalid_url" && tab?.status === "complete") throw new Error(`BULK_TAB_CONTEXT_INVALID:${tabId}:NON_AVITO_FINAL_URL`);
++    last = state;
+     await wait(70);
+   }
+-  throw new Error(`BULK_TAB_READY_TIMEOUT:${tabId}`);
++  throw new Error(`BULK_TAB_READY_TIMEOUT:${tabId}:${last?.state || "unknown"}`);
+ }
+ async function scanBulkPublicResults(tabId, windowId, limit) {
+   const response = await sendAvito(tabId, windowId, { type: "AF_BULK_SCAN_PUBLIC_RESULTS", request: { limit, max_rounds: 60 } });
+@@ -521,19 +541,21 @@
+   const action = (plan.steps || []).find((step) => String(step?.type || "") === "BULK_PUBLIC_HARVEST") || {};
+   const limit = Math.max(1, Math.min(Number(action.limit || BULK_MAX_LISTINGS), BULK_MAX_LISTINGS));
+   const concurrency = Math.max(1, Math.min(Number(action.concurrency || BULK_DETAIL_CONCURRENCY), BULK_DETAIL_CONCURRENCY));
++  const bulkWindowId = parentTab.windowId;
++  if (!Number.isInteger(bulkWindowId)) throw new Error("BULK_PARENT_TAB_WINDOW_INVALID");
+   const candidates = new Map(); const visitedPages = new Set(); let pagesVisited = 0; let current = null; let scanFailure = null; let scanTab = null;
+   try {
+-    scanTab = await tabsCreate({ url: parentTab.url, active: false, windowId: state.current_window_id, openerTabId: parentTab.id });
+-    current = await waitForBulkTabReady(scanTab.id, state.current_window_id);
++    scanTab = await tabsCreate({ url: parentTab.url, active: false, windowId: bulkWindowId, openerTabId: parentTab.id });
++    current = await waitForBulkTabReady(scanTab.id, bulkWindowId);
+     if (Number(current.openerTabId) !== Number(parentTab.id) || !samePublicResultsPath(parentTab.url, current.url)) throw new Error("BULK_SCAN_TAB_OWNERSHIP_OR_URL_MISMATCH");
+   } catch (error) {
+     scanFailure = `BULK_SCAN_TAB_CREATE_FAILED:${String(error?.message || error).slice(0, 140)}`;
+   }
+   while (!scanFailure && candidates.size < limit && pagesVisited < BULK_MAX_PAGES) {
+-    current = await waitForBulkTabReady(current.id, state.current_window_id);
++    current = await waitForBulkTabReady(current.id, bulkWindowId);
+     if (visitedPages.has(current.url)) break;
+     visitedPages.add(current.url);
+-    const scan = await scanBulkPublicResults(current.id, state.current_window_id, limit - candidates.size);
++    const scan = await scanBulkPublicResults(current.id, bulkWindowId, limit - candidates.size);
+     for (const item of Array.isArray(scan.listings) ? scan.listings : []) {
+       const key = canonicalPublicListingUrl(item.href);
+       if (key && !candidates.has(key)) candidates.set(key, { ...item, href: key });
+@@ -545,15 +567,15 @@
+     try { current = await tabsUpdate(current.id, { url: nextHref }); }
+     catch (error) { scanFailure = `BULK_NEXT_RESULTS_NAVIGATION_FAILED:${String(error?.message || error).slice(0, 120)}`; break; }
+   }
+-  if (scanTab?.id) await closeOwnedBulkTab(scanTab.id, parentTab.id, state.current_window_id);
++  if (scanTab?.id) await closeOwnedBulkTab(scanTab.id, parentTab.id, bulkWindowId);
+   const queue = Array.from(candidates.values()).slice(0, limit); const details = []; const failed = [];
+   let cursor = 0;
+   const worker = async () => {
+     while (cursor < queue.length) {
+       const position = cursor; cursor += 1; const summary = queue[position]; let child = null;
+       try {
+-        child = await tabsCreate({ url: summary.href, active: false, windowId: state.current_window_id, openerTabId: parentTab.id });
+-        const ready = await waitForBulkTabReady(child.id, state.current_window_id);
++        child = await tabsCreate({ url: summary.href, active: false, windowId: bulkWindowId, openerTabId: parentTab.id });
++        const ready = await waitForBulkTabReady(child.id, bulkWindowId);
+         if (Number(ready.openerTabId) !== Number(parentTab.id) || canonicalPublicListingUrl(ready.url || "") !== canonicalPublicListingUrl(summary.href)) throw new Error("BULK_CHILD_TAB_OWNERSHIP_OR_URL_MISMATCH");
+         const detail = await collectBulkPublicListingDetails(ready.id);
+         if (detail?.blocked_reason) failed.push({ href: summary.href, title: summary.title || "", reason: detail.blocked_reason });
+@@ -561,7 +583,7 @@
+       } catch (error) {
+         failed.push({ href: summary.href, title: summary.title || "", reason: String(error?.message || error).slice(0, 180) });
+       } finally {
+-        if (child?.id) await closeOwnedBulkTab(child.id, parentTab.id, state.current_window_id);
++        if (child?.id) await closeOwnedBulkTab(child.id, parentTab.id, bulkWindowId);
+       }
+     }
+   };
+
