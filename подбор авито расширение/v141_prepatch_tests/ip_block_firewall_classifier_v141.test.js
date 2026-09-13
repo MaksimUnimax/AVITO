@@ -25,7 +25,11 @@ function probeFixture({ heading, bodyText, captchaIframe = false }) {
   const body = el("BODY", bodyText);
   const iframe = captchaIframe ? el("IFRAME", "", { src: "https://captcha.example/challenge" }) : null;
   global.getComputedStyle = () => ({ display: "block", visibility: "visible", opacity: "1" });
+  global.location = { href: "https://www.avito.ru/yuzhno-sahalinsk/nastolnye_kompyutery/dell_vostro_3470_4750223208" };
+  global.performance = { timeOrigin: 123456789 };
   global.document = {
+    title: "Avito",
+    readyState: "complete",
     body,
     querySelectorAll(selector) {
       if (selector.includes("a[data-marker='item-title']")) return [];
