@@ -2,9 +2,9 @@
   "schema": "avito_finder_live_acceptance_state_v1",
   "date": "2026-09-13",
   "current_main_release": "1.0.39",
-  "installed_reported_version": "1.0.38",
-  "v139_installed_acceptance": "NOT_RUN_NOT_INSTALLED",
-  "task_id": "af-20260913062414-29ps",
+  "installed_reported_version": "1.0.39",
+  "v139_installed_acceptance": "FAIL",
+  "task_id": "af-20260913075253-v24r",
   "last_stage": "COMMAND_CAPTURED",
   "last_reason": "AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB",
   "automatic_recovery_attempts": 0,
@@ -12,9 +12,7 @@
   "cards_read": 0,
   "avito_mutations": 0,
   "baseline_preserved": "150/150",
-  "interpretation": "The installed Chrome extension still reports v1.0.38. Therefore repeated ambiguity failures are executions of the old selector and are not evidence about v1.0.39 runtime.",
-  "next_safe_options": [
-    "Install/reload v1.0.39 and verify the next Finder report says version 1.0.39 before acceptance.",
-    "Temporary v1.0.38 workaround: leave exactly one public Avito tab in the ChatGPT window, preferably Dell 4750223208, then retry the same queue."
-  ]
+  "interpretation": "Installed Chrome now confirms v1.0.39. The run still stops in target-tab selection before any Avito action, queue execution or recovery. Therefore v1.0.39 is a real installed/live FAIL for the multi-tab requested-page scenario and must not be called working.",
+  "evidence_file": "live_evidence/2026-09-13/V139_INSTALLED_AMBIGUITY_AFTER_EXACT_TAB_PATCH.json",
+  "next_gate": "Refresh Rule-20 full-history authority through v1.0.39, then RED at the exact target-selection state-machine layer before any runtime change."
 }
