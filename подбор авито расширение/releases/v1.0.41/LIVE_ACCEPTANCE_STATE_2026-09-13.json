@@ -1,0 +1,15 @@
+{
+  "schema": "avito_finder_live_acceptance_state_v1",
+  "date": "2026-09-13",
+  "current_main_release": "1.0.41",
+  "installed_reported_version": null,
+  "target_scenario": "Dell TOP_REVALIDATE_PRE on IP-block firewall landing",
+  "expected_provider_classification": "AVITO_IP_BLOCK",
+  "expected_runtime_path": "bounded IP recovery -> bypass-cache reload -> retry same plan",
+  "actual_visible_captcha_challenge_if_present": "MANUAL_REQUIRED",
+  "cards_read_before_install": 0,
+  "baseline_preserved": "150/150",
+  "full_installed_e2e": "NOT_RUN",
+  "installed_live_acceptance": "LIVE_UNVERIFIED",
+  "next_safe_step": "Install exact main v1.0.41 over the existing unpacked extension without clearing storage/baseline, Reload, confirm version 1.0.41, and rerun the preserved Dell/TOP_REVALIDATE_PRE scenario."
+}
