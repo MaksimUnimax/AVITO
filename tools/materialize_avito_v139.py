@@ -44,6 +44,18 @@ for rel in version_tests:
     assert '1.0.38' in x,rel
     p.write_text(x.replace('1.0.38','1.0.39'),encoding='utf-8')
 
+# Test-harness correction after first v1.0.39 full gate failure. A/B on the
+# same GitHub runner showed unchanged v1.0.38 adapter identity could take 19.55s
+# on its cold first launch while later runs were <1s; v1.0.39 was 2.39s then
+# <1.2s. The 20s group deadline therefore had <0.5s cold-start margin and did
+# not measure the identity invariant. Only this QA deadline changes; production
+# runtime timeouts are untouched.
+p=target/'tests'/'run_all_v136.py'; x=p.read_text(encoding='utf-8')
+old_adapter="run('adapter_identity',[sys.executable,'tests/check_packaged_adapter_v136.py',str(ROOT),str(OUT/'adapter_identity.json')],timeout=20)"
+new_adapter="run('adapter_identity',[sys.executable,'tests/check_packaged_adapter_v136.py',str(ROOT),str(OUT/'adapter_identity.json')],timeout=30)"
+assert x.count(old_adapter)==1
+p.write_text(x.replace(old_adapter,new_adapter),encoding='utf-8')
+
 base_files={p.relative_to(base) for p in base.rglob('*') if p.is_file()}
 new_files={p.relative_to(target) for p in target.rglob('*') if p.is_file()}
 changed=[]
@@ -73,6 +85,10 @@ origin={
   'proxy_recovery_changed':False,'captcha_automation_added':False,
   'live_failure_task':'af-20260913062414-29ps',
   'rule20_authority':'PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md/json PASS',
+  'first_full_gate_failure':'workflow 34743154320: adapter cold-start deadline + new regression aggregate integration',
+  'gate_failure_diagnosis':'workflow 34743603061: v1.0.38 node 368/368; v1.0.39 sole SOURCE_PATH_REQUIRED test integration failure; adapter A/B v1.0.38 19.55/0.96/0.95/0.75s vs v1.0.39 2.39/1.20/0.77/0.89s',
+  'qa_adapter_identity_deadline_seconds':30,
+  'production_timeout_changed':False,
   'live_provider_calls_during_patch':0,'installed_live_acceptance':'NOT_RUN'
 }
 (target/'BUILD_ORIGIN_v1.0.39.json').write_text(json.dumps(origin,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
@@ -85,5 +101,5 @@ for p in sorted(target.rglob('*')):
     if rel=='SHA256SUMS.txt': continue
     rows.append(f'{H(p)}  {rel}')
 (target/'SHA256SUMS.txt').write_text('\n'.join(rows)+'\n',encoding='utf-8')
-(release/'MATERIALIZATION.json').write_text(json.dumps({'production_runtime_changed':prod,'changed_before_metadata':changed,'status':'PASS'},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+(release/'MATERIALIZATION.json').write_text(json.dumps({'production_runtime_changed':prod,'changed_before_metadata':changed,'test_harness_corrections':['visible_tab_exact_request_disambiguation_v139.test.js aggregate default source','run_all_v136.py adapter_identity deadline 20->30 after A/B evidence'],'status':'PASS'},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 print(json.dumps({'runtime_changed':prod,'changed_tests':[x for x in changed if x.startswith('tests/')],'source_files':sum(1 for p in target.rglob('*') if p.is_file() and '__pycache__' not in p.parts)},ensure_ascii=False))
