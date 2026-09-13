@@ -1,0 +1,12 @@
+{
+  "date": "2026-09-13",
+  "task_id": "af-20260913075253-v24r",
+  "installed_version": "1.0.39",
+  "requested_page": "https://www.avito.ru/yuzhno-sahalinsk/nastolnye_kompyutery/dell_vostro_3470_4750223208",
+  "stage": "COMMAND_CAPTURED",
+  "reason": "AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB",
+  "automatic_recovery_attempts": 0,
+  "cards_read": 0,
+  "baseline_preserved": "150/150",
+  "interpretation": "Installed v1.0.39 still stopped in target-tab selection before any Avito action. The report does not distinguish zero exact route matches from duplicate exact route matches."
+}
