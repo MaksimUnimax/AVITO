@@ -1,0 +1,44 @@
+name: Full Avito Finder history audit
+on:
+  push:
+    branches: [audit/full-history-2026-09-13]
+    paths:
+      - 'tools/full_history_audit.py'
+      - '.github/workflows/full-history-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch every ref
+        run: git fetch --all --tags --prune
+      - name: Run full-history scanner
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/full_history_audit.py --out audit-output
+      - name: Show compact summary
+        run: cat audit-output/SUMMARY.json
+      - name: Verify no runtime file changed by audit commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=$(git merge-base origin/main HEAD)
+          changed=$(git diff --name-only "$base"..HEAD)
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -E '(^|/)(manifest\.json|service_worker\.js|chatgpt_content\.js|avito_content\.js|core\.js|proxy_manager\.js|recovery\.js|popup\.js|popup\.html|popup\.css)$'; then
+            echo 'AUDIT_BRANCH_RUNTIME_CHANGE_FORBIDDEN' >&2
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-full-history-audit-raw
+          path: audit-output/
+          retention-days: 90
+          if-no-files-found: error
