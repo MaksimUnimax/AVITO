@@ -1,0 +1,48 @@
+name: Diagnose Avito Finder v1.0.42 Node regression
+on:
+  push:
+    branches: [fix/v142-writing-block-payload-oscillation-2026-09-13]
+    paths: ['.github/workflows/diag-avito-v142-node.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BRANCH: fix/v142-writing-block-payload-oscillation-2026-09-13
+      WORK: подбор авито расширение/releases/v1.0.42/v142_work
+      OUTDIR: подбор авито расширение/releases/v1.0.42/QA/node_diagnostics
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: fix/v142-writing-block-payload-oscillation-2026-09-13, fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Materialize corrected candidate and capture exact Node failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUTDIR"
+          python tools/materialize_avito_v142.py > "$OUTDIR/materialize.log" 2>&1
+          grep -RInE '1\.0\.41|0\.6\.18' "$WORK/tests" > "$OUTDIR/stale_identity_refs.txt" || true
+          set +e
+          (
+            cd "$WORK"
+            node --test $(find tests -maxdepth 1 -name '*.test.js' -type f | sort)
+          ) > "$GITHUB_WORKSPACE/$OUTDIR/node.log" 2>&1
+          RC=$?
+          set -e
+          printf '%s\n' "$RC" > "$OUTDIR/node.exit_code"
+          cat "$OUTDIR/node.log"
+      - name: Persist exact diagnostic evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$OUTDIR"
+          git commit -m 'qa: persist v1.0.42 Node regression diagnostics'
+          git push origin "HEAD:$BRANCH"
