@@ -1,0 +1,32 @@
+{
+  "schema": "avito_finder_live_failure_v1",
+  "date": "2026-09-13",
+  "installed_version": "1.0.40",
+  "task_id": "af-20260913103028-k9qv",
+  "listing_id": "4750223208",
+  "url": "https://www.avito.ru/yuzhno-sahalinsk/nastolnye_kompyutery/dell_vostro_3470_4750223208",
+  "observed_heading": "Доступ ограничен: проблема с IP",
+  "observed_helper_text": "Иногда такое случается, чтобы вернуться на сайт нажмите на кнопку Продолжить для решения капчи",
+  "observed_button": "Продолжить",
+  "actual_visible_challenge": false,
+  "provider_page_kind": "IP_BLOCK_FIREWALL_LANDING",
+  "finder_reported_kind": "BLOCKED_LOGIN_OR_CAPTCHA",
+  "cards_read": 0,
+  "baseline_preserved": "150/150",
+  "expected_historical_contract": "AVITO_IP_BLOCK -> bounded connection/proxy recovery -> tabs.reload(..., {bypassCache:true}) -> retry same plan",
+  "historical_authority": "AVITO_FINDER_v1.0.24_UI_PLAN_IP_BLOCK_RECOVERY_2026-09-08.md",
+  "exact_source_findings": {
+    "core_probe": "publicPageInterruptionProbe sets captcha=true from the substring /капч/ while also setting ip_block=true from the heading",
+    "adapter_classifier": "detectBlock checks probe.captcha before probe.ip_block and returns BLOCKED_LOGIN_OR_CAPTCHA",
+    "worker_recovery_gate": "automatic IP recovery requires an AVITO_IP_BLOCK interruption; CAPTCHA is a manual boundary",
+    "reload_path_still_exists": "recoverAvitoIpBlockAndReload/connection recovery still performs a bounded tabs.reload with bypassCache"
+  },
+  "causal_chain": "IP firewall helper mentions future CAPTCHA -> broad text regex marks captcha=true -> IP-block page is routed to manual CAPTCHA state -> AVITO_IP_BLOCK recovery/reload is skipped -> page remains on firewall landing instead of being refreshed through the recovery path",
+  "prior_evidence_superseded": [
+    "V140_CAPTCHA_IP_BLOCK_DOM_AFTER_TAB_FIX.json",
+    "V140_CAPTCHA_GUARD_SOURCE_CAUSAL_ANALYSIS_2026-09-13.json"
+  ],
+  "superseding_reason": "Those records treated the combined Finder status as proof of an actual CAPTCHA challenge. The current visible page has an IP-block heading and only a textual reference to a future CAPTCHA; no CAPTCHA challenge is visible.",
+  "runtime_patch_required": true,
+  "acceptance": "Same firewall DOM must classify as AVITO_IP_BLOCK and enter bounded recovery/reload, while a real CAPTCHA challenge remains manual and must never invoke proxy rotation."
+}
