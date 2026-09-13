@@ -1,0 +1,22 @@
+{
+  "schema": "avito_finder_live_evidence_v1",
+  "date": "2026-09-13",
+  "task_id": "af-20260913103028-k9qv",
+  "version": "1.0.40",
+  "stage": "AVITO_NAVIGATION",
+  "reason": "CAPTCHA_MANUAL_REQUIRED",
+  "automatic_recovery_attempts": 1,
+  "queue_cursor_used": false,
+  "cards_read": 0,
+  "mutation_replay_forbidden": true,
+  "ip_change_claimed": false,
+  "baseline_preserved": "150/150",
+  "prior_v139_live_failure": {
+    "task_id": "af-20260913075253-v24r",
+    "stage": "COMMAND_CAPTURED",
+    "reason": "AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB"
+  },
+  "interpretation": "Installed v1.0.40 progressed past the prior COMMAND_CAPTURED tab-allocation ambiguity into AVITO_NAVIGATION on the same TOP revalidation command family. This is live evidence that the previous ambiguity gate did not recur in this run. Full installed E2E is still not accepted because navigation stopped at manual CAPTCHA before any listing was read.",
+  "next_required_action": "User must solve the visible CAPTCHA manually in Chrome. Do not automate CAPTCHA. After manual completion, resume the preserved explicit listing queue without resetting baseline or inventing unread cards.",
+  "installed_live_acceptance": "PARTIAL_PROGRESS_MANUAL_CAPTCHA_BLOCKED"
+}
