@@ -18,7 +18,9 @@ jobs:
           fetch-depth: 0
       - run: git fetch --all --tags --prune
       - name: Scan all exact historical ZIP variants
-        run: python3 tools/scan_nested_history_archives.py nested-history-output
+        run: |
+          mkdir -p nested-history-output/extract
+          python3 tools/scan_nested_history_archives.py nested-history-output
       - run: cat nested-history-output/SUMMARY.json
       - name: Enforce audit-only branch
         shell: bash
