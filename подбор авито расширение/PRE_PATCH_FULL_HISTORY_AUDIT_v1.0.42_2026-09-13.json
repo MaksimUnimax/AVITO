@@ -1,0 +1,95 @@
+{
+  "schema": "avito_finder_rule20_full_history_v142",
+  "date": "2026-09-13",
+  "status": "FULL_HISTORY_AUDIT=PASS",
+  "prospective_target": "v1.0.42 ChatGPT Writing Block payload-extraction oscillation/capture livelock only",
+  "installed_exact_target": "v1.0.41",
+  "main_before_audit": "0ce12d054faf1efe46e4884afe335a2f9eaa9078",
+  "inherited_authority": [
+    "PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md/json",
+    "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.40_2026-09-13.md/json",
+    "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.41_2026-09-13.md/json",
+    "PATCH_ENGINEERING_RULES.md"
+  ],
+  "base_full_history_coverage": {
+    "historical_archive_variants": 61,
+    "unique_archived_pre_1_versions": 56,
+    "exact_historical_runtime_manifests": 60,
+    "unambiguous_adjacent_runtime_diffs": 54,
+    "reachable_git_commits_at_base_audit": 352,
+    "runtime_test_history_commits_at_base_audit": 193
+  },
+  "post_v141_merge_compare": {
+    "base": "b259a1959c4ea72b98fc2afd5c7879f357ca3e92",
+    "head": "0ce12d054faf1efe46e4884afe335a2f9eaa9078",
+    "ahead_by": 13,
+    "behind_by": 0,
+    "runtime_changes": [],
+    "classification": "docs/evidence/receipts only"
+  },
+  "current_live_root_cause": {
+    "task_id": "af-20260913121226-xf3c",
+    "assistant_turn_id": "request-6aa685f0-e0cc-83ea-ad54-8d1e253ac1bf-17",
+    "pattern": "payload extraction alternates empty/unavailable and non-empty/2447 bytes on the same Writing Block",
+    "exact_code_chain": "empty extraction -> PROMPT_EMPTY_WRITING_BLOCK_IGNORED -> candidateFirstSeen=null -> next non-empty sample forces structuralChanged -> PROMPT_DOM_STABILITY_STARTED -> two-second gate restarts -> empty extraction can recur -> no terminal budget",
+    "status": "CAUSAL_CHAIN_PROVEN_FOR_LIVE_LOOP",
+    "earliest_exact_source_proven": "v1.0.34",
+    "still_present_exact_source": "v1.0.41"
+  },
+  "superseded_primary_hypothesis": {
+    "old_evidence": "V141_WRITING_BLOCK_DOM_STABILITY_HANG_LIVE_FAIL_2026-09-13.json",
+    "old_status": "HIGH_CONFIDENCE_CAUSAL_CANDIDATE_PENDING_SIGNATURE_DIFF_CAPTURE",
+    "new_evidence": "V141_WRITING_BLOCK_PAYLOAD_EXTRACTION_OSCILLATION_LIVE_FAIL_2026-09-13.json",
+    "disposition": "button-churn remains secondary risk; payload oscillation is the direct current causal chain"
+  },
+  "separate_unresolved_network_track": {
+    "mini_itx": "AVITO_IP_BLOCK_RECOVERY_EXHAUSTED after 4 attempts",
+    "post_failure_dom": "AVITO_IP_BLOCK",
+    "popup_later_observation": "active Every Request profile; API key OK; IP probe unchanged; Avito PENDING; attempt 4",
+    "must_not_mix_into_v142": true
+  },
+  "assistant_process_failures": [
+    "selective history review missed inherited rotation=0 lineage",
+    "canary egress was treated as stable Avito-session evidence",
+    "offline PASS repeatedly overvalued before installed E2E",
+    "v1.0.39 patch fixed only unique exact reuse and missed full first-target allocation state",
+    "v1.0.40 tests did not run real firewall DOM through classifier",
+    "ordinary Markdown/text was sent while Finder required Writing Block",
+    "invalid DIAGNOSE_DOM action prose was sent despite parser authority",
+    "unsupported AVITO_UI step phrases were guessed repeatedly",
+    "WAIT/hold AVITO_UI was sent on blocked page even though preflight runs first",
+    "3-item TOP queue was retried before recovery layer was understood",
+    "screenshot-only button-churn diagnosis was called too early before journal evidence",
+    "IP-firewall page was earlier miscalled a real CAPTCHA"
+  ],
+  "rule_implications": {
+    "rule_7": "prior current-cause diagnosis was premature; corrected",
+    "rule_15": "v1.0.41 capture path FAIL: unbounded empty/non-empty oscillation",
+    "rule_16": "existing tests FAIL to reproduce live oscillation"
+  },
+  "required_red_before_patch": [
+    "stable anchored Writing Block + ready local Copy",
+    "non-empty valid payload sample",
+    "same block transiently returns WRITING_BLOCK_LOCAL_BODY_UNAVAILABLE/empty",
+    "same payload returns non-empty again",
+    "exact v1.0.41 proves candidateFirstSeen reset/restarted structural gate/unbounded repeat",
+    "separate RED for unrelated assistant-button churn with stable block/payload"
+  ],
+  "permitted_patch_boundary_after_red": [
+    "ChatGPT capture stability/extraction only",
+    "empty shell never executable",
+    "transient extraction miss must not blindly erase proven structural identity",
+    "payload fingerprint stability remains mandatory",
+    "unrelated assistant controls cannot own Writing Block stability",
+    "bounded terminal budget required",
+    "ordinary text/Markdown remains non-executable",
+    "pinned conversation/anchor, validator/report, Avito navigation, queue/cursor and proxy unchanged"
+  ],
+  "source_gaps_retained": [
+    "v1.0.6 exact package unresolved",
+    "v1.0.2-v1.0.5 VERSION_NOT_CONFIRMED",
+    "v1.0.20-v1.0.21 VERSION_SPECIFIC_AUTHORITY_NOT_FOUND",
+    "v1.0.14, v1.0.22, v1.0.25-v1.0.33 bounded non-exact authority"
+  ],
+  "authorization": "RED creation only; no runtime patch, manifest bump, release build or live-ready claim yet"
+}
