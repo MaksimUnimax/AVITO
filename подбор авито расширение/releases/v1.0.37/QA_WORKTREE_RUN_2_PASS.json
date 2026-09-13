@@ -1,0 +1,16 @@
+{
+  "date": "2026-09-13",
+  "scope": "FULL_EXISTING_RUNNER_FROM_PATCHED_WORKTREE_BEFORE_FINAL_ZIP",
+  "version": "1.0.37",
+  "complete": true,
+  "groups_pass": 35,
+  "groups_fail": 0,
+  "installed_environment_probe": "PROBE_EXECUTED_NOT_ACCEPTANCE",
+  "node_tests_pass": 367,
+  "node_tests_fail": 0,
+  "previous_run_preserved": "QA_WORKTREE_RUN_1_FAIL_PRESERVED.json",
+  "previous_failure_correction": "test-only exact release-version expectation; runtime unchanged",
+  "live_provider_calls": 0,
+  "installed_live_acceptance": "NOT_RUN",
+  "next": "freeze metadata/checksums, build deterministic final ZIP, fresh-extract and rerun the same complete suite"
+}
