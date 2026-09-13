@@ -2,7 +2,10 @@ name: Diagnose Avito Finder v1.0.42 targeted GREEN
 on:
   push:
     branches: [fix/v142-writing-block-payload-oscillation-2026-09-13]
-    paths: ['.github/workflows/diag-avito-v142-green.yml']
+    paths:
+      - '.github/workflows/diag-avito-v142-green.yml'
+      - 'подбор авито расширение/v142_prepatch_tests/writing_block_capture_green.py'
+      - 'tools/materialize_avito_v142.py'
   workflow_dispatch:
 permissions:
   contents: write
@@ -45,5 +48,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -- "$OUTDIR"
-          git commit -m 'qa: persist v1.0.42 targeted GREEN diagnostic failure'
-          git push origin "HEAD:$BRANCH"
+          if ! git diff --cached --quiet; then
+            git commit -m 'qa: persist v1.0.42 targeted GREEN diagnostic rerun'
+            git push origin "HEAD:$BRANCH"
+          fi
