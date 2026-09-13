@@ -1,0 +1,24 @@
+{
+  "schema": "avito_finder_live_fail_v1",
+  "date": "2026-09-13",
+  "release": "1.0.41",
+  "task_id": "af-20260913121226-xf3c",
+  "phase": "CHATGPT_WRITING_BLOCK_CAPTURE",
+  "live_observation": "UI overlay remained at 'writing block готов; жду 2 секунды неизменности DOM-структуры' instead of handing the command to the worker.",
+  "screenshot_observation": {
+    "writing_block_visible": true,
+    "copy_control_visible": true,
+    "assistant_suggestion_controls_visible": true,
+    "overlay_state": "PROMPT_DOM_STABILITY_WAIT"
+  },
+  "source_causal_candidate": {
+    "file": "releases/v1.0.41/v141_work/chatgpt_content.js",
+    "detectCopyReadiness": "collects snapshots for every button under the assistant section, not only the writing-block-local copy control",
+    "writingBlockStructuralSignature": "includes the entire returned button snapshot array in structural_signature",
+    "stability_gate": "any structural_signature change resets candidateFirstSeen.first_seen_ms and restarts the two-second gate",
+    "contradiction": "source comment says unrelated assistant controls may mutate and must never cancel the local writing-block stability deadline, while the signature still includes all assistant-section buttons"
+  },
+  "root_cause_status": "HIGH_CONFIDENCE_CAUSAL_CANDIDATE_PENDING_SIGNATURE_DIFF_CAPTURE",
+  "effect": "Writing Block may wait indefinitely when unrelated assistant-turn controls mutate after the block itself is complete.",
+  "patch_boundary": "Do not patch by guess. A future correction must first extend Rule-20 authority and add a RED regression reproducing unrelated assistant-button churn with a stable writing block. Candidate fix: scope structural stability to writing-block identity/local copy readiness and payload, excluding unrelated assistant-turn controls; also add a bounded terminal timeout."
+}
