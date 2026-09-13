@@ -1,0 +1,32 @@
+{"name": "CLICK_visible_generic", "status": "PASS", "rpc_count": 2}
+{"name": "TYPE_exact_visible_reactive_input", "status": "PASS", "rpc_count": 1}
+{"name": "WAIT_bounded", "status": "PASS", "rpc_count": 0}
+{"name": "WAIT_FOR_late_visible_control", "status": "PASS", "rpc_count": 0}
+{"name": "WAIT_FOR_timeout_explicit", "status": "PASS", "rpc_count": 0}
+{"name": "SNAPSHOT_readonly", "status": "PASS", "rpc_count": 0}
+{"name": "COLLECT_LISTINGS_ordered_read", "status": "PASS", "rpc_count": 0}
+{"name": "COLLECT_LISTING_DETAILS_passthrough", "status": "PASS", "rpc_count": 0}
+{"name": "COLLECT_MENU_visible_only", "status": "PASS", "rpc_count": 0}
+{"name": "SELECT_OPTION_exact_dialog_option", "status": "PASS", "rpc_count": 1}
+{"name": "unrelated_existing_menu_not_selected", "status": "PASS", "rpc_count": 0}
+{"name": "duplicate_option_not_arbitrarily_chosen", "status": "PASS", "rpc_count": 0}
+{"name": "unknown_action_no_execution", "status": "PASS", "rpc_count": 0}
+{"name": "forbidden_Показать телефон", "status": "PASS", "rpc_count": 0}
+{"name": "forbidden_Написать", "status": "PASS", "rpc_count": 0}
+{"name": "forbidden_Купить с доставкой", "status": "PASS", "rpc_count": 0}
+{"name": "forbidden_В корзину", "status": "PASS", "rpc_count": 0}
+{"name": "forbidden_Забронировать", "status": "PASS", "rpc_count": 0}
+{"name": "covered_target_does_not_receive_pointer", "status": "PASS", "rpc_count": 1}
+{"name": "target_disabled_during_input_handshake", "status": "PASS", "rpc_count": 2}
+{"name": "TYPE_disabled_during_focus_handshake", "status": "PASS", "rpc_count": 1}
+{"name": "DIAGNOSE_PAGE_MAIN_VISIBLE", "status": "PASS", "rpc_count": 0}
+{"name": "DIAGNOSE_SEARCH_SURFACE_VISIBLE", "status": "PASS", "rpc_count": 0}
+{"name": "DIAGNOSE_SEARCH_INPUT_ANCESTRY_VISIBLE", "status": "PASS", "rpc_count": 0}
+{"name": "DIAGNOSE_SEARCH_INPUT_PARENT_VISIBLE", "status": "PASS", "rpc_count": 0}
+{"name": "DIAGNOSE_FILTERS_VISIBLE", "status": "PASS", "rpc_count": 0}
+{"name": "DIAGNOSE_DIALOG_VISIBLE", "status": "PASS", "rpc_count": 0}
+{"name": "DIAGNOSE_LISTING_CARD_VISIBLE", "status": "PASS", "rpc_count": 0}
+{"name": "DIAGNOSE_REVIEWS_VISIBLE", "status": "PASS", "rpc_count": 0}
+{"name": "DIAGNOSTIC_ACTION_OPEN_LOCATION_DIALOG", "status": "PASS", "rpc_count": 0}
+{"name": "private_page_not_read", "status": "PASS", "rpc_count": 0}
+{"name": "STOP_cancels_later_step", "status": "PASS", "rpc_count": 0}

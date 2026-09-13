@@ -1,0 +1,30 @@
+{
+  "schema": "avito_finder_build_v142",
+  "version": "1.0.42",
+  "base_version": "1.0.41",
+  "archive": "AVITO_FINDER_v1.0.42_WRITING_BLOCK_CAPTURE_STABILITY_RECOVERY_2026-09-13.zip",
+  "archive_sha256": "616874dcdd67a05aaa63efbe5a3f670f91646cce9022db7038296525cfd63167",
+  "archive_bytes": 505192,
+  "source_files": 154,
+  "runtime_behavior_changed": [
+    "chatgpt_content.js"
+  ],
+  "identity_only_changed": [
+    "service_worker.js",
+    "avito_content.js",
+    "manifest.json"
+  ],
+  "service_worker_behavior_delta": "CAPTURE_VERSION 0.6.18 -> 0.6.19 only",
+  "service_worker_byte_identical_to_v141": false,
+  "proxy_manager_byte_identical_to_v141": true,
+  "chatgpt_content_sha256": "bf30d2babc8b7769fc6c7e651713c164a84c42d6c973270756da319088f7da4d",
+  "service_worker_sha256": "09122b88467331d67a2d0f3f77956f60800d0db41e1b73a29f875cdaef724012",
+  "avito_content_sha256": "f13713cf92675a8d4a6cd66c747b307ad795ac7e81b24dcdbdb28068dda5db8f",
+  "manifest_sha256": "d5c76cda124733516fb7d2ae55c78f414b21670971f22c0818665d2f9d61638e",
+  "targeted_green": "3/3 PASS",
+  "worktree_grouped_qa": "35/35 PASS",
+  "installed_live_e2e": "NOT_RUN / LIVE_UNVERIFIED",
+  "final_zip_grouped_qa": "35/35 PASS",
+  "final_targeted_green": "3/3 PASS",
+  "final_zip_fresh_extract": "PASS"
+}

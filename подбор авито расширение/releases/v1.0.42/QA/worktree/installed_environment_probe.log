@@ -1,0 +1,9 @@
+{
+  "scope": "NORMAL_UNPACKED_MV3_INSTALL_PROBE",
+  "live_provider_calls": 0,
+  "policy_modified": false,
+  "browser": "Chromium 152.0.7977.0",
+  "relevant_managed_policy": {},
+  "service_worker_observed": false,
+  "status": "LOAD_NOT_OBSERVED"
+}
