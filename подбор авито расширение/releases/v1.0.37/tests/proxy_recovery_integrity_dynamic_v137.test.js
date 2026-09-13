@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {loadWorker}=require('../../../v1.0.36-r2/v136_work/tests/helpers/worker_vm.cjs');
+const {loadWorker}=require('../../v1.0.36-r2/v136_work/tests/helpers/worker_vm.cjs');
 
 function fixture(t,opts={}) { const w=loadWorker(opts); t.after(()=>w.dispose()); return w; }
 function popupRequest(w,message){
