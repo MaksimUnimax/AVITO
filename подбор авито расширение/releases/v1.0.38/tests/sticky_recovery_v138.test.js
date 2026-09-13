@@ -3,8 +3,8 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const path=require('node:path');
 
-const ROOT=process.env.AF_SOURCE_ROOT;
-if(!ROOT) throw new Error('AF_SOURCE_ROOT_REQUIRED');
+if(!process.env.AF_SOURCE_ROOT) throw new Error('AF_SOURCE_ROOT_REQUIRED');
+const ROOT=path.resolve(process.env.AF_SOURCE_ROOT);
 const {loadWorker}=require(path.join(ROOT,'tests/helpers/worker_vm.cjs'));
 
 function fixture(t,opts={}) { const w=loadWorker(opts); t.after(()=>w.dispose()); return w; }
