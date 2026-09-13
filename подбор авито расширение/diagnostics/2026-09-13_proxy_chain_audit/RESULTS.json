@@ -1,0 +1,170 @@
+{
+  "scope": "OFFLINE_UNMODIFIED_PACKAGED_WORKER_CHROME_AND_NETWORK_DOUBLES",
+  "runtime_patch": false,
+  "live_network_requests": 0,
+  "release_acceptance": "NOT_TESTED",
+  "source_hashes": {
+    "service_worker.js": "415b2ca3c3c196c059dee33587c2572c5d310c1e44c3404d0859f9707242e88a",
+    "core.js": "b00830e8e2971186bf4a725725aa4676e29b09a7e32cc296b7ccf24c5e36ee9b",
+    "proxy_manager.js": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66",
+    "recovery.js": "d49558f8decf4396bb5dd770d9c34608770ea14635166972a4fc8273270b936d",
+    "popup.js": "a107c7094dab8b2d8e3f568bdfb5a496db94ccd332457d4d6aff54b7d3b73990"
+  },
+  "cases": [
+    {
+      "name": "successful_ip_probes_still_record_ok_false_awaiting_target",
+      "characterization": "REPRODUCED",
+      "mock_ip_requests": 2,
+      "ip_observations": 2,
+      "record": {
+        "at": "2026-09-13T01:44:50.223Z",
+        "attempt": 1,
+        "interruption_kind": "IP_BLOCK",
+        "ok": false,
+        "strategy": "verified_config_then_fresh_avito_document",
+        "profile_id": "123",
+        "probe_before": "198.51.100.10",
+        "probe_after": "198.51.100.11",
+        "probe_ip_changed": true,
+        "avito_exit_ip_verified": false,
+        "target_status": "PENDING"
+      },
+      "finding": "ok=false is target PENDING, not proof of failed IP sampling"
+    },
+    {
+      "name": "third_attempt_captcha_retains_second_attempt_runtime_record",
+      "characterization": "REPRODUCED",
+      "state_attempt": 3,
+      "state_phase": "CHATGPT_CONTINUATION",
+      "popup_record_attempt": 2,
+      "ip_observations": 4,
+      "finding": "CAPTCHA thrown before runtime record update; previous attempt survives"
+    },
+    {
+      "name": "auth_supplied_then_same_profile_reapply_makes_after_apply_false",
+      "characterization": "REPRODUCED",
+      "before": {
+        "auth_seen_after_apply": true,
+        "applied": "2026-09-13T01:44:50.243Z",
+        "auth": "2026-09-13T01:44:50.244Z"
+      },
+      "after": {
+        "auth_seen_after_apply": false,
+        "applied": "2026-09-13T01:44:50.253Z",
+        "auth": "2026-09-13T01:44:50.244Z",
+        "status": "PROXY_CONFIGURED_AVITO_IP_BLOCK_AUTH_NOT_OBSERVED"
+      },
+      "finding": "same-profile apply advances timestamp beyond preserved credential-supply evidence"
+    },
+    {
+      "name": "foreign_direct_pac_misreported_as_proxy_configured",
+      "characterization": "REPRODUCED",
+      "diagnostic_status": "PROXY_CONFIGURED_AVITO_IP_BLOCK_AUTH_NOT_OBSERVED",
+      "effective_level": "controlled_by_other_extensions",
+      "exact_pac_match": false,
+      "actual_fixture_route": "DIRECT",
+      "finding": "diagnostic mode check omits ownership and exact PAC"
+    },
+    {
+      "name": "owned_but_wrong_pac_misreported_as_proxy_configured",
+      "characterization": "REPRODUCED",
+      "diagnostic_status": "PROXY_CONFIGURED_AVITO_IP_BLOCK_AUTH_NOT_OBSERVED",
+      "effective_level": "controlled_by_this_extension",
+      "actual_fixture_route": "DIRECT",
+      "finding": "ownership alone would still not establish route; PAC content must match"
+    },
+    {
+      "name": "ip_probe_errors_omitted_from_prepared_result",
+      "characterization": "REPRODUCED",
+      "result": {
+        "ok": true,
+        "strategy": "verified_config_then_fresh_avito_document",
+        "profile_id": "123",
+        "probe_before": null,
+        "probe_after": null,
+        "probe_ip_changed": false,
+        "avito_exit_ip_verified": false
+      },
+      "logged_errors": [
+        "AUDIT_IP_PROBE_FAILURE",
+        "AUDIT_IP_PROBE_FAILURE"
+      ],
+      "last_egress_check_at": null,
+      "last_egress_ip": null,
+      "finding": "diagnostic failures logged but reasons omitted from prepared result and durable IP diagnostic fields"
+    },
+    {
+      "name": "ip_block_and_captcha_preserved_in_raw_diag_but_status_hides_captcha",
+      "characterization": "REPRODUCED",
+      "status": "PROXY_CONFIGURED_AVITO_IP_BLOCK_AUTH_NOT_OBSERVED",
+      "ip_block": true,
+      "captcha": true,
+      "finding": "raw flags retain both; headline status chooses IP block"
+    },
+    {
+      "name": "captcha_gate_lost_during_report_staging_then_restored_by_wake",
+      "characterization": "REPRODUCED",
+      "after_delivery": {
+        "phase": "CHATGPT_CONTINUATION",
+        "manual_gate_kind": null
+      },
+      "after_wake": {
+        "phase": "CAPTCHA_MANUAL_WAIT",
+        "manual_gate_kind": "CAPTCHA"
+      },
+      "wake_mutations": [],
+      "finding": "report staging clears blocked_reason before manualGateKind reads it; later wake re-probes and reinstates gate"
+    }
+  ],
+  "test_errors": 0,
+  "popup_and_dom": {
+    "scope": "OFFLINE_REAL_CHROMIUM_ACTUAL_POPUP_AND_CORE_CLASSIFIER",
+    "runtime_modified": false,
+    "live_network_requests": 0,
+    "characterizations": [
+      {
+        "name": "successful_probes_target_pending",
+        "actual_text": "Диагностика IP не завершена · попытка 1"
+      },
+      {
+        "name": "successful_probes_target_confirmed",
+        "actual_text": "IP-block: проверяется фактический proxy egress"
+      },
+      {
+        "name": "mixed_captcha_hidden_in_popup",
+        "actual_text": "PROXY_CONFIGURED_AVITO_IP_BLOCK_AUTH_NOT_OBSERVED · 123 · pool.proxy.market:10000 · auth ещё не наблюдался · Avito: IP BLOCK",
+        "raw_flags": {
+          "ip_block": true,
+          "captcha": true
+        }
+      },
+      {
+        "name": "first_plain_ip_block",
+        "fixture_scope": "DERIVED_FROM_SUPPLIED_DOM_NOT_ORIGINAL_NETWORK_RESPONSE",
+        "flags": {
+          "ip_block": true,
+          "captcha": false,
+          "rate_limit": false,
+          "normal_avito": false
+        }
+      },
+      {
+        "name": "second_ip_block_with_captcha",
+        "fixture_scope": "DERIVED_FROM_SUPPLIED_DOM_NOT_ORIGINAL_NETWORK_RESPONSE",
+        "flags": {
+          "ip_block": true,
+          "captcha": true,
+          "rate_limit": false,
+          "normal_avito": false
+        }
+      }
+    ],
+    "assertion_errors": 0
+  },
+  "source_archive_sha256": "c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c",
+  "input_sha256": "66783d927ca936d3fe55bc0143ec462ba3663646c9d3f8d7501d705c047f0862",
+  "script_sha256": {
+    "check_proxy_chain.cjs": "a55301ff108340e8a46ba97193f555f3f00533440f89495617cb0b3bb3822a36",
+    "check_proxy_popup.py": "cbef4b7991f50f0a9a4acbb6f7fb2304d04aa7d58f5cfdf983b72ce44cefe4b1"
+  }
+}
