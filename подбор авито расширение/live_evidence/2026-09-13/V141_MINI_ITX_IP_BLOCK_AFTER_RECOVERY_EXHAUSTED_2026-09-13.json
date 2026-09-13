@@ -1,0 +1,35 @@
+{
+  "schema": "avito_finder_live_evidence_v1",
+  "date": "2026-09-13",
+  "version": "1.0.41",
+  "task_id": "af-20260913121226-xf3c",
+  "target_listing_id": "8156773014",
+  "target_url": "https://www.avito.ru/novosibirsk/nastolnye_kompyutery/minikompyuter_itx_i5-8400tddr4_16ssd_m2_256_nas_8156773014",
+  "navigation_result": "AVITO_IP_BLOCK_RECOVERY_EXHAUSTED",
+  "automatic_recovery_attempts": 4,
+  "queue_cursor": 0,
+  "cards_read": 0,
+  "post_failure_diagnostic": {
+    "url": "https://www.avito.ru/novosibirsk/nastolnye_kompyutery/minikompyuter_itx_i5-8400tddr4_16ssd_m2_256_nas_8156773014#block",
+    "status": "AVITO_IP_BLOCK",
+    "snapshot_fingerprint": "3568:8a657f63",
+    "visible_heading": "Доступ ограничен: проблема с IP",
+    "visible_recommendations": [
+      "Отключить VPN.",
+      "Включить и выключить режим «В самолёте».",
+      "Подключиться к другой сети.",
+      "Перезагрузить роутер."
+    ],
+    "captcha_challenge_visible": false
+  },
+  "important_control_observation": "Immediately before this Mini ITX navigation, the already-loaded Dell listing 4750223208 was readable via direct current-page COLLECT_LISTING_DETAILS and exposed normal listing controls including 'Купить с доставкой'. The Mini ITX navigation required a fresh network document and ended on the provider IP-block landing after bounded recovery.",
+  "baseline_preserved": "150/150",
+  "top_state": {
+    "dell_4750223208": "REVALIDATED_DIRECT_READ_PASS",
+    "mini_8156773014": "NOT_REVALIDATED_IP_BLOCK",
+    "lenovo_8375159229": "NOT_REVALIDATED"
+  },
+  "causal_status": "RECOVERY_LAYER_UNRESOLVED",
+  "prohibited_inference": "Do not infer whether egress changed, API key was present, provider rotation succeeded, or a recovery endpoint was created from this report alone.",
+  "next_required_evidence": "Read Finder proxy popup telemetry: active profile, key_present/key status, last_ip_block_recovery probe_before/probe_after, endpoint_create, target_status and attempt."
+}
