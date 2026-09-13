@@ -1,0 +1,27 @@
+{
+  "schema": "avito_finder_rule20_remote_readback_v142",
+  "date": "2026-09-13",
+  "status": "PASS",
+  "readback_ref": "main",
+  "main_head_at_readback": "bf8bc2ee7a742feb6b4be552e7c443fb01a06889",
+  "files": [
+    {
+      "path": "подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.42_2026-09-13.md",
+      "blob_sha": "b36ccf0b9f316b0808fec775262d22071e9496f1",
+      "readback": "PASS"
+    },
+    {
+      "path": "подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.42_2026-09-13.json",
+      "blob_sha": "99ecffa4f007cb6d0cb5c7e7787e4ac9492114a5",
+      "readback": "PASS"
+    },
+    {
+      "path": "подбор авито расширение/live_evidence/2026-09-13/V141_WRITING_BLOCK_PAYLOAD_EXTRACTION_OSCILLATION_LIVE_FAIL_2026-09-13.json",
+      "blob_sha": "4941200163d91be28d63741da6a5266029bd6fb8",
+      "readback": "PASS"
+    }
+  ],
+  "full_history_audit": "PASS",
+  "runtime_changed_during_audit": false,
+  "authorization": "RED creation only; executable patch remains prohibited until exact-v1.0.41 RED is persisted"
+}
