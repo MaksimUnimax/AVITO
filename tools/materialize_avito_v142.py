@@ -70,19 +70,51 @@ def main() -> None:
     chat = replace_once(chat, old_diag, new_diag, "payload retry diagnostic fields")
     chat_path.write_text(chat, encoding="utf-8")
 
-    # The Worker validates the exact ChatGPT capture adapter protocol+version on
-    # every PING before it accepts commands. Because the capture adapter behavior
-    # changed from 0.6.18 to 0.6.19, the worker-side expected identity must advance
-    # in the same release. This is identity synchronization only; no worker state
-    # machine/recovery/navigation behavior is changed.
     worker_path = DEST / "service_worker.js"
     worker = worker_path.read_text(encoding="utf-8")
     worker = replace_once(worker, 'const CAPTURE_VERSION = "0.6.18";', 'const CAPTURE_VERSION = "0.6.19";', "Worker capture adapter identity")
     worker_path.write_text(worker, encoding="utf-8")
 
-    # Version-specific static contract from v1.0.41 is still semantically valid;
-    # only its release-identity assertion/label advances with the materialized
-    # manifest. Keep the behavior assertions unchanged.
+    # Version-only assertions in inherited regression tests must follow the
+    # materialized release identity; all behavioral assertions remain byte-for-byte
+    # inherited. Node diagnostics proved these were the only stale 1.0.41 refs.
+    version_test_specs = [
+        (
+            DEST / "tests" / "ip_block_ui_plan_recovery_v124.test.js",
+            'test("v1.0.41 is the unified recovery build", () => {',
+            'test("v1.0.42 retains the unified recovery build", () => {',
+            'assert.equal(manifest.version, "1.0.41");',
+            'assert.equal(manifest.version, "1.0.42");',
+        ),
+        (
+            DEST / "tests" / "ip_block_verified_egress_v123.test.js",
+            'test("v1.0.41 retains bounded diagnostic host permissions without all-URL access", () => {',
+            'test("v1.0.42 retains bounded diagnostic host permissions without all-URL access", () => {',
+            'assert.equal(manifest.version, "1.0.41");',
+            'assert.equal(manifest.version, "1.0.42");',
+        ),
+        (
+            DEST / "tests" / "traffic_lite_zero_media.test.js",
+            'test("v1.0.41 preserves zero-media Traffic Lite alongside unified recovery", () => {',
+            'test("v1.0.42 preserves zero-media Traffic Lite alongside unified recovery", () => {',
+            'assert.equal(manifest.version, "1.0.41");',
+            'assert.equal(manifest.version, "1.0.42");',
+        ),
+        (
+            DEST / "tests" / "proxy_recovery_integrity_v137.test.js",
+            None,
+            None,
+            "assert.equal(manifest.version,'1.0.41');",
+            "assert.equal(manifest.version,'1.0.42');",
+        ),
+    ]
+    for path, old_label, new_label, old_assert, new_assert in version_test_specs:
+        text = path.read_text(encoding="utf-8")
+        if old_label is not None:
+            text = replace_once(text, old_label, new_label, f"{path.name} release label")
+        text = replace_once(text, old_assert, new_assert, f"{path.name} manifest identity")
+        path.write_text(text, encoding="utf-8")
+
     form_gate_path = DEST / "tests" / "v135_prompt_form_terminal_gate.test.py"
     form_gate = form_gate_path.read_text(encoding="utf-8")
     form_gate = replace_once(form_gate, 'assert \'"version": "1.0.41"\' in manifest', 'assert \'"version": "1.0.42"\' in manifest', "Form-gate manifest identity expectation")
@@ -92,14 +124,22 @@ def main() -> None:
     target_test = DEST / "tests" / "writing_block_capture_v142.py"
     shutil.copy2(GREEN_SOURCE, target_test)
 
+    test_only_changed = [
+        "tests/v135_prompt_form_terminal_gate.test.py",
+        "tests/ip_block_ui_plan_recovery_v124.test.js",
+        "tests/ip_block_verified_egress_v123.test.js",
+        "tests/proxy_recovery_integrity_v137.test.js",
+        "tests/traffic_lite_zero_media.test.js",
+        "tests/writing_block_capture_v142.py",
+    ]
     origin = {
-        "schema": "avito_finder_v142_materialization_v2",
+        "schema": "avito_finder_v142_materialization_v3",
         "version": "1.0.42",
         "base_version": "1.0.41",
         "production_runtime_changed": ["chatgpt_content.js", "service_worker.js", "avito_content.js", "manifest.json"],
         "runtime_behavior_changed": ["chatgpt_content.js"],
         "identity_only_changed": ["service_worker.js", "avito_content.js", "manifest.json"],
-        "test_only_changed": ["tests/v135_prompt_form_terminal_gate.test.py", "tests/writing_block_capture_v142.py"],
+        "test_only_changed": test_only_changed,
         "service_worker_behavior_delta": "CAPTURE_VERSION 0.6.18 -> 0.6.19 only",
         "service_worker_byte_identical_to_v141": sha256(DEST / "service_worker.js") == sha256(BASE / "service_worker.js"),
         "proxy_manager_byte_identical_to_v141": sha256(DEST / "proxy_manager.js") == sha256(BASE / "proxy_manager.js"),
