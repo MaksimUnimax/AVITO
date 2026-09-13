@@ -10,7 +10,7 @@ SOURCE = Path(os.environ.get("AF_SOURCE_ROOT", REPO / "подбор авито �
 OUT = Path(os.environ.get("AF_GREEN_OUT", REPO / "подбор авито расширение" / "v142_prepatch_tests" / "GREEN_LOCAL.json"))
 CID = "11111111-1111-4111-8111-111111111111"
 BASE = '''<!doctype html><body><main id="turns"><section data-turn="user" data-turn-id="start"><div data-message-author-role="user">Ищи</div></section></main><form><textarea id="prompt-textarea"></textarea><button type="button" data-testid="send-button">Send</button></form></body>'''
-SHIM = '''(()=>{const ls=new Set();window.__AF_TEST_EXPORTS={};window.sentMessages=[];window.chrome={runtime:{onMessage:{addListener:f=>ls.add(f),removeListener:f=>ls.delete(f)},sendMessage:(m,cb)=>{sentMessages.push(m);if(m.type==='AF_CAPTURE_ACTIVITY'&&typeof window.__AF_TEST_ON_ACTIVITY==='function'){try{window.__AF_TEST_ON_ACTIVITY(m)}catch(_){}}const r={ok:true,data:{accepted:true}};cb?.(r);return Promise.resolve(r);}}};window.AF_FIXTURE_SEND=m=>new Promise(r=>{for(const l of [...ls])l(m,{},r)});window.__AF_TEST_PROMPT_STABILITY_MS=80;window.__AF_TEST_PROMPT_PAYLOAD_SAMPLE_MS=40;window.__AF_TEST_PROMPT_PAYLOAD_STABILITY_MS=120;window.__AF_TEST_PROMPT_INVALID_PAYLOAD_STABILITY_MS=240;window.__AF_TEST_PROMPT_PAYLOAD_MIN_SAMPLES=3;window.__AF_TEST_PROMPT_PAYLOAD_EXTRACTION_MAX_MISSES=3;window.__AF_TEST_PROMPT_PAYLOAD_EXTRACTION_TIMEOUT_MS=500;})();'''
+SHIM = '''(()=>{const ls=new Set();window.__AF_TEST_EXPORTS={};window.sentMessages=[];window.chrome={runtime:{onMessage:{addListener:f=>ls.add(f),removeListener:f=>ls.delete(f)},sendMessage:(m,cb)=>{sentMessages.push(m);const r={ok:true,data:{accepted:true}};cb?.(r);return Promise.resolve(r);}}};window.AF_FIXTURE_SEND=m=>new Promise(r=>{for(const l of [...ls])l(m,{},r)});window.__AF_TEST_PROMPT_STABILITY_MS=80;window.__AF_TEST_PROMPT_PAYLOAD_SAMPLE_MS=40;window.__AF_TEST_PROMPT_PAYLOAD_STABILITY_MS=120;window.__AF_TEST_PROMPT_INVALID_PAYLOAD_STABILITY_MS=240;window.__AF_TEST_PROMPT_PAYLOAD_MIN_SAMPLES=3;window.__AF_TEST_PROMPT_PAYLOAD_EXTRACTION_MAX_MISSES=3;window.__AF_TEST_PROMPT_PAYLOAD_EXTRACTION_TIMEOUT_MS=500;})();'''
 VALID = "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nШаги:\nСобери до 20 видимых объявлений."
 
 async def inject_runtime(page):
@@ -27,20 +27,20 @@ async def start(page):
     await page.evaluate("c=>__AF_TEST_EXPORTS.chatCapture.startFixturePromptPoll({run_id:'fixture',conversation_id:c,anchor_turn_id:'start'})", CID)
 
 async def snapshot(page):
-    return await page.evaluate('''()=>({full:sentMessages.filter(m=>m.type==='AF_CAPTURE_FULL_TEXT').map(m=>m.candidate?.prompt_text||''),diagnostics:sentMessages.filter(m=>m.type==='AF_CAPTURE_DIAGNOSTIC').map(m=>({code:m.details?.code||'',structural_signature:m.details?.structural_signature||'',rejection_reason:m.details?.rejection_reason||''})),activity_count:window.__afActivityCount||0,induced_miss_count:window.__afInducedMissCount||0})''')
+    return await page.evaluate('''()=>({full:sentMessages.filter(m=>m.type==='AF_CAPTURE_FULL_TEXT').map(m=>m.candidate?.prompt_text||''),diagnostics:sentMessages.filter(m=>m.type==='AF_CAPTURE_DIAGNOSTIC').map(m=>({code:m.details?.code||'',structural_signature:m.details?.structural_signature||'',rejection_reason:m.details?.rejection_reason||''})),induced_miss_count:window.__afInducedMissCount||0})''')
 
 async def scenario_transient(page):
     await inject_runtime(page); await add_current_writing_block(page)
-    # Candidate discovery happens before reportPromptActivity(). On the second
-    # activity signal the structural candidate is already the same stable block;
-    # blank the real body synchronously for the confirmation read, then restore it
-    # a few ms later. This reproduces the installed state: candidate says
-    # writing_block=true/copy_ready=true but local confirmation is unavailable.
-    await page.evaluate('''(valid)=>{window.__afActivityCount=0;window.__afInducedMissCount=0;window.__AF_TEST_ON_ACTIVITY=()=>{window.__afActivityCount+=1;if(window.__afActivityCount===2){const body=document.querySelector('#wb');if(body){body.textContent='';window.__afInducedMissCount+=1;setTimeout(()=>{body.textContent=valid;},5);}}};}''', VALID)
+    # Keep candidate discovery untouched. During the first entire invocation of
+    # confirmLocalWritingBlockCopyAndExtract(), every cloned view of the block is
+    # empty. The zero-delay reset happens only after that synchronous confirmation
+    # call unwinds, so its internal fallback re-resolution cannot accidentally
+    # recover within the same call. The next prompt tick sees the same valid block.
+    await page.evaluate('''()=>{const nativeClone=Element.prototype.cloneNode;window.__afMissActive=false;window.__afMissUsed=false;window.__afInducedMissCount=0;Element.prototype.cloneNode=function(deep){const clone=nativeClone.call(this,deep);if(this instanceof Element&&this.id==='wb-root'){const stack=String(new Error().stack||'');if(stack.includes('confirmLocalWritingBlockCopyAndExtract')){if(!window.__afMissUsed&&!window.__afMissActive){window.__afMissUsed=true;window.__afMissActive=true;window.__afInducedMissCount+=1;setTimeout(()=>{window.__afMissActive=false;},0);}if(window.__afMissActive){const body=clone.querySelector('#wb');if(body)body.textContent='';}}}return clone;};}''')
     await start(page); await page.wait_for_timeout(1250); s=await snapshot(page)
     codes=[x['code'] for x in s['diagnostics']]
     ok=s['full']==[VALID] and s['induced_miss_count']==1 and codes.count('PROMPT_PAYLOAD_EXTRACTION_RETRY')>=1 and codes.count('PROMPT_DOM_STABILITY_STARTED')<=2
-    return {'name':'transient same-block extraction miss','full_text_count':len(s['full']),'retry_count':codes.count('PROMPT_PAYLOAD_EXTRACTION_RETRY'),'structural_restarts':codes.count('PROMPT_DOM_STABILITY_STARTED'),'activity_count':s['activity_count'],'induced_miss_count':s['induced_miss_count'],'pass':ok}
+    return {'name':'transient same-block extraction miss','full_text_count':len(s['full']),'retry_count':codes.count('PROMPT_PAYLOAD_EXTRACTION_RETRY'),'structural_restarts':codes.count('PROMPT_DOM_STABILITY_STARTED'),'induced_miss_count':s['induced_miss_count'],'pass':ok}
 
 async def scenario_churn(page):
     await inject_runtime(page); await add_current_writing_block(page,True)
@@ -52,15 +52,15 @@ async def scenario_churn(page):
 
 async def scenario_bounded_failure(page):
     await inject_runtime(page); await add_current_writing_block(page)
-    # Beginning with the first stable confirmation opportunity, every activity
-    # blanks the body only after candidate discovery. The runtime must terminate
-    # after the configured bounded extraction budget instead of polling forever.
-    await page.evaluate('''(valid)=>{window.__afActivityCount=0;window.__afInducedMissCount=0;window.__AF_TEST_ON_ACTIVITY=()=>{window.__afActivityCount+=1;if(window.__afActivityCount>=2){const body=document.querySelector('#wb');if(body){body.textContent='';window.__afInducedMissCount+=1;setTimeout(()=>{body.textContent=valid;},5);}}};}''', VALID)
+    # Every confirmation invocation gets a fresh synchronous miss window. Candidate
+    # discovery remains valid between ticks; therefore only the payload extraction
+    # budget can terminate the scenario.
+    await page.evaluate('''()=>{const nativeClone=Element.prototype.cloneNode;window.__afMissActive=false;window.__afInducedMissCount=0;Element.prototype.cloneNode=function(deep){const clone=nativeClone.call(this,deep);if(this instanceof Element&&this.id==='wb-root'){const stack=String(new Error().stack||'');if(stack.includes('confirmLocalWritingBlockCopyAndExtract')){if(!window.__afMissActive){window.__afMissActive=true;window.__afInducedMissCount+=1;setTimeout(()=>{window.__afMissActive=false;},0);}if(window.__afMissActive){const body=clone.querySelector('#wb');if(body)body.textContent='';}}}return clone;};}''')
     await start(page); await page.wait_for_timeout(900); s=await snapshot(page)
     codes=[x['code'] for x in s['diagnostics']]
     bounded=codes.count('PROMPT_PAYLOAD_EXTRACTION_FAILED_BOUNDED')==1
     ok=len(s['full'])==0 and bounded and s['induced_miss_count']>=3
-    return {'name':'persistent extraction loss bounded terminal','full_text_count':len(s['full']),'retry_count':codes.count('PROMPT_PAYLOAD_EXTRACTION_RETRY'),'bounded_failure_count':codes.count('PROMPT_PAYLOAD_EXTRACTION_FAILED_BOUNDED'),'activity_count':s['activity_count'],'induced_miss_count':s['induced_miss_count'],'pass':ok}
+    return {'name':'persistent extraction loss bounded terminal','full_text_count':len(s['full']),'retry_count':codes.count('PROMPT_PAYLOAD_EXTRACTION_RETRY'),'bounded_failure_count':codes.count('PROMPT_PAYLOAD_EXTRACTION_FAILED_BOUNDED'),'induced_miss_count':s['induced_miss_count'],'pass':ok}
 
 async def main():
     manifest=json.loads((SOURCE/'manifest.json').read_text(encoding='utf-8'))
@@ -71,7 +71,7 @@ async def main():
         for fn in (scenario_transient,scenario_churn,scenario_bounded_failure):
             p=await ctx.new_page();results.append(await fn(p));await p.close()
         await browser.close()
-    report={'schema':'avito_finder_v142_capture_green_v2','source_version':manifest.get('version'),'source_root':str(SOURCE),'scenarios':results,'status':'PASS' if all(x['pass'] for x in results) else 'FAIL'}
+    report={'schema':'avito_finder_v142_capture_green_v3','source_version':manifest.get('version'),'source_root':str(SOURCE),'scenarios':results,'status':'PASS' if all(x['pass'] for x in results) else 'FAIL'}
     OUT.parent.mkdir(parents=True,exist_ok=True);OUT.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8');print(json.dumps(report,ensure_ascii=False,indent=2));raise SystemExit(0 if report['status']=='PASS' else 1)
 
 if __name__=='__main__':
