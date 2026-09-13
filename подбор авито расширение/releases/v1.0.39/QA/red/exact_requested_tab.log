@@ -1,0 +1,3 @@
+Error: AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB
+    at selectVisibleAvitoTab (selectVisibleAvitoTab.js:7:9)
+    at async /home/runner/work/AVITO/AVITO/подбор авито расширение/v139_prepatch_tests/visible_tab_exact_request_disambiguation.test.js:75:15

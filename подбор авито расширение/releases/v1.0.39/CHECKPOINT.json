@@ -1,0 +1,16 @@
+{
+  "version": "1.0.39",
+  "status": "FINAL_ZIP_OFFLINE_QA_PASS_LIVE_UNVERIFIED",
+  "archive": "AVITO_FINDER_v1.0.39_EXACT_REQUESTED_TAB_DISAMBIGUATION_2026-09-13.zip",
+  "sha256": "a4a0ae626de4692c62cd76d87be19e34749b488e76afa2764828a025db08bb98",
+  "bytes": 492784,
+  "source_files": 148,
+  "targeted_exact_tab": "PASS_5_OF_5",
+  "node_tests_pass": 369,
+  "worktree_groups_pass": 35,
+  "worktree_groups_fail": 0,
+  "final_zip_groups_pass": 35,
+  "final_zip_groups_fail": 0,
+  "installed_live_acceptance": "NOT_RUN",
+  "live_provider_calls": 0
+}
