@@ -13,9 +13,11 @@
 - version_name: `1.0.37-proxy-recovery-integrity`;
 - CRC: PASS;
 - независимый GitHub checkout/readback: PASS;
+- main merge: PR #3 → `dd658dba16b2aa235bc51979d771d037691077da`;
+- main authority receipt: `MAIN_RELEASE_RECEIPT.json`, commit `def35dc81f998d74fe80128905d464c59b4cfd9c`;
 - installed user Chrome acceptance: **NOT_RUN**.
 
-Статус до живой проверки: **OFFLINE_QA_PASS / REMOTE_BYTES_VERIFIED / LIVE_UNVERIFIED**.
+Статус до живой проверки: **OFFLINE_QA_PASS / REMOTE_BYTES_VERIFIED / MAIN_AUTHORITY / LIVE_UNVERIFIED**.
 
 ## Почему v1.0.36 R2 это не исправил
 
@@ -157,7 +159,7 @@ Receipt commit containing `REMOTE_READBACK.json`: `b9a3cb820f904a8c86af919857590
 | 16 | Test ловит живой bug | PASS | Новые tests RED на exact предыдущей версии. |
 | 17 | Exact source | PASS | Exact published v1.0.36 R2 является base authority. |
 | 18 | Rule report + violations | PASS | Этот документ + сохранённые RED/FAIL artifacts. |
-| 19 | Exact source + ZIP + hashes + QA in GitHub | PASS на release branch | Exact source/ZIP/QA сохранены; independent remote readback PASS. После merge этот release становится main authority. |
+| 19 | Exact source + ZIP + hashes + QA in GitHub | **PASS IN MAIN** | PR #3 merged; `MAIN_RELEASE_RECEIPT.json`; exact source/ZIP/QA и independent remote readback сохранены. |
 
 ## Следующий gate
 
