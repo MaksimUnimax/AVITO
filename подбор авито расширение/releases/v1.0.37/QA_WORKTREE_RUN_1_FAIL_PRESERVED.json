@@ -1,0 +1,24 @@
+{
+  "date": "2026-09-13",
+  "scope": "FULL_EXISTING_RUNNER_FROM_PATCHED_WORKTREE_BEFORE_FINAL_ZIP",
+  "version": "1.0.37",
+  "complete": true,
+  "groups_pass": 34,
+  "groups_fail": 1,
+  "failed_group": "form_gate_source_contract",
+  "failed_command": "tests/v135_prompt_form_terminal_gate.test.py",
+  "failure": "version-specific source contract expected manifest 1.0.36 while release manifest is 1.0.37",
+  "functional_runtime_assertions_failed": false,
+  "runtime_changed_to_address_this_failure": false,
+  "correction_scope": "test-only version expectation and printed version label 1.0.36 -> 1.0.37",
+  "node_after_test_only_correction": {"pass":367,"fail":0},
+  "other_notable_groups_before_failure": {
+    "adapter_identity":"PASS",
+    "proxy_transport_isolation":"PASS",
+    "cycle_ip_block_recovery_then_three_pages":"PASS",
+    "cycle_captcha_manual_boundary":"PASS",
+    "queue_thirty_detail_large_report":"PASS",
+    "ordinary_form_terminal_gate":"PASS"
+  },
+  "note": "This FAIL is intentionally preserved. It is not rewritten as PASS. A second complete runner is required after the test-only version correction."
+}
