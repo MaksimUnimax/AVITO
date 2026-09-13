@@ -37,6 +37,15 @@ for rel in [
     if x==y: raise SystemExit('VERSION_EXPECTATION_NOT_FOUND:'+rel)
     p.write_text(y)
 
+# Test-harness-only deadline correction justified by same-runner A/B diagnosis:
+# exact v1.0.39 cold=15.718s and v1.0.40 all <2s under a 60s diagnostic envelope;
+# the first v1.0.40 full gate hit the old external 30s deadline at 30.003s.
+runner=out/'tests/run_all_v136.py'; rx=runner.read_text()
+old_deadline="run('adapter_identity',[sys.executable,'tests/check_packaged_adapter_v136.py',str(ROOT),str(OUT/'adapter_identity.json')],timeout=30)"
+new_deadline="run('adapter_identity',[sys.executable,'tests/check_packaged_adapter_v136.py',str(ROOT),str(OUT/'adapter_identity.json')],timeout=45)"
+if rx.count(old_deadline)!=1: raise SystemExit('ADAPTER_IDENTITY_DEADLINE_V139_PATTERN_MISMATCH')
+runner.write_text(rx.replace(old_deadline,new_deadline,1))
+
 reg=Path('подбор авито расширение/v140_prepatch_tests/dedicated_requested_tab_on_ambiguity_v140.test.js')
 shutil.copy2(reg,out/'tests/dedicated_requested_tab_on_ambiguity_v140.test.js')
 # Aggregate runner invokes Node tests without explicit source; make this permanent regression self-contained.
@@ -56,6 +65,8 @@ origin={
  'base_zip_sha256':'a4a0ae626de4692c62cd76d87be19e34749b488e76afa2764828a025db08bb98',
  'production_runtime_changed':['avito_content.js','manifest.json','service_worker.js'],
  'test_only_changed':[x for x in changed if x.startswith('tests/')],
+ 'adapter_identity_qa_deadline_seconds':45,
+ 'adapter_identity_deadline_basis':'same-runner A/B 34747859905; v1.0.39 cold 15.718s, v1.0.40 max 1.883s; first full gate 34747402029 hit old 30.003s envelope',
  'safe_allocation_contract':{
    'ambiguous_existing_tabs_are_never_guessed':True,
    'explicit_public_requested_url_gets_dedicated_new_tab_on_first_binding':True,
