@@ -1,0 +1,24 @@
+{
+  "date": "2026-09-13",
+  "base_version": "1.0.36 R2",
+  "base_archive_sha256": "c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c",
+  "encoding": "gzip(mtime=0, level=9) then base64",
+  "encoded_path": "v136_to_v137_proxy_recovery_integrity.patch.gz.b64",
+  "patch_bytes": 41941,
+  "patch_sha256": "d17c89f714d9df05beaffd76ca233cca1f90a0a137d385cc51e26b12f6512b10",
+  "gzip_sha256": "6f0d399fa398c2913c636a360a3e00f67e8673880f2a7eaf661b7192674c49bf",
+  "base64_bytes": 14952,
+  "changed_paths_expected": [
+    "avito_content.js",
+    "manifest.json",
+    "popup.js",
+    "service_worker.js",
+    "tests/ip_block_ui_plan_recovery_v124.test.js",
+    "tests/ip_block_verified_egress_v123.test.js",
+    "tests/proxy_recovery_integrity_dynamic_v137.test.js",
+    "tests/proxy_recovery_integrity_v137.test.js",
+    "tests/traffic_lite_zero_media.test.js"
+  ],
+  "production_runtime_changed_expected": ["manifest.json", "avito_content.js", "service_worker.js", "popup.js"],
+  "explicitly_unchanged_runtime": ["chatgpt_content.js", "core.js", "proxy_manager.js", "recovery.js", "popup.html", "popup.css"]
+}
