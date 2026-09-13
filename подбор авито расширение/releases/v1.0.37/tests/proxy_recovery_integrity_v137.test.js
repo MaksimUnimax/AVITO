@@ -1,0 +1,19 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const test=require('node:test');
+const root=process.env.AF_SOURCE_ROOT ? path.resolve(process.env.AF_SOURCE_ROOT) : path.join(__dirname,'../../v1.0.36-r2/v136_work');
+const worker=fs.readFileSync(path.join(root,'service_worker.js'),'utf8');
+const popup=fs.readFileSync(path.join(root,'popup.js'),'utf8');
+function slice(a,b){const s=worker.indexOf(a);const e=worker.indexOf(b,s);assert.ok(s>=0&&e>s,`${a}..${b}`);return worker.slice(s,e);}
+test('proxy diagnostic requires Finder-owned exact active-profile PAC, not mode name alone',()=>{const fn=slice('async function proxyDiagnosticView','async function collectProxyPackages');assert.match(fn,/effectiveProxyMatchesActiveProfile/);assert.match(worker,/controlled_by_this_extension/);assert.match(worker,/normalizeFinderPac/);});
+test('recovery producer and popup use the same probe_before/probe_after contract',()=>{assert.match(popup,/recovery\.probe_before/);assert.match(popup,/recovery\.probe_after/);assert.doesNotMatch(popup,/recovery\.egress_before/);assert.doesNotMatch(popup,/recovery\.egress_after/);});
+test('popup separates transport probe state from target verification and shows mixed IP block + CAPTCHA',()=>{assert.match(popup,/PROBES_COMPLETE/);assert.match(popup,/target_status/);assert.match(popup,/IP BLOCK \+ CAPTCHA/);});
+test('current recovery attempt is persisted before CAPTCHA becomes terminal',()=>{const fn=slice('async function performReservedConnectionRecoveryInsideLane','async function recoverAvitoConnectionAndReload');const captcha=fn.indexOf('if(probe.captcha)');const runtimeWrite=fn.lastIndexOf('last_ip_block_recovery',captcha);assert.ok(captcha>=0);assert.ok(runtimeWrite>=0&&runtimeWrite<captcha);assert.match(fn,/CAPTCHA_MANUAL_REQUIRED/);});
+test('probe errors are retained in the durable recovery summary instead of only transient logs',()=>{const fn=slice('async function prepareRecoveryProxy','async function restoreInterruptedProxyTransaction');assert.match(fn,/probe_before_error/);assert.match(fn,/probe_after_error/);assert.match(fn,/transport_status/);});
+test('same-profile internal PAC reapplies do not erase active-profile auth evidence',()=>{assert.match(worker,/proxy_profile_epoch_at/);const fn=slice('async function proxyDiagnosticView','async function collectProxyPackages');assert.match(fn,/auth_seen_for_active_profile/);assert.match(fn,/last_auth_profile_id/);});
+test('stale key_check cannot masquerade as a currently loaded provider key',()=>{assert.match(popup,/p\.key_present/);assert.match(popup,/проверялся ранее/i);});
+test('attempt >=3 records explicit endpoint-create skip reason when provider key is unavailable',()=>{const fn=slice('async function maybeCreateRecoveryEndpoint','async function prepareRecoveryProxy');assert.match(fn,/PROXY_RECOVERY_ENDPOINT_SKIPPED/);assert.match(fn,/API_KEY_UNAVAILABLE/);});
+test('CAPTCHA manual gate is derived before report staging clears blocked_reason',()=>{const fn=slice('async function deliverReportToPinnedChatUnlocked','async function reconcileBlockedReport');const staged=fn.indexOf('status: "REPORT_DELIVERY_IN_PROGRESS"');const gate=fn.indexOf('manualGateKind');assert.ok(gate>=0&&gate<staged,`manualGateKind index=${gate}, staged=${staged}`);});
+test('manifest and Avito adapter remain same release version',()=>{const manifest=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));const adapter=fs.readFileSync(path.join(root,'avito_content.js'),'utf8').match(/const ADAPTER_VERSION = "([^"]+)"/)[1];assert.equal(adapter,manifest.version);assert.equal(manifest.version,'1.0.37');});
