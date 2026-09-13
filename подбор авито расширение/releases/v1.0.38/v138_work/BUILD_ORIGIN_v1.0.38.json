@@ -1,0 +1,27 @@
+{
+  "version": "1.0.38",
+  "date": "2026-09-13",
+  "base_version": "1.0.37",
+  "base_archive_sha256": "4eaf64038ffd6c5b08ed7d97fdb0d13848edd8a7a9db04ad928f74b1f371ac9d",
+  "runtime_changed": [
+    "avito_content.js",
+    "manifest.json",
+    "service_worker.js"
+  ],
+  "runtime_unchanged": [
+    "chatgpt_content.js",
+    "core.js",
+    "proxy_manager.js",
+    "recovery.js",
+    "popup.js",
+    "popup.html",
+    "popup.css"
+  ],
+  "root_cause": "Avito recovery-created residential endpoint hardcoded rotation=0 (every request); a multi-request Avito document/session can therefore traverse changing pool IPs after an IP-block recovery.",
+  "recovery_created_rotation": -1,
+  "api_key_storage_contract": "session-scoped unchanged",
+  "navigation_queue_cursor_changed": false,
+  "captcha_automation_added": false,
+  "live_provider_calls_during_patch": 0,
+  "installed_live_acceptance": "NOT_RUN"
+}

@@ -1,0 +1,11 @@
+START multiline textarea retains exact payload
+{"test": "multiline textarea retains exact payload", "status": "PASS", "ms": 2193}
+START multiline contenteditable preserves lines through asynchronous model reparse; one Send
+{"test": "multiline contenteditable preserves lines through asynchronous model reparse; one Send", "status": "PASS", "ms": 2125}
+START same report after editor converts paragraphs to div
+{"test": "same report after editor converts paragraphs to div", "status": "PASS", "ms": 2117}
+START same report after editor converts paragraphs to br
+{"test": "same report after editor converts paragraphs to br", "status": "PASS", "ms": 2122}
+START 120-row rich-editor report exceeds failed live size without truncation
+{"test": "120-row rich-editor report exceeds failed live size without truncation", "status": "PASS", "ms": 2140}
+{"scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE", "installed_extension": false, "live_chatgpt": false, "pass": 5, "fail": 0, "page_errors": []}

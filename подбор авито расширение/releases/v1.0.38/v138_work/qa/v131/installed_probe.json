@@ -1,0 +1,16 @@
+{
+  "scope": "NORMAL_UNPACKED_MV3_INSTALL_PROBE",
+  "live_provider_calls": 0,
+  "policy_modified": false,
+  "browser": "Chromium 144.0.7559.96 built on Debian GNU/Linux 13 (trixie)",
+  "relevant_managed_policy": {
+    "ExtensionInstallBlocklist": [
+      "*"
+    ],
+    "URLBlocklist": [
+      "*"
+    ]
+  },
+  "service_worker_observed": false,
+  "status": "ENVIRONMENT_BLOCKED"
+}

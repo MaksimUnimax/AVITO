@@ -1,0 +1,4 @@
+HOST_STARTED
+CHAT_READY
+AVITO_READY
+{"name": "stop_during_late_detail_response", "status": "PASS", "send_clicks_including_start": 1, "reports": 0, "last_report_characters": 0, "cursor": 1, "state": "CANCELLED_BY_USER", "duration_seconds": 7.904}
