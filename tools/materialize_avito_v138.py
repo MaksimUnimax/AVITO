@@ -28,11 +28,19 @@ a=target/'avito_content.js'; x=a.read_text(encoding='utf-8')
 assert x.count('const ADAPTER_VERSION = "1.0.37";')==1
 a.write_text(x.replace('const ADAPTER_VERSION = "1.0.37";','const ADAPTER_VERSION = "1.0.38";'),encoding='utf-8')
 
-# Existing terminal-gate test contains the previous release literal; update only that expectation.
-p=target/'tests'/'v135_prompt_form_terminal_gate.test.py'; x=p.read_text(encoding='utf-8')
-assert '"version": "1.0.37"' in x
-x=x.replace('"version": "1.0.37"','"version": "1.0.38"').replace("print('v1.0.37 prompt form terminal gate PASS')","print('v1.0.38 prompt form terminal gate PASS')")
-p.write_text(x,encoding='utf-8')
+# Release-specific tests keep the same behavioral assertions; update only the
+# release literal that intentionally tracks manifest/adapter identity.
+version_tests=[
+  'tests/v135_prompt_form_terminal_gate.test.py',
+  'tests/proxy_recovery_integrity_v137.test.js',
+  'tests/traffic_lite_zero_media.test.js',
+  'tests/ip_block_ui_plan_recovery_v124.test.js',
+  'tests/ip_block_verified_egress_v123.test.js',
+]
+for rel in version_tests:
+    p=target/rel; x=p.read_text(encoding='utf-8')
+    assert '1.0.37' in x, rel
+    p.write_text(x.replace('1.0.37','1.0.38'),encoding='utf-8')
 
 base_files={p.relative_to(base) for p in base.rglob('*') if p.is_file()}
 new_files={p.relative_to(target) for p in target.rglob('*') if p.is_file()}
