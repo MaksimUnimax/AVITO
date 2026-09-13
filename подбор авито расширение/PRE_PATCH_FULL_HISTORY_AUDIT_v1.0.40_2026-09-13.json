@@ -1,0 +1,98 @@
+{
+  "schema": "avito_finder_rule20_composite_full_history_audit_v1",
+  "date": "2026-09-13",
+  "target_version": "1.0.40",
+  "status": "FULL_HISTORY_AUDIT=PASS",
+  "main_before_audit": "024dfb467eb4e59bbfdf9564f71af0b5bd2b3370",
+  "inherited_full_authority": {
+    "md": {"path": "PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md", "blob_sha": "2fea29810531683f4c01e32540be82fe9272c997"},
+    "json": {"path": "PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json", "blob_sha": "33a17a765935ce64a30e3fa8f88457ea94b4ea3a"},
+    "closure_commit": "893f5ac10f88dda68758d725e0942c9f3cf3c2c9",
+    "archive_variants": 61,
+    "unique_archived_versions": 56,
+    "historical_exact_runtime_manifests": 60,
+    "unambiguous_adjacent_runtime_diffs": 54,
+    "range": "v0.1.0-v1.0.38",
+    "source_gaps_preserved": true
+  },
+  "current_branch_inventory": [
+    "audit/full-history-2026-09-13",
+    "build/avito-v136-r2",
+    "docs/patch-rules-2026-09-12",
+    "fix/avito-v137-first-ipblock-rotation",
+    "fix/prompt-capture-contract-2026-09-12-rules",
+    "fix/prompt-capture-contract-2026-09-12",
+    "fix/v137-proxy-recovery-integrity-2026-09-13",
+    "fix/v138-avito-sticky-recovery-2026-09-13",
+    "fix/v139-exact-requested-tab-disambiguation-2026-09-13",
+    "main",
+    "rules/patch-contract",
+    "tmp-do-not-use"
+  ],
+  "pull_requests": {
+    "count": 5,
+    "new_since_prior_audit": [5],
+    "pr5": {
+      "title": "Avito Finder v1.0.39 — exact requested tab disambiguation",
+      "merged": true,
+      "base": "main",
+      "head": "fix/v139-exact-requested-tab-disambiguation-2026-09-13"
+    }
+  },
+  "v139_exact_source": {
+    "zip": "AVITO_FINDER_v1.0.39_EXACT_REQUESTED_TAB_DISAMBIGUATION_2026-09-13.zip",
+    "sha256": "a4a0ae626de4692c62cd76d87be19e34749b488e76afa2764828a025db08bb98",
+    "bytes": 492784,
+    "source_files": 148,
+    "production_runtime_changed_from_v138": ["avito_content.js", "manifest.json", "service_worker.js"],
+    "final_grouped_qa": "35/35",
+    "final_node": "369/369",
+    "targeted": "5/5",
+    "first_full_gate": "34743154320 FAIL 33/35",
+    "final_gate": "34743734524 PASS",
+    "remote_readback": "PASS"
+  },
+  "installed_live_failure": {
+    "task_id": "af-20260913075253-v24r",
+    "version": "1.0.39",
+    "stage": "COMMAND_CAPTURED",
+    "reason": "AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB",
+    "recovery_attempts": 0,
+    "cards_read": 0,
+    "cursor_used": false,
+    "mutations": 0,
+    "evidence": "live_evidence/2026-09-13/V139_INSTALLED_AMBIGUITY_AFTER_EXACT_TAB_PATCH.json",
+    "subcase_zero_vs_duplicate_exact": "UNKNOWN_AND_NOT_GUESSED"
+  },
+  "root_cause": {
+    "state_machine": "first target allocation",
+    "summary": "v1.0.39 can reuse a unique active/exact/single Avito tab, but when multiple candidates remain non-uniquely-reusable it throws terminal ambiguity even though the command supplies a valid explicit public requested URL. ensureAvitoTarget creates a new public root only for zero-candidate selection, not ambiguous selection.",
+    "functions": ["selectVisibleAvitoTab", "ensureAvitoTarget", "createInitialPublicAvitoTab", "applyRequestedVisibleAvitoUrl"]
+  },
+  "permitted_v140_scope": {
+    "behavior": "On first user-started binding with a valid explicit public requested URL and navigation allowed, ambiguous existing Avito candidates must not be guessed; create one new dedicated public Avito tab and route it to requestedUrl.",
+    "preserve": [
+      "unique active Avito preference",
+      "unique exact requested route reuse",
+      "single Avito tab reuse",
+      "zero-tab bootstrap",
+      "diagnostic read-only navigation ban",
+      "one target binding per run",
+      "queue/cursor semantics",
+      "report delivery",
+      "proxy/recovery",
+      "CAPTCHA manual gate",
+      "Writing Block-only capture"
+    ]
+  },
+  "required_red_before_runtime": [
+    "ambiguity plus explicit public requested URL plus first user-started binding fails on exact v1.0.39",
+    "unique exact reuse preserved",
+    "unique active preference preserved",
+    "single-tab reuse preserved",
+    "read-only diagnostic does not allocate",
+    "already-bound run does not allocate another tab"
+  ],
+  "runtime_changed_during_audit": false,
+  "verdict": "FULL_HISTORY_AUDIT=PASS"
+}
