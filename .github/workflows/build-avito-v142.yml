@@ -66,7 +66,7 @@ jobs:
           set -euo pipefail
           python tools/materialize_avito_v142.py | tee /tmp/materialize_v142.log
           python - <<'PY'
-          import json,hashlib
+          import json
           from pathlib import Path
           base=Path('подбор авито расширение/releases/v1.0.41/v141_work')
           work=Path('подбор авито расширение/releases/v1.0.42/v142_work')
@@ -74,9 +74,13 @@ jobs:
           m=json.loads((work/'manifest.json').read_text())
           assert m['version']=='1.0.42',m
           assert o['runtime_behavior_changed']==['chatgpt_content.js'],o
-          assert o['service_worker_byte_identical_to_v141'] is True,o
+          assert o['identity_only_changed']==['service_worker.js','avito_content.js','manifest.json'],o
+          assert o['service_worker_byte_identical_to_v141'] is False,o
           assert o['proxy_manager_byte_identical_to_v141'] is True,o
-          assert (base/'service_worker.js').read_bytes()==(work/'service_worker.js').read_bytes()
+          bw=(base/'service_worker.js').read_text(encoding='utf-8')
+          ww=(work/'service_worker.js').read_text(encoding='utf-8')
+          expected=bw.replace('const CAPTURE_VERSION = "0.6.18";','const CAPTURE_VERSION = "0.6.19";')
+          assert expected!=bw and ww==expected,'service_worker changed beyond CAPTURE_VERSION identity'
           assert (base/'proxy_manager.js').read_bytes()==(work/'proxy_manager.js').read_bytes()
           print('minimal-diff materialization PASS')
           PY
@@ -122,7 +126,7 @@ jobs:
               z.writestr(info,p.read_bytes())
           sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
           wqa=json.loads((rel/'QA/worktree/summary.json').read_text())
-          build={'schema':'avito_finder_build_v142','version':'1.0.42','base_version':'1.0.41','archive':zpath.name,'archive_sha256':sha(zpath),'archive_bytes':zpath.stat().st_size,'source_files':len(files),'runtime_behavior_changed':['chatgpt_content.js'],'identity_only_changed':['avito_content.js','manifest.json'],'service_worker_byte_identical_to_v141':(work/'service_worker.js').read_bytes()==Path('подбор авито расширение/releases/v1.0.41/v141_work/service_worker.js').read_bytes(),'proxy_manager_byte_identical_to_v141':(work/'proxy_manager.js').read_bytes()==Path('подбор авито расширение/releases/v1.0.41/v141_work/proxy_manager.js').read_bytes(),'chatgpt_content_sha256':sha(work/'chatgpt_content.js'),'avito_content_sha256':sha(work/'avito_content.js'),'manifest_sha256':sha(work/'manifest.json'),'targeted_green':'3/3 PASS','worktree_grouped_qa':f"{wqa['pass']}/{wqa['pass']} PASS",'installed_live_e2e':'NOT_RUN / LIVE_UNVERIFIED'}
+          build={'schema':'avito_finder_build_v142','version':'1.0.42','base_version':'1.0.41','archive':zpath.name,'archive_sha256':sha(zpath),'archive_bytes':zpath.stat().st_size,'source_files':len(files),'runtime_behavior_changed':['chatgpt_content.js'],'identity_only_changed':['service_worker.js','avito_content.js','manifest.json'],'service_worker_behavior_delta':'CAPTURE_VERSION 0.6.18 -> 0.6.19 only','service_worker_byte_identical_to_v141':False,'proxy_manager_byte_identical_to_v141':(work/'proxy_manager.js').read_bytes()==Path('подбор авито расширение/releases/v1.0.41/v141_work/proxy_manager.js').read_bytes(),'chatgpt_content_sha256':sha(work/'chatgpt_content.js'),'service_worker_sha256':sha(work/'service_worker.js'),'avito_content_sha256':sha(work/'avito_content.js'),'manifest_sha256':sha(work/'manifest.json'),'targeted_green':'3/3 PASS','worktree_grouped_qa':f"{wqa['pass']}/{wqa['pass']} PASS",'installed_live_e2e':'NOT_RUN / LIVE_UNVERIFIED'}
           (rel/'BUILD_v1.0.42.json').write_text(json.dumps(build,ensure_ascii=False,indent=2)+'\n')
           print(json.dumps(build,ensure_ascii=False,indent=2))
           PY
@@ -189,6 +193,7 @@ jobs:
           sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
           assert sha(z)==b['archive_sha256']
           assert sha(work/'chatgpt_content.js')==b['chatgpt_content_sha256']
+          assert sha(work/'service_worker.js')==b['service_worker_sha256']
           assert json.loads((work/'manifest.json').read_text())['version']=='1.0.42'
           assert b['final_zip_fresh_extract']=='PASS' and b['installed_live_e2e']=='NOT_RUN / LIVE_UNVERIFIED',b
           rb={'schema':'avito_finder_v142_remote_readback','version':'1.0.42','status':'PASS','branch':'fix/v142-writing-block-payload-oscillation-2026-09-13','head':__import__('subprocess').check_output(['git','rev-parse','HEAD'],text=True).strip(),'archive':b['archive'],'archive_sha256':b['archive_sha256'],'archive_bytes':b['archive_bytes'],'source_files':b['source_files'],'targeted_green':b['final_targeted_green'],'grouped_qa':b['final_zip_grouped_qa'],'installed_live_e2e':'NOT_RUN / LIVE_UNVERIFIED'}
