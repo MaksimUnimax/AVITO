@@ -1,0 +1,20 @@
+{
+  "scope": "INDEPENDENT_FRESH_GITHUB_CHECKOUT_FINAL_V137_ZIP_SOURCE_AND_QA",
+  "verified_commit": "ba0f3a36b2a9da21c2c54a57cc09eeed9a504c9c",
+  "version": "1.0.37",
+  "archive": "AVITO_FINDER_v1.0.37_PROXY_RECOVERY_INTEGRITY_2026-09-13.zip",
+  "sha256": "4eaf64038ffd6c5b08ed7d97fdb0d13848edd8a7a9db04ad928f74b1f371ac9d",
+  "bytes": 488986,
+  "source_files_byte_equal": 144,
+  "runtime_changed": [
+    "manifest.json",
+    "avito_content.js",
+    "service_worker.js",
+    "popup.js"
+  ],
+  "worktree_groups_pass": 35,
+  "final_zip_groups_pass": 35,
+  "groups_fail": 0,
+  "status": "PASS",
+  "installed_live_acceptance": "NOT_RUN"
+}
