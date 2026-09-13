@@ -1,0 +1,18 @@
+{
+  "schema": "avito_finder_live_acceptance_state_v1",
+  "date": "2026-09-13",
+  "current_main_release": "1.0.40",
+  "installed_reported_version": "1.0.40",
+  "task_id": "af-20260913103028-k9qv",
+  "stage": "AVITO_NAVIGATION",
+  "reason": "CAPTCHA_MANUAL_REQUIRED",
+  "automatic_recovery_attempts": 1,
+  "queue_cursor_used": false,
+  "cards_read": 0,
+  "baseline_preserved": "150/150",
+  "prior_v139_ambiguity_gate_recurred": false,
+  "allocation_fix_live_observation": "PROGRESSED_BEYOND_PRIOR_COMMAND_CAPTURED_AMBIGUITY",
+  "full_installed_e2e": "NOT_COMPLETE",
+  "installed_live_acceptance": "PARTIAL_PROGRESS_MANUAL_CAPTCHA_BLOCKED",
+  "next_safe_step": "Solve CAPTCHA manually in the existing Chrome/Avito tab, then resume the preserved explicit queue. CAPTCHA automation is prohibited."
+}
