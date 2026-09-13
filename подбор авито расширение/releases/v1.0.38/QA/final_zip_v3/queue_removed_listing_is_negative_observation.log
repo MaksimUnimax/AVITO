@@ -1,0 +1,9 @@
+HOST_STARTED
+CHAT_READY
+AVITO_READY
+STATE WAITING_FOR_ASSISTANT_WRITING_BLOCK
+STATE COMMAND_CAPTURED
+STATE AVITO_TAB_ACTIVE
+STATE REPORT_DELIVERY_IN_PROGRESS
+STATE WAITING_FOR_NEXT_ASSISTANT_FORM
+{"name": "removed_listing_is_negative_observation", "status": "PASS", "send_clicks_including_start": 2, "reports": 1, "last_report_characters": 2488, "cursor": 3, "state": "WAITING_FOR_NEXT_ASSISTANT_FORM", "duration_seconds": 9.107}

@@ -1,0 +1,11 @@
+START Send control appearing after old fixed 2s window is discovered without operator click
+{"test": "Send control appearing after old fixed 2s window is discovered without operator click", "status": "PASS", "ms": 3704}
+START STOP fences later rich-editor Send
+{"test": "STOP fences later rich-editor Send", "status": "PASS", "ms": 2117}
+START route change before Send blocks different conversation
+{"test": "route change before Send blocks different conversation", "status": "PASS", "ms": 2152}
+START ownership attributes cannot substitute equality or authorize draft overwrite
+{"test": "ownership attributes cannot substitute equality or authorize draft overwrite", "status": "PASS", "ms": 119}
+START exact preexisting p-block report can be delivered without rewriting
+{"test": "exact preexisting p-block report can be delivered without rewriting", "status": "PASS", "ms": 122}
+{"scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE", "installed_extension": false, "live_chatgpt": false, "pass": 5, "fail": 0, "page_errors": []}

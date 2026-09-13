@@ -1,0 +1,15 @@
+{
+  "version": "1.0.38",
+  "status": "FINAL_ZIP_OFFLINE_QA_PASS_LIVE_UNVERIFIED",
+  "archive": "AVITO_FINDER_v1.0.38_AVITO_STICKY_RECOVERY_2026-09-13.zip",
+  "sha256": "2f1282e2262b322ef5f17a3852a388dd5480363b9fa5a60346f3264084d477f4",
+  "bytes": 489352,
+  "source_files": 146,
+  "targeted_sticky_recovery": "PASS",
+  "worktree_groups_pass": 35,
+  "worktree_groups_fail": 0,
+  "final_zip_groups_pass": 35,
+  "final_zip_groups_fail": 0,
+  "installed_live_acceptance": "NOT_RUN",
+  "live_provider_calls": 0
+}

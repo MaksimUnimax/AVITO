@@ -1,0 +1,10 @@
+HOST_STARTED
+CHAT_READY
+AVITO_READY
+START_REQUEST
+START_RESPONSE True
+STATE WAITING_FOR_ASSISTANT_WRITING_BLOCK
+STATE WAITING_FOR_AVITO_PAGE_READY
+STATE REPORT_DELIVERY_IN_PROGRESS
+STATE WAITING_FOR_NEXT_ASSISTANT_FORM
+{"name": "captcha_manual_boundary", "status": "PASS", "send_clicks_including_start": 2, "reports": 1, "rows_per_report": [0], "expand_clicks": 2, "final_state": "WAITING_FOR_NEXT_ASSISTANT_FORM", "ms": 8888}

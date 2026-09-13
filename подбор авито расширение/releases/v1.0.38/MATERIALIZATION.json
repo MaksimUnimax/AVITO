@@ -1,0 +1,20 @@
+{
+  "production_runtime_changed": [
+    "avito_content.js",
+    "manifest.json",
+    "service_worker.js"
+  ],
+  "changed_before_metadata": [
+    "avito_content.js",
+    "manifest.json",
+    "service_worker.js",
+    "tests/ip_block_ui_plan_recovery_v124.test.js",
+    "tests/ip_block_verified_egress_v123.test.js",
+    "tests/proxy_profiles.test.js",
+    "tests/proxy_recovery_integrity_v137.test.js",
+    "tests/sticky_recovery_v138.test.js",
+    "tests/traffic_lite_zero_media.test.js",
+    "tests/v135_prompt_form_terminal_gate.test.py"
+  ],
+  "status": "PASS"
+}

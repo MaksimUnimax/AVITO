@@ -1,0 +1,1938 @@
+{
+  "version": "1.0.34",
+  "matrix_kind": "selected_cross-layer_scenario_matrix",
+  "scenario_count": 128,
+  "pass": 128,
+  "fail": 0,
+  "installed_extension": false,
+  "live_chatgpt": false,
+  "live_avito": false,
+  "blocks": [
+    {
+      "block": 1,
+      "title": "Захват и финализация Writing Block",
+      "scope": "01 writing capture/finality",
+      "scenarios": [
+        {
+          "id": "B01-S01",
+          "name": "complete valid block",
+          "input": "valid AVITO_UI block + ready Copy",
+          "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+          "expected": "one exact command",
+          "actual": {
+            "count": 1,
+            "exact": true,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block01.json"
+        },
+        {
+          "id": "B01-S02",
+          "name": "toolbar ready before body tail",
+          "input": "partial 565-ish body; tail arrives after initial stability",
+          "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+          "expected": "no partial submission; one final full command",
+          "actual": {
+            "before_tail": 0,
+            "count": 1,
+            "full_tail": true,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block01.json"
+        },
+        {
+          "id": "B01-S03",
+          "name": "three-chunk stream",
+          "input": "mode, then page, then steps",
+          "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+          "expected": "only final three-chunk body emitted",
+          "actual": {
+            "count": 1,
+            "valid_tail": true,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block01.json"
+        },
+        {
+          "id": "B01-S04",
+          "name": "same-size payload mutation",
+          "input": "valid block text changes 19→21 after toolbar appears",
+          "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+          "expected": "fingerprint reset; final 21 captured",
+          "actual": {
+            "count": 1,
+            "contains_21": true,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block01.json"
+        },
+        {
+          "id": "B01-S05",
+          "name": "Copy initially disabled",
+          "input": "complete body but disabled local Copy",
+          "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+          "expected": "wait, then one capture after enable",
+          "actual": {
+            "before_enable": 0,
+            "after": 1,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block01.json"
+        },
+        {
+          "id": "B01-S06",
+          "name": "ordinary markdown code block",
+          "input": "code-block-viewer + Copy button, no writing block",
+          "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+          "expected": "zero commands",
+          "actual": {
+            "count": 0,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block01.json"
+        },
+        {
+          "id": "B01-S07",
+          "name": "empty shell then body",
+          "input": "writing block root exists empty, body arrives later",
+          "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+          "expected": "ignore empty; capture final",
+          "actual": {
+            "empty_phase": 0,
+            "final": 1,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block01.json"
+        },
+        {
+          "id": "B01-S08",
+          "name": "long writing block",
+          "input": "~20k+ chars stable command",
+          "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+          "expected": "one full long payload",
+          "actual": {
+            "count": 1,
+            "len": 21151,
+            "expected_len": 21152,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block01.json"
+        },
+        {
+          "id": "B01-S09",
+          "name": "stable invalid command",
+          "input": "invalid block with no page/steps",
+          "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+          "expected": "longer invalid settle then one exact validator candidate",
+          "actual": {
+            "at_180ms": 0,
+            "at_360ms": 1,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block01.json"
+        },
+        {
+          "id": "B01-S10",
+          "name": "late body mutation after first sample",
+          "input": "valid body gains trailing section during payload settle",
+          "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+          "expected": "settle resets; final body only",
+          "actual": {
+            "count": 1,
+            "has_last": true,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block01.json"
+        },
+        {
+          "id": "B01-S11",
+          "name": "stable block repeated polling",
+          "input": "same finished block remains visible",
+          "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+          "expected": "exactly one candidate, no duplicates",
+          "actual": {
+            "first": 1,
+            "later": 1,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block01.json"
+        },
+        {
+          "id": "B01-S12",
+          "name": "later plain assistant turn",
+          "input": "command captured, later non-writing assistant appears",
+          "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+          "expected": "no duplicate/rebinding",
+          "actual": {
+            "before_new_assistant": 1,
+            "after": 1,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block01.json"
+        }
+      ]
+    },
+    {
+      "block": 2,
+      "title": "Парсер и локальный валидатор команд",
+      "scope": "02 parser/validator",
+      "scenarios": [
+        {
+          "id": "B02-S01",
+          "name": "valid collection",
+          "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104\nШаги:\nСобери до 30 видимых карточек текущей выдачи.",
+          "emulation": "production core.js parseCommandForm",
+          "expected": "valid AVITO_UI; COLLECT_LISTINGS limit 30",
+          "actual": {
+            "valid": true,
+            "errors": [],
+            "mode": "AVITO_UI",
+            "steps": [
+              {
+                "type": "COLLECT_LISTINGS",
+                "limit": 30
+              }
+            ],
+            "page": "https://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104",
+            "gap": null
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block02.json"
+        },
+        {
+          "id": "B02-S02",
+          "name": "explicit queue 6",
+          "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nОчередь:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999865\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999866\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999867\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999868\nhtt",
+          "emulation": "production core.js parseCommandForm",
+          "expected": "valid queue; 6 URLs; batch 6",
+          "actual": {
+            "valid": true,
+            "errors": [],
+            "mode": "AVITO_UI",
+            "steps": [
+              {
+                "type": "COLLECT_EXPLICIT_LISTING_QUEUE",
+                "batch": 6,
+                "selected_urls": 6
+              }
+            ],
+            "page": "https://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864",
+            "gap": null
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block02.json"
+        },
+        {
+          "id": "B02-S03",
+          "name": "explicit queue max 30",
+          "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nОчередь:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999865\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999866\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999867\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999868\nhtt",
+          "emulation": "production core.js parseCommandForm",
+          "expected": "valid queue 30, no truncation",
+          "actual": {
+            "valid": true,
+            "errors": [],
+            "mode": "AVITO_UI",
+            "steps": [
+              {
+                "type": "COLLECT_EXPLICIT_LISTING_QUEUE",
+                "batch": 30,
+                "selected_urls": 30
+              }
+            ],
+            "page": "https://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864",
+            "gap": null
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block02.json"
+        },
+        {
+          "id": "B02-S04",
+          "name": "explicit queue 31",
+          "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nОчередь:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999865\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999866\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999867\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999868\nhtt",
+          "emulation": "production core.js parseCommandForm",
+          "expected": "reject UI_PLAN_EXPLICIT_QUEUE_TOO_LARGE",
+          "actual": {
+            "valid": false,
+            "errors": [
+              "UI_PLAN_EXPLICIT_QUEUE_TOO_LARGE"
+            ],
+            "mode": "AVITO_UI",
+            "steps": [
+              {
+                "type": "COLLECT_EXPLICIT_LISTING_QUEUE",
+                "batch": 30,
+                "selected_urls": 31
+              }
+            ],
+            "page": "https://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864",
+            "gap": null
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block02.json"
+        },
+        {
+          "id": "B02-S05",
+          "name": "missing page",
+          "input": "Режим:\nAVITO_UI\nШаги:\nСобери до 30 видимых карточек.",
+          "emulation": "production core.js parseCommandForm",
+          "expected": "reject UI_PLAN_PAGE_REQUIRED",
+          "actual": {
+            "valid": false,
+            "errors": [
+              "UI_PLAN_PAGE_REQUIRED"
+            ],
+            "mode": "AVITO_UI",
+            "steps": [
+              {
+                "type": "COLLECT_LISTINGS",
+                "limit": 30
+              }
+            ],
+            "page": null,
+            "gap": null
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block02.json"
+        },
+        {
+          "id": "B02-S06",
+          "name": "private/account path",
+          "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/profile\nШаги:\nСобери до 10 видимых карточек.",
+          "emulation": "production core.js parseCommandForm",
+          "expected": "reject page not allowed",
+          "actual": {
+            "valid": false,
+            "errors": [
+              "UI_PLAN_PAGE_NOT_ALLOWED"
+            ],
+            "mode": "AVITO_UI",
+            "steps": [
+              {
+                "type": "COLLECT_LISTINGS",
+                "limit": 10
+              }
+            ],
+            "page": "https://www.avito.ru/profile",
+            "gap": null
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block02.json"
+        },
+        {
+          "id": "B02-S07",
+          "name": "unknown step",
+          "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104\nШаги:\nСтанцуй вокруг карточки.",
+          "emulation": "production core.js parseCommandForm",
+          "expected": "reject unsupported/step required",
+          "actual": {
+            "valid": false,
+            "errors": [
+              "UI_PLAN_UNSUPPORTED_STEP",
+              "UI_PLAN_STEP_REQUIRED"
+            ],
+            "mode": "AVITO_UI",
+            "steps": [],
+            "page": "https://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104",
+            "gap": null
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block02.json"
+        },
+        {
+          "id": "B02-S08",
+          "name": "forbidden phone click",
+          "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104\nШаги:\nНажми «Показать телефон».",
+          "emulation": "production core.js parseCommandForm",
+          "expected": "reject forbidden action",
+          "actual": {
+            "valid": false,
+            "errors": [
+              "UI_PLAN_FORBIDDEN_ACTION",
+              "UI_PLAN_STEP_REQUIRED"
+            ],
+            "mode": "AVITO_UI",
+            "steps": [],
+            "page": "https://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104",
+            "gap": null
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block02.json"
+        },
+        {
+          "id": "B02-S09",
+          "name": "wait 5 sec",
+          "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104\nШаги:\nПодожди 5 сек.",
+          "emulation": "production core.js parseCommandForm",
+          "expected": "accept WAIT 5000ms",
+          "actual": {
+            "valid": true,
+            "errors": [],
+            "mode": "AVITO_UI",
+            "steps": [
+              {
+                "type": "WAIT"
+              }
+            ],
+            "page": "https://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104",
+            "gap": null
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block02.json"
+        },
+        {
+          "id": "B02-S10",
+          "name": "wait 6 sec",
+          "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104\nШаги:\nПодожди 6 сек.",
+          "emulation": "production core.js parseCommandForm",
+          "expected": "reject wait out of range",
+          "actual": {
+            "valid": false,
+            "errors": [
+              "UI_PLAN_WAIT_OUT_OF_RANGE",
+              "UI_PLAN_STEP_REQUIRED"
+            ],
+            "mode": "AVITO_UI",
+            "steps": [],
+            "page": "https://www.avito.ru/all/tovary_dlya_komputera/monitory?q=monitor&s=104",
+            "gap": null
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block02.json"
+        },
+        {
+          "id": "B02-S11",
+          "name": "card gap 5000ms",
+          "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nПауза между карточками:\n5000 мс\nОчередь:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nШаги:\nСобери публичные данные лотов из очереди пакетом 1.",
+          "emulation": "production core.js parseCommandForm",
+          "expected": "accept exact gap 5000",
+          "actual": {
+            "valid": true,
+            "errors": [],
+            "mode": "AVITO_UI",
+            "steps": [
+              {
+                "type": "COLLECT_EXPLICIT_LISTING_QUEUE",
+                "batch": 1,
+                "selected_urls": 1
+              }
+            ],
+            "page": "https://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864",
+            "gap": 5000
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block02.json"
+        },
+        {
+          "id": "B02-S12",
+          "name": "card gap overflow",
+          "input": "Режим:\nAVITO_UI\nСтраница:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nПауза между карточками:\n2147483648 мс\nОчередь:\nhttps://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864\nШаги:\nСобери публичные данные лотов из очереди пакетом 1.",
+          "emulation": "production core.js parseCommandForm",
+          "expected": "reject gap overflow",
+          "actual": {
+            "valid": false,
+            "errors": [
+              "UI_PLAN_CARD_GAP_OUT_OF_RANGE"
+            ],
+            "mode": "AVITO_UI",
+            "steps": [
+              {
+                "type": "COLLECT_EXPLICIT_LISTING_QUEUE",
+                "batch": 1,
+                "selected_urls": 1
+              }
+            ],
+            "page": "https://www.avito.ru/moskva/tovary_dlya_kompyutera/monitor_27_ips_8348999864",
+            "gap": null
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block02.json"
+        }
+      ]
+    },
+    {
+      "block": 3,
+      "title": "Worker: ownership payload и замещение обрезанного validation",
+      "scope": "03 worker payload ownership/supersede",
+      "scenarios": [
+        {
+          "id": "B03-S01",
+          "name": "valid payload accepted",
+          "input": "waiting state + complete valid AVITO_UI candidate",
+          "emulation": "production service_worker.js in Chrome API VM",
+          "expected": "accepted; no unvalidated durable state",
+          "actual": {
+            "response": "avito_task_queued",
+            "status": "COMMAND_CAPTURED",
+            "last_key": true,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block03.json"
+        },
+        {
+          "id": "B03-S02",
+          "name": "invalid payload reports validation",
+          "input": "waiting state + stable invalid command",
+          "emulation": "production service_worker.js in Chrome API VM",
+          "expected": "validation report delivered/continuation; no Avito mutation",
+          "actual": {
+            "reason": "COMMAND_INVALID_AFTER_FULL_COPY",
+            "validation_reported": true,
+            "nav": 0,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block03.json"
+        },
+        {
+          "id": "B03-S03",
+          "name": "legacy unvalidated state recovery",
+          "input": "FORM_TEXT_CAPTURED_UNVALIDATED from <=1.0.33",
+          "emulation": "production service_worker.js in Chrome API VM",
+          "expected": "read-only reset to waiting; form key cleared",
+          "actual": {
+            "status": "WAITING_FOR_NEXT_ASSISTANT_FORM",
+            "last_key": null,
+            "blocked": null,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block03.json"
+        },
+        {
+          "id": "B03-S04",
+          "name": "larger same-turn supersedes unsent validation",
+          "input": "REPORT_READY_IN_COMPOSER from 660-char partial; same assistant yields 6800-ish full payload",
+          "emulation": "production service_worker.js in Chrome API VM",
+          "expected": "owned staged validation discarded; larger payload accepted",
+          "actual": {
+            "accepted": true,
+            "discard_calls": 1,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block03.json"
+        },
+        {
+          "id": "B03-S05",
+          "name": "same-size payload cannot supersede",
+          "input": "unsent validation from 660; same turn candidate <=660 bytes",
+          "emulation": "production service_worker.js in Chrome API VM",
+          "expected": "COMMAND_ALREADY_IN_FLIGHT; no stage discard",
+          "actual": {
+            "reason": "COMMAND_ALREADY_IN_FLIGHT",
+            "discard": false,
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block03.json"
+        },
+        {
+          "id": "B03-S06",
+          "name": "different assistant cannot supersede",
+          "input": "larger candidate but assistant_turn_id differs",
+          "emulation": "production service_worker.js in Chrome API VM",
+          "expected": "COMMAND_ALREADY_IN_FLIGHT; no discard",
+          "actual": {
+            "reason": "COMMAND_ALREADY_IN_FLIGHT",
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block03.json"
+        },
+        {
+          "id": "B03-S07",
+          "name": "clicked report cannot be superseded",
+          "input": "larger same-turn payload but report_send_attempted=true",
+          "emulation": "production service_worker.js in Chrome API VM",
+          "expected": "COMMAND_ALREADY_IN_FLIGHT; never clear after irreversible Send boundary",
+          "actual": {
+            "reason": "COMMAND_ALREADY_IN_FLIGHT",
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block03.json"
+        },
+        {
+          "id": "B03-S08",
+          "name": "stage ownership refusal blocks supersede",
+          "input": "larger same-turn payload but composer refuses exact owned-stage discard",
+          "emulation": "production service_worker.js in Chrome API VM",
+          "expected": "remain in-flight; no replacement command",
+          "actual": {
+            "reason": "COMMAND_ALREADY_IN_FLIGHT",
+            "status": "REPORT_READY_IN_COMPOSER",
+            "pass": true
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block03.json"
+        }
+      ]
+    },
+    {
+      "block": 4,
+      "title": "Старт «Ищи» и durable start receipt",
+      "scope": "OFFLINE_REAL_CHROMIUM_START_RECEIPT_V130",
+      "scenarios": [
+        {
+          "id": "B04-S01",
+          "name": "normal start uses exact new user turn and one durable intent",
+          "input": "Fixture/событие: normal start uses exact new user turn and one durable intent",
+          "emulation": "OFFLINE_REAL_CHROMIUM_START_RECEIPT_V130",
+          "expected": "Должен соблюдаться инвариант сценария: normal start uses exact new user turn and one durable intent",
+          "actual": {
+            "ms": 2173,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block04_start_receipt.json"
+        },
+        {
+          "id": "B04-S02",
+          "name": "folded exact start is expanded presentation-only and acknowledged after one Send",
+          "input": "Fixture/событие: folded exact start is expanded presentation-only and acknowledged after one Send",
+          "emulation": "OFFLINE_REAL_CHROMIUM_START_RECEIPT_V130",
+          "expected": "Должен соблюдаться инвариант сценария: folded exact start is expanded presentation-only and acknowledged after one Send",
+          "actual": {
+            "ms": 2207,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block04_start_receipt.json"
+        },
+        {
+          "id": "B04-S03",
+          "name": "live regression: second visible Ищи without data-turn-id is acknowledged via visible bubble plus assistant",
+          "input": "Fixture/событие: live regression: second visible Ищи without data-turn-id is acknowledged via visible bubble plus assistant",
+          "emulation": "OFFLINE_REAL_CHROMIUM_START_RECEIPT_V130",
+          "expected": "Должен соблюдаться инвариант сценария: live regression: second visible Ищи without data-turn-id is acknowledged via visible bubble plus assistant",
+          "actual": {
+            "ms": 2110,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block04_start_receipt.json"
+        },
+        {
+          "id": "B04-S04",
+          "name": "assistant-first DOM confirms start without requiring materialized user turn",
+          "input": "Fixture/событие: assistant-first DOM confirms start without requiring materialized user turn",
+          "emulation": "OFFLINE_REAL_CHROMIUM_START_RECEIPT_V130",
+          "expected": "Должен соблюдаться инвариант сценария: assistant-first DOM confirms start without requiring materialized user turn",
+          "actual": {
+            "ms": 2111,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block04_start_receipt.json"
+        },
+        {
+          "id": "B04-S05",
+          "name": "assistant fallback is rejected when an intervening user turn exists",
+          "input": "Fixture/событие: assistant fallback is rejected when an intervening user turn exists",
+          "emulation": "OFFLINE_REAL_CHROMIUM_START_RECEIPT_V130",
+          "expected": "Должен соблюдаться инвариант сценария: assistant fallback is rejected when an intervening user turn exists",
+          "actual": {
+            "ms": 102,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block04_start_receipt.json"
+        },
+        {
+          "id": "B04-S06",
+          "name": "read-only start reconciliation accepts late exact user turn",
+          "input": "Fixture/событие: read-only start reconciliation accepts late exact user turn",
+          "emulation": "OFFLINE_REAL_CHROMIUM_START_RECEIPT_V130",
+          "expected": "Должен соблюдаться инвариант сценария: read-only start reconciliation accepts late exact user turn",
+          "actual": {
+            "ms": 107,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block04_start_receipt.json"
+        },
+        {
+          "id": "B04-S07",
+          "name": "read-only start reconciliation accepts one new assistant turn",
+          "input": "Fixture/событие: read-only start reconciliation accepts one new assistant turn",
+          "emulation": "OFFLINE_REAL_CHROMIUM_START_RECEIPT_V130",
+          "expected": "Должен соблюдаться инвариант сценария: read-only start reconciliation accepts one new assistant turn",
+          "actual": {
+            "ms": 107,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block04_start_receipt.json"
+        },
+        {
+          "id": "B04-S08",
+          "name": "failed durable start intent prevents Send click",
+          "input": "Fixture/событие: failed durable start intent prevents Send click",
+          "emulation": "OFFLINE_REAL_CHROMIUM_START_RECEIPT_V130",
+          "expected": "Должен соблюдаться инвариант сценария: failed durable start intent prevents Send click",
+          "actual": {
+            "ms": 2112,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block04_start_receipt.json"
+        }
+      ]
+    },
+    {
+      "block": 5,
+      "title": "ChatGPT DOM adapter: отчёты, STOP, draft, CAPTCHA re-anchor",
+      "scope": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+      "scenarios": [
+        {
+          "id": "B05-S01",
+          "name": "report sends once, returns new exact user turn and restores same-chat continuation identity",
+          "input": "Fixture/событие: report sends once, returns new exact user turn and restores same-chat continuation identity",
+          "emulation": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+          "expected": "Должен соблюдаться инвариант сценария: report sends once, returns new exact user turn and restores same-chat continuation identity",
+          "actual": {
+            "elapsed_ms": 2173,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block05_chat_dom.json"
+        },
+        {
+          "id": "B05-S02",
+          "name": "concurrent and later duplicate delivery IDs produce one Send click",
+          "input": "Fixture/событие: concurrent and later duplicate delivery IDs produce one Send click",
+          "emulation": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+          "expected": "Должен соблюдаться инвариант сценария: concurrent and later duplicate delivery IDs produce one Send click",
+          "actual": {
+            "elapsed_ms": 2105,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block05_chat_dom.json"
+        },
+        {
+          "id": "B05-S03",
+          "name": "STOP during report staging prevents delayed Send click",
+          "input": "Fixture/событие: STOP during report staging prevents delayed Send click",
+          "emulation": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+          "expected": "Должен соблюдаться инвариант сценария: STOP during report staging prevents delayed Send click",
+          "actual": {
+            "elapsed_ms": 2098,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block05_chat_dom.json"
+        },
+        {
+          "id": "B05-S04",
+          "name": "user unsent composer text is preserved and report is not sent",
+          "input": "Fixture/событие: user unsent composer text is preserved and report is not sent",
+          "emulation": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+          "expected": "Должен соблюдаться инвариант сценария: user unsent composer text is preserved and report is not sent",
+          "actual": {
+            "elapsed_ms": 119,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block05_chat_dom.json"
+        },
+        {
+          "id": "B05-S05",
+          "name": "user edit during report staging cancels Send and preserves edited text",
+          "input": "Fixture/событие: user edit during report staging cancels Send and preserves edited text",
+          "emulation": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+          "expected": "Должен соблюдаться инвариант сценария: user edit during report staging cancels Send and preserves edited text",
+          "actual": {
+            "elapsed_ms": 2104,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block05_chat_dom.json"
+        },
+        {
+          "id": "B05-S06",
+          "name": "conversation route change during staging prevents Send into another chat",
+          "input": "Fixture/событие: conversation route change during staging prevents Send into another chat",
+          "emulation": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+          "expected": "Должен соблюдаться инвариант сценария: conversation route change during staging prevents Send into another chat",
+          "actual": {
+            "elapsed_ms": 2098,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block05_chat_dom.json"
+        },
+        {
+          "id": "B05-S07",
+          "name": "wrong pinned conversation cannot receive report",
+          "input": "Fixture/событие: wrong pinned conversation cannot receive report",
+          "emulation": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+          "expected": "Должен соблюдаться инвариант сценария: wrong pinned conversation cannot receive report",
+          "actual": {
+            "elapsed_ms": 88,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block05_chat_dom.json"
+        },
+        {
+          "id": "B05-S08",
+          "name": "STOP during initial Start staging prevents delayed Start click",
+          "input": "Fixture/событие: STOP during initial Start staging prevents delayed Start click",
+          "emulation": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+          "expected": "Должен соблюдаться инвариант сценария: STOP during initial Start staging prevents delayed Start click",
+          "actual": {
+            "elapsed_ms": 2092,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block05_chat_dom.json"
+        },
+        {
+          "id": "B05-S09",
+          "name": "completed Writing Block captured exactly once without external browser connector",
+          "input": "Fixture/событие: completed Writing Block captured exactly once without external browser connector",
+          "emulation": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+          "expected": "Должен соблюдаться инвариант сценария: completed Writing Block captured exactly once without external browser connector",
+          "actual": {
+            "elapsed_ms": 4843,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block05_chat_dom.json"
+        },
+        {
+          "id": "B05-S10",
+          "name": "ordinary markdown code block Copy control is never accepted as Writing Block command",
+          "input": "Fixture/событие: ordinary markdown code block Copy control is never accepted as Writing Block command",
+          "emulation": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+          "expected": "Должен соблюдаться инвариант сценария: ordinary markdown code block Copy control is never accepted as Writing Block command",
+          "actual": {
+            "elapsed_ms": 3306,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block05_chat_dom.json"
+        },
+        {
+          "id": "B05-S11",
+          "name": "manual user turn can re-anchor CAPTCHA gate and next real Writing Block is captured",
+          "input": "Fixture/событие: manual user turn can re-anchor CAPTCHA gate and next real Writing Block is captured",
+          "emulation": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+          "expected": "Должен соблюдаться инвариант сценария: manual user turn can re-anchor CAPTCHA gate and next real Writing Block is captured",
+          "actual": {
+            "elapsed_ms": 4420,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block05_chat_dom.json"
+        }
+      ]
+    },
+    {
+      "block": 6,
+      "title": "Avito DOM adapter и collection surface",
+      "scope": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+      "scenarios": [
+        {
+          "id": "B06-S01",
+          "name": "manifest schema and version checked (installation not claimed)",
+          "input": "Fixture/событие: manifest schema and version checked (installation not claimed)",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: manifest schema and version checked (installation not claimed)",
+          "actual": {
+            "elapsed_ms": 0,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S02",
+          "name": "whole-page diagnosis reads full body, not delivery button; hidden/input text excluded from HTML",
+          "input": "Fixture/событие: whole-page diagnosis reads full body, not delivery button; hidden/input text excluded from HTML",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: whole-page diagnosis reads full body, not delivery button; hidden/input text excluded from HTML",
+          "actual": {
+            "elapsed_ms": 155,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S03",
+          "name": "semantic main root preferred to body",
+          "input": "Fixture/событие: semantic main root preferred to body",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: semantic main root preferred to body",
+          "actual": {
+            "elapsed_ms": 121,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S04",
+          "name": "public configuration and direct-delivery button collected without clicking",
+          "input": "Fixture/событие: public configuration and direct-delivery button collected without clicking",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: public configuration and direct-delivery button collected without clicking",
+          "actual": {
+            "elapsed_ms": 129,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S05",
+          "name": "exact visible interactive delivery control works even when Avito marker changed",
+          "input": "Fixture/событие: exact visible interactive delivery control works even when Avito marker changed",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: exact visible interactive delivery control works even when Avito marker changed",
+          "actual": {
+            "elapsed_ms": 135,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S06",
+          "name": "disabled delivery control is not direct-delivery confirmation",
+          "input": "Fixture/событие: disabled delivery control is not direct-delivery confirmation",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: disabled delivery control is not direct-delivery confirmation",
+          "actual": {
+            "elapsed_ms": 125,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S07",
+          "name": "seller icebreaker is not direct-delivery confirmation",
+          "input": "Fixture/событие: seller icebreaker is not direct-delivery confirmation",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: seller icebreaker is not direct-delivery confirmation",
+          "actual": {
+            "elapsed_ms": 127,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S08",
+          "name": "delayed DOM renders are awaited; real order and listing IDs preserved",
+          "input": "Fixture/событие: delayed DOM renders are awaited; real order and listing IDs preserved",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: delayed DOM renders are awaited; real order and listing IDs preserved",
+          "actual": {
+            "elapsed_ms": 624,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S09",
+          "name": "requested 35 visible-rendered records are not silently capped at 30",
+          "input": "Fixture/событие: requested 35 visible-rendered records are not silently capped at 30",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: requested 35 visible-rendered records are not silently capped at 30",
+          "actual": {
+            "elapsed_ms": 134,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S10",
+          "name": "missing DOM is an explicit bounded error, not completed empty selection",
+          "input": "Fixture/событие: missing DOM is an explicit bounded error, not completed empty selection",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: missing DOM is an explicit bounded error, not completed empty selection",
+          "actual": {
+            "elapsed_ms": 420,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S11",
+          "name": "explicit visible empty-result state is distinguished from unloaded page",
+          "input": "Fixture/событие: explicit visible empty-result state is distinguished from unloaded page",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: explicit visible empty-result state is distinguished from unloaded page",
+          "actual": {
+            "elapsed_ms": 116,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S12",
+          "name": "visible IP-block propagates through normal-tempo collection",
+          "input": "Fixture/событие: visible IP-block propagates through normal-tempo collection",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: visible IP-block propagates through normal-tempo collection",
+          "actual": {
+            "elapsed_ms": 121,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S13",
+          "name": "visible rate-limit page is classified separately from IP block and CAPTCHA",
+          "input": "Fixture/событие: visible rate-limit page is classified separately from IP block and CAPTCHA",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: visible rate-limit page is classified separately from IP block and CAPTCHA",
+          "actual": {
+            "elapsed_ms": 123,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S14",
+          "name": "CAPTCHA remains manual; no collection or automatic solution",
+          "input": "Fixture/событие: CAPTCHA remains manual; no collection or automatic solution",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: CAPTCHA remains manual; no collection or automatic solution",
+          "actual": {
+            "elapsed_ms": 124,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S15",
+          "name": "STOP cancels pending work before click and allows a fresh read command",
+          "input": "Fixture/событие: STOP cancels pending work before click and allows a fresh read command",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: STOP cancels pending work before click and allows a fresh read command",
+          "actual": {
+            "elapsed_ms": 326,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        },
+        {
+          "id": "B06-S16",
+          "name": "reinjecting the same adapter does not duplicate message handlers",
+          "input": "Fixture/событие: reinjecting the same adapter does not duplicate message handlers",
+          "emulation": "real Chromium production DOM adapter with fixture runtime messaging; extension installation blocked by environment policy; no Chrome proxy integration acceptance; in-memory about:blank DOM with lexical fixture URL dependency; production URL validator unchanged; zero navigations to websites",
+          "expected": "Должен соблюдаться инвариант сценария: reinjecting the same adapter does not duplicate message handlers",
+          "actual": {
+            "elapsed_ms": 183,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block06_avito_dom.json"
+        }
+      ]
+    },
+    {
+      "block": 7,
+      "title": "Composer/report delivery — базовый round-trip",
+      "scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+      "scenarios": [
+        {
+          "id": "B07-S01",
+          "name": "multiline textarea retains exact payload",
+          "input": "Синтетический primary composer / событие: multiline textarea retains exact payload",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: multiline textarea retains exact payload",
+          "actual": {
+            "ms": 2178,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/composer_01_05.json"
+        },
+        {
+          "id": "B07-S02",
+          "name": "multiline contenteditable preserves lines through asynchronous model reparse; one Send",
+          "input": "Синтетический primary composer / событие: multiline contenteditable preserves lines through asynchronous model reparse; one Send",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: multiline contenteditable preserves lines through asynchronous model reparse; one Send",
+          "actual": {
+            "ms": 2112,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/composer_01_05.json"
+        },
+        {
+          "id": "B07-S03",
+          "name": "same report after editor converts paragraphs to div",
+          "input": "Синтетический primary composer / событие: same report after editor converts paragraphs to div",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: same report after editor converts paragraphs to div",
+          "actual": {
+            "ms": 2103,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/composer_01_05.json"
+        },
+        {
+          "id": "B07-S04",
+          "name": "same report after editor converts paragraphs to br",
+          "input": "Синтетический primary composer / событие: same report after editor converts paragraphs to br",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: same report after editor converts paragraphs to br",
+          "actual": {
+            "ms": 2110,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/composer_01_05.json"
+        },
+        {
+          "id": "B07-S05",
+          "name": "120-row rich-editor report exceeds failed live size without truncation",
+          "input": "Синтетический primary composer / событие: 120-row rich-editor report exceeds failed live size without truncation",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: 120-row rich-editor report exceeds failed live size without truncation",
+          "actual": {
+            "ms": 2134,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/composer_01_05.json"
+        },
+        {
+          "id": "B07-S06",
+          "name": "13,247-character synthetic report delivers in rich editor",
+          "input": "Синтетический primary composer / событие: 13,247-character synthetic report delivers in rich editor",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: 13,247-character synthetic report delivers in rich editor",
+          "actual": {
+            "ms": 2170,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block07_composer_06_10.json"
+        },
+        {
+          "id": "B07-S07",
+          "name": "blank lines, tabs, double spaces, NBSP, ZWJ and zero-width text preserved",
+          "input": "Синтетический primary composer / событие: blank lines, tabs, double spaces, NBSP, ZWJ and zero-width text preserved",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: blank lines, tabs, double spaces, NBSP, ZWJ and zero-width text preserved",
+          "actual": {
+            "ms": 2126,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block07_composer_06_10.json"
+        },
+        {
+          "id": "B07-S08",
+          "name": "concurrent duplicate and repeated delivery ID yield one click",
+          "input": "Синтетический primary composer / событие: concurrent duplicate and repeated delivery ID yield one click",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: concurrent duplicate and repeated delivery ID yield one click",
+          "actual": {
+            "ms": 2115,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block07_composer_06_10.json"
+        },
+        {
+          "id": "B07-S09",
+          "name": "protect against edit during staging: real_input",
+          "input": "Синтетический primary composer / событие: protect against edit during staging: real_input",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: protect against edit during staging: real_input",
+          "actual": {
+            "ms": 2116,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block07_composer_06_10.json"
+        },
+        {
+          "id": "B07-S10",
+          "name": "protect against edit during staging: no_button",
+          "input": "Синтетический primary composer / событие: protect against edit during staging: no_button",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: protect against edit during staging: no_button",
+          "actual": {
+            "ms": 8123,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block07_composer_06_10.json"
+        }
+      ]
+    },
+    {
+      "block": 8,
+      "title": "Composer/report delivery — edit races и missing Send",
+      "scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+      "scenarios": [
+        {
+          "id": "B08-S01",
+          "name": "protect against edit during staging: price",
+          "input": "Синтетический primary composer / событие: protect against edit during staging: price",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: protect against edit during staging: price",
+          "actual": {
+            "ms": 2168,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block08_composer_11_15.json"
+        },
+        {
+          "id": "B08-S02",
+          "name": "protect against edit during staging: blank_line",
+          "input": "Синтетический primary composer / событие: protect against edit during staging: blank_line",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: protect against edit during staging: blank_line",
+          "actual": {
+            "ms": 2148,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block08_composer_11_15.json"
+        },
+        {
+          "id": "B08-S03",
+          "name": "protect against edit during staging: zwj",
+          "input": "Синтетический primary composer / событие: protect against edit during staging: zwj",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: protect against edit during staging: zwj",
+          "actual": {
+            "ms": 2107,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block08_composer_11_15.json"
+        },
+        {
+          "id": "B08-S04",
+          "name": "protect against edit during staging: undo_same",
+          "input": "Синтетический primary composer / событие: protect against edit during staging: undo_same",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: protect against edit during staging: undo_same",
+          "actual": {
+            "ms": 2103,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block08_composer_11_15.json"
+        },
+        {
+          "id": "B08-S05",
+          "name": "missing Send leaves complete report, does not clear composer",
+          "input": "Синтетический primary composer / событие: missing Send leaves complete report, does not clear composer",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: missing Send leaves complete report, does not clear composer",
+          "actual": {
+            "ms": 8158,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block08_composer_11_15.json"
+        }
+      ]
+    },
+    {
+      "block": 9,
+      "title": "Composer/report delivery — delayed Send, STOP, route, ownership",
+      "scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+      "scenarios": [
+        {
+          "id": "B09-S01",
+          "name": "Send control appearing after old fixed 2s window is discovered without operator click",
+          "input": "Синтетический primary composer / событие: Send control appearing after old fixed 2s window is discovered without operator click",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: Send control appearing after old fixed 2s window is discovered without operator click",
+          "actual": {
+            "ms": 3697,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block09_composer_16_20.json"
+        },
+        {
+          "id": "B09-S02",
+          "name": "STOP fences later rich-editor Send",
+          "input": "Синтетический primary composer / событие: STOP fences later rich-editor Send",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: STOP fences later rich-editor Send",
+          "actual": {
+            "ms": 2104,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block09_composer_16_20.json"
+        },
+        {
+          "id": "B09-S03",
+          "name": "route change before Send blocks different conversation",
+          "input": "Синтетический primary composer / событие: route change before Send blocks different conversation",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: route change before Send blocks different conversation",
+          "actual": {
+            "ms": 2104,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block09_composer_16_20.json"
+        },
+        {
+          "id": "B09-S04",
+          "name": "ownership attributes cannot substitute equality or authorize draft overwrite",
+          "input": "Синтетический primary composer / событие: ownership attributes cannot substitute equality or authorize draft overwrite",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: ownership attributes cannot substitute equality or authorize draft overwrite",
+          "actual": {
+            "ms": 100,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block09_composer_16_20.json"
+        },
+        {
+          "id": "B09-S05",
+          "name": "exact preexisting p-block report can be delivered without rewriting",
+          "input": "Синтетический primary composer / событие: exact preexisting p-block report can be delivered without rewriting",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: exact preexisting p-block report can be delivered without rewriting",
+          "actual": {
+            "ms": 124,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block09_composer_16_20.json"
+        }
+      ]
+    },
+    {
+      "block": 10,
+      "title": "Composer/report delivery — read-only reconciliation",
+      "scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+      "scenarios": [
+        {
+          "id": "B10-S01",
+          "name": "unsupported editor transformation fails with readback diagnostics, not user blame",
+          "input": "Синтетический primary composer / событие: unsupported editor transformation fails with readback diagnostics, not user blame",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: unsupported editor transformation fails with readback diagnostics, not user blame",
+          "actual": {
+            "ms": 2160,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block10_composer_21_25.json"
+        },
+        {
+          "id": "B10-S02",
+          "name": "read-only reconciliation: confirmed",
+          "input": "Синтетический primary composer / событие: read-only reconciliation: confirmed",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: read-only reconciliation: confirmed",
+          "actual": {
+            "ms": 99,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block10_composer_21_25.json"
+        },
+        {
+          "id": "B10-S03",
+          "name": "read-only reconciliation: staged",
+          "input": "Синтетический primary composer / событие: read-only reconciliation: staged",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: read-only reconciliation: staged",
+          "actual": {
+            "ms": 97,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block10_composer_21_25.json"
+        },
+        {
+          "id": "B10-S04",
+          "name": "read-only reconciliation: unrelated",
+          "input": "Синтетический primary composer / событие: read-only reconciliation: unrelated",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: read-only reconciliation: unrelated",
+          "actual": {
+            "ms": 1608,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block10_composer_21_25.json"
+        },
+        {
+          "id": "B10-S05",
+          "name": "read-only reconciliation: prefix",
+          "input": "Синтетический primary composer / событие: read-only reconciliation: prefix",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: read-only reconciliation: prefix",
+          "actual": {
+            "ms": 1613,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block10_composer_21_25.json"
+        }
+      ]
+    },
+    {
+      "block": 11,
+      "title": "Composer/report delivery — anchor/focus/concurrency/Unicode hash",
+      "scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+      "scenarios": [
+        {
+          "id": "B11-S01",
+          "name": "read-only reconciliation: missing_anchor",
+          "input": "Синтетический primary composer / событие: read-only reconciliation: missing_anchor",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: read-only reconciliation: missing_anchor",
+          "actual": {
+            "ms": 160,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block11_composer_26_29.json"
+        },
+        {
+          "id": "B11-S02",
+          "name": "focus/selection alone is not a user edit",
+          "input": "Синтетический primary composer / событие: focus/selection alone is not a user edit",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: focus/selection alone is not a user edit",
+          "actual": {
+            "ms": 2103,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block11_composer_26_29.json"
+        },
+        {
+          "id": "B11-S03",
+          "name": "different simultaneous reports cannot take over the same composer",
+          "input": "Синтетический primary composer / событие: different simultaneous reports cannot take over the same composer",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: different simultaneous reports cannot take over the same composer",
+          "actual": {
+            "ms": 2102,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block11_composer_26_29.json"
+        },
+        {
+          "id": "B11-S04",
+          "name": "hash equality cannot coalesce a different Unicode payload",
+          "input": "Синтетический primary composer / событие: hash equality cannot coalesce a different Unicode payload",
+          "emulation": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+          "expected": "Должен соблюдаться инвариант доставки/редактора: hash equality cannot coalesce a different Unicode payload",
+          "actual": {
+            "ms": 2104,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block11_composer_26_29.json"
+        }
+      ]
+    },
+    {
+      "block": 12,
+      "title": "Sent-message receipt и подтверждение доставки",
+      "scope": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+      "scenarios": [
+        {
+          "id": "B12-S01",
+          "name": "sent-message body recognition: folded",
+          "input": "Fixture/событие: sent-message body recognition: folded",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: sent-message body recognition: folded",
+          "actual": {
+            "ms": 2374,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S02",
+          "name": "sent-message body recognition: visible_controls",
+          "input": "Fixture/событие: sent-message body recognition: visible_controls",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: sent-message body recognition: visible_controls",
+          "actual": {
+            "ms": 2203,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S03",
+          "name": "sent-message body recognition: plain",
+          "input": "Fixture/событие: sent-message body recognition: plain",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: sent-message body recognition: plain",
+          "actual": {
+            "ms": 2205,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S04",
+          "name": "sent-message body recognition: split_role",
+          "input": "Fixture/событие: sent-message body recognition: split_role",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: sent-message body recognition: split_role",
+          "actual": {
+            "ms": 2207,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S05",
+          "name": "sent-message body recognition: hydrating",
+          "input": "Fixture/событие: sent-message body recognition: hydrating",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: sent-message body recognition: hydrating",
+          "actual": {
+            "ms": 2316,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S06",
+          "name": "sent-message body recognition: remount",
+          "input": "Fixture/событие: sent-message body recognition: remount",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: sent-message body recognition: remount",
+          "actual": {
+            "ms": 2313,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S07",
+          "name": "sent-message body recognition: article",
+          "input": "Fixture/событие: sent-message body recognition: article",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: sent-message body recognition: article",
+          "actual": {
+            "ms": 2222,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S08",
+          "name": "sent-message body recognition: wrapped_controls",
+          "input": "Fixture/событие: sent-message body recognition: wrapped_controls",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: sent-message body recognition: wrapped_controls",
+          "actual": {
+            "ms": 2305,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S09",
+          "name": "sent-message body recognition: label_only",
+          "input": "Fixture/событие: sent-message body recognition: label_only",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: sent-message body recognition: label_only",
+          "actual": {
+            "ms": 2302,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S10",
+          "name": "19,495-character folded report acknowledged after one Send",
+          "input": "Fixture/событие: 19,495-character folded report acknowledged after one Send",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: 19,495-character folded report acknowledged after one Send",
+          "actual": {
+            "ms": 2319,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S11",
+          "name": "hidden body is not scraped or accepted merely because it exists",
+          "input": "Fixture/событие: hidden body is not scraped or accepted merely because it exists",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: hidden body is not scraped or accepted merely because it exists",
+          "actual": {
+            "ms": 109,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S12",
+          "name": "no false receipt: foreign",
+          "input": "Fixture/событие: no false receipt: foreign",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: no false receipt: foreign",
+          "actual": {
+            "ms": 97,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S13",
+          "name": "no false receipt: prefix",
+          "input": "Fixture/событие: no false receipt: prefix",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: no false receipt: prefix",
+          "actual": {
+            "ms": 106,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S14",
+          "name": "no false receipt: wrong_price",
+          "input": "Fixture/событие: no false receipt: wrong_price",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: no false receipt: wrong_price",
+          "actual": {
+            "ms": 108,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S15",
+          "name": "no false receipt: missing_tail",
+          "input": "Fixture/событие: no false receipt: missing_tail",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: no false receipt: missing_tail",
+          "actual": {
+            "ms": 105,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S16",
+          "name": "no false receipt: duplicate",
+          "input": "Fixture/событие: no false receipt: duplicate",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: no false receipt: duplicate",
+          "actual": {
+            "ms": 118,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S17",
+          "name": "hidden labels and controls excluded from message text",
+          "input": "Fixture/событие: hidden labels and controls excluded from message text",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: hidden labels and controls excluded from message text",
+          "actual": {
+            "ms": 167,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S18",
+          "name": "expand control pointing outside pending user message never clicked",
+          "input": "Fixture/событие: expand control pointing outside pending user message never clicked",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: expand control pointing outside pending user message never clicked",
+          "actual": {
+            "ms": 413,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S19",
+          "name": "failed durable intent prevents actual Send click",
+          "input": "Fixture/событие: failed durable intent prevents actual Send click",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: failed durable intent prevents actual Send click",
+          "actual": {
+            "ms": 2110,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S20",
+          "name": "acknowledgement wait fenced after STOP",
+          "input": "Fixture/событие: acknowledgement wait fenced after STOP",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: acknowledgement wait fenced after STOP",
+          "actual": {
+            "ms": 2200,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S21",
+          "name": "acknowledgement wait fenced after different_chat",
+          "input": "Fixture/событие: acknowledgement wait fenced after different_chat",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: acknowledgement wait fenced after different_chat",
+          "actual": {
+            "ms": 2208,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S22",
+          "name": "receipt migration/recovery: legacy",
+          "input": "Fixture/событие: receipt migration/recovery: legacy",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: receipt migration/recovery: legacy",
+          "actual": {
+            "ms": 207,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S23",
+          "name": "receipt migration/recovery: receipt_with_evicted_predecessor",
+          "input": "Fixture/событие: receipt migration/recovery: receipt_with_evicted_predecessor",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: receipt migration/recovery: receipt_with_evicted_predecessor",
+          "actual": {
+            "ms": 205,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S24",
+          "name": "receipt migration/recovery: unknown_predecessor",
+          "input": "Fixture/событие: receipt migration/recovery: unknown_predecessor",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: receipt migration/recovery: unknown_predecessor",
+          "actual": {
+            "ms": 103,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        },
+        {
+          "id": "B12-S25",
+          "name": "newer unrelated turn cannot steal matching report anchor",
+          "input": "Fixture/событие: newer unrelated turn cannot steal matching report anchor",
+          "emulation": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+          "expected": "Должен соблюдаться инвариант сценария: newer unrelated turn cannot steal matching report anchor",
+          "actual": {
+            "ms": 102,
+            "status": "PASS"
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/block12_receipts.json"
+        }
+      ]
+    },
+    {
+      "block": 13,
+      "title": "Сквозные queue/recovery циклы",
+      "scope": "PRODUCTION_WORKER_VM_AND_REAL_CHROMIUM_DOM; CHROME_API_DOUBLES; NOT_INSTALLED_OR_LIVE",
+      "scenarios": [
+        {
+          "id": "B13-S01",
+          "name": "manual_captcha_same_child_resume",
+          "input": "3 detail URL; CAPTCHA на дочерней карточке; ручное продолжение",
+          "emulation": "PRODUCTION_WORKER_VM_AND_REAL_CHROMIUM_DOM; CHROME_API_DOUBLES; NOT_INSTALLED_OR_LIVE",
+          "expected": "resume в той же child-tab lifecycle; cursor=3; завершение очереди",
+          "actual": {
+            "status": "PASS",
+            "send_clicks_including_start": 3,
+            "reports": 2,
+            "last_report_characters": 2694,
+            "cursor": 3,
+            "state": "WAITING_FOR_NEXT_ASSISTANT_FORM",
+            "duration_seconds": 11.696
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/queue_manual_captcha_same_child_resume.json"
+        },
+        {
+          "id": "B13-S02",
+          "name": "rate_limit_mid_queue_restart_direct_route",
+          "input": "3 detail URL; HTTP 429 посреди очереди; restart worker",
+          "emulation": "PRODUCTION_WORKER_VM_AND_REAL_CHROMIUM_DOM; CHROME_API_DOUBLES; NOT_INSTALLED_OR_LIVE",
+          "expected": "тот же direct route; cursor=3; один финальный отчёт; без повтора уже прочитанных",
+          "actual": {
+            "status": "PASS",
+            "send_clicks_including_start": 2,
+            "reports": 1,
+            "last_report_characters": 2695,
+            "cursor": 3,
+            "state": "WAITING_FOR_NEXT_ASSISTANT_FORM",
+            "duration_seconds": 11.448
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/queue_rate_limit_mid_queue_restart_direct_route.json"
+        },
+        {
+          "id": "B13-S03",
+          "name": "removed_listing_is_negative_observation",
+          "input": "3 detail URL; один лот REMOVED",
+          "emulation": "PRODUCTION_WORKER_VM_AND_REAL_CHROMIUM_DOM; CHROME_API_DOUBLES; NOT_INSTALLED_OR_LIVE",
+          "expected": "REMOVED сохраняется как отрицательное наблюдение, очередь не ломается; cursor=3",
+          "actual": {
+            "status": "PASS",
+            "send_clicks_including_start": 2,
+            "reports": 1,
+            "last_report_characters": 2488,
+            "cursor": 3,
+            "state": "WAITING_FOR_NEXT_ASSISTANT_FORM",
+            "duration_seconds": 9.089
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/queue_removed_listing_is_negative_observation.json"
+        },
+        {
+          "id": "B13-S04",
+          "name": "restart_during_persisted_gap",
+          "input": "3 detail URL; persisted card gap; restart worker во время паузы",
+          "emulation": "PRODUCTION_WORKER_VM_AND_REAL_CHROMIUM_DOM; CHROME_API_DOUBLES; NOT_INSTALLED_OR_LIVE",
+          "expected": "gap/cursor переживают restart; cursor=3; завершение",
+          "actual": {
+            "status": "PASS",
+            "send_clicks_including_start": 2,
+            "reports": 1,
+            "last_report_characters": 2697,
+            "cursor": 3,
+            "state": "WAITING_FOR_NEXT_ASSISTANT_FORM",
+            "duration_seconds": 13.262
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/queue_restart_during_persisted_gap.json"
+        },
+        {
+          "id": "B13-S05",
+          "name": "six_details_two_batches",
+          "input": "6 detail URL, batch=3, два пакета",
+          "emulation": "PRODUCTION_WORKER_VM_AND_REAL_CHROMIUM_DOM; CHROME_API_DOUBLES; NOT_INSTALLED_OR_LIVE",
+          "expected": "cursor=6; два отчёта; возврат WAITING_FOR_NEXT_ASSISTANT_FORM",
+          "actual": {
+            "status": "PASS",
+            "send_clicks_including_start": 3,
+            "reports": 2,
+            "last_report_characters": 4429,
+            "cursor": 6,
+            "state": "WAITING_FOR_NEXT_ASSISTANT_FORM",
+            "duration_seconds": 15.826
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/queue_six_details_two_batches.json"
+        },
+        {
+          "id": "B13-S06",
+          "name": "stop_during_late_detail_response",
+          "input": "detail response приходит после STOP",
+          "emulation": "PRODUCTION_WORKER_VM_AND_REAL_CHROMIUM_DOM; CHROME_API_DOUBLES; NOT_INSTALLED_OR_LIVE",
+          "expected": "STOP fence; отчёт не отправляется; состояние CANCELLED_BY_USER",
+          "actual": {
+            "status": "PASS",
+            "send_clicks_including_start": 1,
+            "reports": 0,
+            "last_report_characters": 0,
+            "cursor": 1,
+            "state": "CANCELLED_BY_USER",
+            "duration_seconds": 7.856
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/queue_stop_during_late_detail_response.json"
+        },
+        {
+          "id": "B13-S07",
+          "name": "thirty_detail_large_report",
+          "input": "30 detail URL; большой итоговый отчёт",
+          "emulation": "PRODUCTION_WORKER_VM_AND_REAL_CHROMIUM_DOM; CHROME_API_DOUBLES; NOT_INSTALLED_OR_LIVE",
+          "expected": "cursor=30; один отчёт >200k символов; один Send; возврат WAITING_FOR_NEXT_ASSISTANT_FORM",
+          "actual": {
+            "status": "PASS",
+            "send_clicks_including_start": 2,
+            "reports": 1,
+            "last_report_characters": 233804,
+            "cursor": 30,
+            "state": "WAITING_FOR_NEXT_ASSISTANT_FORM",
+            "duration_seconds": 12.353
+          },
+          "status": "PASS",
+          "source_report": "qa/v134/blocks/queue_thirty_detail_large_report.json"
+        }
+      ]
+    }
+  ]
+}

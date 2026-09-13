@@ -1,0 +1,16 @@
+TAP version 13
+# Subtest: Avito recovery endpoint is sticky, not every-request rotation
+ok 1 - Avito recovery endpoint is sticky, not every-request rotation
+  ---
+  duration_ms: 14.430284
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 54.555732

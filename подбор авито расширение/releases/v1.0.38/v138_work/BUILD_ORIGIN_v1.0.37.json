@@ -1,0 +1,71 @@
+{
+  "version": "1.0.37",
+  "date": "2026-09-13",
+  "base_version": "1.0.36 R2",
+  "base_archive_sha256": "c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c",
+  "base_source_files": 141,
+  "patch_stream_sha256": "83435898a6b253d50c60e525e9679b4e46baaa5aa472f0cfaccec4faf0fd1002",
+  "runtime_changed": [
+    "manifest.json",
+    "avito_content.js",
+    "service_worker.js",
+    "popup.js"
+  ],
+  "runtime_unchanged": [
+    "chatgpt_content.js",
+    "core.js",
+    "proxy_manager.js",
+    "recovery.js",
+    "popup.html",
+    "popup.css"
+  ],
+  "runtime_hashes": {
+    "manifest.json": {
+      "before": "a2d746e3beb6e575f69347d3b0c778060c1e76c44845b9beebede671bf53b97a",
+      "after": "1089c65049f6f30094619e5766c42532ee92707b48bdffecce83f1f5c01f1f98"
+    },
+    "avito_content.js": {
+      "before": "3a59fabdbcc2af40ea9c9bf4a07be2c1cdc991a30f1dda7cd66b158a0ab422c0",
+      "after": "8486d72c19094eac229e6bf27e5175c9e06adb513963254bcf8f50c41c9e6ebb"
+    },
+    "service_worker.js": {
+      "before": "415b2ca3c3c196c059dee33587c2572c5d310c1e44c3404d0859f9707242e88a",
+      "after": "e0ece691aafc4ff9ef52592af8bc9210809e3d786cf701ffb8337d369b769ff2"
+    },
+    "popup.js": {
+      "before": "a107c7094dab8b2d8e3f568bdfb5a496db94ccd332457d4d6aff54b7d3b73990",
+      "after": "a80a025c47c73f2f3d39aa08888361b9eeed4763e899438111c4bb8437836f59"
+    },
+    "chatgpt_content.js": {
+      "before": "64eedf07f07fb69ba87d91bc51d49273237e577de770d48a97e2368dd7a39d18",
+      "after": "64eedf07f07fb69ba87d91bc51d49273237e577de770d48a97e2368dd7a39d18"
+    },
+    "core.js": {
+      "before": "b00830e8e2971186bf4a725725aa4676e29b09a7e32cc296b7ccf24c5e36ee9b",
+      "after": "b00830e8e2971186bf4a725725aa4676e29b09a7e32cc296b7ccf24c5e36ee9b"
+    },
+    "proxy_manager.js": {
+      "before": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66",
+      "after": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66"
+    },
+    "recovery.js": {
+      "before": "d49558f8decf4396bb5dd770d9c34608770ea14635166972a4fc8273270b936d",
+      "after": "d49558f8decf4396bb5dd770d9c34608770ea14635166972a4fc8273270b936d"
+    },
+    "popup.html": {
+      "before": "bff33dcce38ef853f255172826392a4d411937f92b68b8a8e1c013f56305eec3",
+      "after": "bff33dcce38ef853f255172826392a4d411937f92b68b8a8e1c013f56305eec3"
+    },
+    "popup.css": {
+      "before": "0c85a06c77c905b9203df91cecc24c8bd16095b1d44ddd176434a7ba352d6d56",
+      "after": "0c85a06c77c905b9203df91cecc24c8bd16095b1d44ddd176434a7ba352d6d56"
+    }
+  },
+  "api_key_persistence_changed": false,
+  "api_key_storage_contract": "session-scoped preserved; stale persistent key_check is rendered as stale, not as loaded key",
+  "navigation_queue_cursor_changed": false,
+  "captcha_automation_added": false,
+  "ordinary_markdown_execution_added": false,
+  "live_provider_calls_during_patch": 0,
+  "installed_live_acceptance": "NOT_RUN"
+}
