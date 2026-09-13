@@ -1,0 +1,41 @@
+{
+  "version": "1.0.39",
+  "date": "2026-09-13",
+  "base_version": "1.0.38",
+  "base_archive_sha256": "2f1282e2262b322ef5f17a3852a388dd5480363b9fa5a60346f3264084d477f4",
+  "runtime_changed": [
+    "avito_content.js",
+    "manifest.json",
+    "service_worker.js"
+  ],
+  "runtime_unchanged": [
+    "chatgpt_content.js",
+    "core.js",
+    "proxy_manager.js",
+    "recovery.js",
+    "popup.js",
+    "popup.html",
+    "popup.css"
+  ],
+  "root_cause": "selectVisibleAvitoTab ignored the already-known requestedUrl. With ChatGPT active and multiple Avito tabs, it threw AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB even when exactly one existing Avito tab already matched the exact requested public route.",
+  "safe_selection_contract": {
+    "active_avito_priority_preserved": true,
+    "unique_exact_requested_route_selected": true,
+    "zero_exact_matches_with_multiple_tabs": "AMBIGUOUS",
+    "duplicate_exact_matches": "AMBIGUOUS",
+    "single_avito_tab_behavior_preserved": true,
+    "navigation_for_disambiguation": false
+  },
+  "queue_cursor_changed": false,
+  "target_navigation_dispatch_changed": false,
+  "proxy_recovery_changed": false,
+  "captcha_automation_added": false,
+  "live_failure_task": "af-20260913062414-29ps",
+  "rule20_authority": "PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md/json PASS",
+  "first_full_gate_failure": "workflow 34743154320: adapter cold-start deadline + new regression aggregate integration",
+  "gate_failure_diagnosis": "workflow 34743603061: v1.0.38 node 368/368; v1.0.39 sole SOURCE_PATH_REQUIRED test integration failure; adapter A/B v1.0.38 19.55/0.96/0.95/0.75s vs v1.0.39 2.39/1.20/0.77/0.89s",
+  "qa_adapter_identity_deadline_seconds": 30,
+  "production_timeout_changed": false,
+  "live_provider_calls_during_patch": 0,
+  "installed_live_acceptance": "NOT_RUN"
+}

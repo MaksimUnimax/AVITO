@@ -1,0 +1,178 @@
+--- /mnt/data/v131_runtime/manifest.json	2026-09-12 01:29:06.000000000 +0000
++++ /mnt/data/v132_work/manifest.json	2026-09-12 03:01:46.932458707 +0000
+@@ -2,8 +2,8 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "1.0.31",
+-  "version_name": "1.0.31-pre-proxy-sequential-lifecycle-restoration",
++  "version": "1.0.32",
++  "version_name": "1.0.32-manual-report-send-reconciliation",
+   "description": "Avito Finder: bounded, cancellable visible-UI execution, same-chat reports, verified proxy configuration and fresh-document recovery; manual CAPTCHA.",
+   "minimum_chrome_version": "120",
+   "permissions": [
+--- /mnt/data/v131_runtime/chatgpt_content.js	2026-09-11 13:53:46.000000000 +0000
++++ /mnt/data/v132_work/chatgpt_content.js	2026-09-12 03:09:06.365223905 +0000
+@@ -10,7 +10,7 @@
+   // runtime context. A version guard that simply returns would then prevent a
+   // fresh adapter from being injected into the same tab. New injection must
+   // supersede, dispose and replace the previous adapter instead.
+-  const CONTENT_SCRIPT_VERSION = "0.6.14";
++  const CONTENT_SCRIPT_VERSION = "0.6.15";
+   const CONTENT_SCRIPT_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+   const CONTENT_RUNTIME_KEY = "__AVITO_FINDER_BRIDGE_EXACT_CAPTURE_RUNTIME__";
+   const CONTENT_RUNTIME_ID = `${CONTENT_SCRIPT_VERSION}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+@@ -26,6 +26,8 @@
+   const pickerOverlayId = "avito-finder-capture-send-picker-overlay";
+   const PICKER_TEST_TEXT = "AVITO_FINDER_BUTTON_TEST — это тест, сообщение не будет отправлено.";
+   const SEND_BUTTON_RENDER_WAIT_MS = 2000;
++  const SEND_BUTTON_DISCOVERY_TIMEOUT_MS = 6000;
++  const SEND_BUTTON_DISCOVERY_POLL_MS = 100;
+   const PROMPT_STABILITY_MS = 2000;
+   const PROMPT_ACTIVE_RECHECK_MS = 750;
+   const PROMPT_MUTATION_DEBOUNCE_MS = 250;
+@@ -768,6 +770,40 @@
+     return candidates[0]?.button || null;
+   }
+ 
++  async function waitForPrimaryComposerSendButton(composerContext, timeoutMs = SEND_BUTTON_DISCOVERY_TIMEOUT_MS) {
++    const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
++    const waitGeneration = reportSendGeneration;
++    const expectedIdentity = activeConversationRef ? { ...activeConversationRef } : null;
++    let attempts = 0;
++    recordDiagnostic("REPORT_SEND_BUTTON_DISCOVERY_STARTED", {
++      ...composerContextDiagnostic(composerContext, "report_delivery"),
++      timeout_ms: Math.max(0, Number(timeoutMs) || 0)
++    });
++    while (Date.now() <= deadline) {
++      attempts += 1;
++      assertReportSendGeneration(waitGeneration);
++      if (expectedIdentity) assertExpectedConversation(expectedIdentity, "DURING_SEND_BUTTON_DISCOVERY");
++      if (!isPrimaryComposerContextValid(composerContext)) return null;
++      const resolution = resolvePrimaryComposerSendButton(composerContext);
++      if (resolution?.button) {
++        recordDiagnostic("REPORT_SEND_BUTTON_DISCOVERY_RESOLVED", {
++          ...composerContextDiagnostic(composerContext, "report_delivery"),
++          event_source: resolution.source,
++          attempts
++        });
++        return resolution;
++      }
++      if (Date.now() >= deadline) break;
++      await sleep(Math.min(SEND_BUTTON_DISCOVERY_POLL_MS, Math.max(1, deadline - Date.now())));
++    }
++    recordDiagnostic("REPORT_SEND_BUTTON_DISCOVERY_TIMEOUT", {
++      ...composerContextDiagnostic(composerContext, "report_delivery"),
++      attempts,
++      rejection_reason: "no_safe_send_button_before_bounded_deadline"
++    });
++    return null;
++  }
++
+   function resolvePrimaryComposerSendButton(composerContext) {
+     // The user-selected manual profile is authoritative. ChatGPT's current
+     // Send control can be icon-only and have no stable semantic label; applying
+@@ -855,7 +891,7 @@
+     if (!isPrimaryComposerContextValid(composerContext)) {
+       throw bridgeError("Нижняя форма ChatGPT изменилась после подготовки отчёта.", "PRIMARY_COMPOSER_SCOPE_LOST");
+     }
+-    const sendResolution = resolvePrimaryComposerSendButton(composerContext);
++    const sendResolution = await waitForPrimaryComposerSendButton(composerContext);
+     if (!sendResolution?.button) {
+       // The report text intentionally remains in the verified primary composer.
+       // ChatGPT creates its Send control only after text insertion, so clearing
+@@ -1946,7 +1982,7 @@
+       });
+       throw bridgeError("Нижняя форма ChatGPT изменилась до отправки. Отчёт не отправлен в assistant editor и будет безопасно повторён позже.", "PRIMARY_COMPOSER_SCOPE_LOST");
+     }
+-    const sendResolution = resolvePrimaryComposerSendButton(composerContext);
++    const sendResolution = await waitForPrimaryComposerSendButton(composerContext);
+     if (!sendResolution?.button) {
+       // Preserve the staged report AND any intervening user draft. Never clear
+       // a composer merely because its Send button is temporarily unavailable.
+--- /mnt/data/v131_runtime/service_worker.js	2026-09-12 01:31:04.000000000 +0000
++++ /mnt/data/v132_work/service_worker.js	2026-09-12 03:16:15.821019571 +0000
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.31 — unified connection recovery with persisted rate-limit cooldown, operation fencing and fresh public-document verification. */
++/* Avito Finder v1.0.32 — unified connection recovery with persisted rate-limit cooldown, operation fencing and fresh public-document verification. */
+ "use strict";
+ importScripts("core.js", "proxy_manager.js", "recovery.js");
+ const Recovery = globalThis.AvitoFinderRecovery;
+@@ -18,7 +18,7 @@
+ const PROXY_DATA_SAVER_RESOURCE_TYPES = Object.freeze(["image", "media", "font", "object", "ping"]);
+ const PROXY_AUTH_MAX_ATTEMPTS_PER_REQUEST = 3;
+ const CAPTURE_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+-const CAPTURE_VERSION = "0.6.14";
++const CAPTURE_VERSION = "0.6.15";
+ const AVITO_READY_TIMEOUT_MS = 30000;
+ const AVITO_READY_POLL_MS = 750;
+ const AVITO_IP_BLOCK_AUTO_RECOVERY_MAX = 4;
+@@ -1073,8 +1073,13 @@
+       if (state.start_ack_budget && (state.start_ack_budget.attempt >= START_ACK_MAX_RECHECKS || Date.now() >= state.start_ack_budget.deadline_at)) return;
+       return reconcileUncertainStart(state);
+     }
+-    if (['REPORT_DELIVERY_BLOCKED','REPORT_DELIVERY_IN_PROGRESS','REPORT_DELIVERY_UNCERTAIN'].includes(state.status) && state.report && state.report_send_attempted !== false) {
++    if (['REPORT_DELIVERY_BLOCKED','REPORT_DELIVERY_IN_PROGRESS','REPORT_DELIVERY_UNCERTAIN','REPORT_READY_IN_COMPOSER'].includes(state.status) && state.report) {
+       if (state.report_ack_budget && (state.report_ack_budget.attempt >= REPORT_ACK_MAX_RECHECKS || Date.now() >= state.report_ack_budget.deadline_at)) return;
++      // Read-only reconciliation is safe even when Finder never clicked Send.
++      // This is required for the supported manual-send recovery path: a staged
++      // report may be sent by the operator after ChatGPT temporarily hides or
++      // replaces its Send control. Reconciliation must discover that exact user
++      // turn and advance to the next Writing Block without a second Send.
+       return reconcileBlockedReport(state);
+     }
+     if (['REPORT_READY_FOR_DELIVERY','AVITO_FAILURE_REPORT_READY','VALIDATION_ERROR_REPORT_READY'].includes(state.status) && state.report) return deliverReportToPinnedChat(state,state.report,state.report_kind || 'avito_failure');
+@@ -2520,7 +2525,7 @@
+     const current = await assertCurrentOperation(staged);
+     const next = await saveState({ ...current, status: pause ? "PAUSED_USER_COMPOSER_OCCUPIED" : "REPORT_DELIVERY_BLOCKED", phase: "CHATGPT_REPORT_DELIVERY", blocked_reason: reason, report, report_kind: reportKind, report_delivery_id: deliveryId, report_send_attempted: sendAttempted, report_delivery_error_code: response?.code || "REPORT_DELIVERY_CONTEXT_UNCONFIRMED" });
+     await log(pause ? "REPORT_DELIVERY_PAUSED_USER_COMPOSER_OCCUPIED" : "REPORT_DELIVERY_BLOCKED", { search_id: next.search_id, report_kind: reportKind, reason, code: response?.code || "", send_attempted: sendAttempted });
+-    if (!pause && sendAttempted !== false) scheduleReportAcknowledgement(next);
++    if (!pause) scheduleReportAcknowledgement(next);
+     return next;
+   }
+   await assertCurrentOperation(staged);
+@@ -3273,8 +3278,12 @@
+   }
+   const nextStatus = response.state === "staged" ? "REPORT_READY_IN_COMPOSER" : response.state === "occupied" ? "PAUSED_USER_COMPOSER_OCCUPIED" : "REPORT_DELIVERY_UNCERTAIN";
+   const next = await saveState({ ...state, status: nextStatus, phase: "CHATGPT_REPORT_RECONCILIATION", report_send_attempted: resumablePreClick ? false : state.report_send_attempted ?? null, blocked_reason: nextStatus === "REPORT_READY_IN_COMPOSER" ? "REPORT_STILL_IN_PRIMARY_COMPOSER" : response.state === "occupied" ? "REPORT_EDITOR_CONTENT_MISMATCH__SAVED_REPORT_PRESERVED" : "REPORT_ABSENT_AFTER_UNCERTAIN_SEND" });
+-  const scheduled = !resumablePreClick && response.state !== 'occupied' && scheduleReportAcknowledgement(next);
+-  if (!scheduled && !resumablePreClick && response.state !== 'occupied') {
++  // Keep bounded READ-ONLY acknowledgement active for both uncertain sends and
++  // proven pre-click staging failures. If the operator manually sends the staged
++  // report, the next pass will confirm the exact user turn and release prompt
++  // polling. Automatic reconciliation never clicks Send.
++  const scheduled = response.state !== 'occupied' && scheduleReportAcknowledgement(next);
++  if (!scheduled && response.state !== 'occupied') {
+     await log('REPORT_ACK_BUDGET_EXHAUSTED',{search_id:next.search_id,attempt:next.report_ack_budget?.attempt || 0,send_repeated:false});
+   }
+   await log("REPORT_RECONCILED_NOT_CONFIRMED", { search_id: next.search_id, response_state: response.state || "absent",automatic_recheck_scheduled:scheduled === true });
+--- /mnt/data/v131_runtime/recovery.js	2026-09-12 01:31:04.000000000 +0000
++++ /mnt/data/v132_work/recovery.js	2026-09-12 03:16:15.814237562 +0000
+@@ -1,4 +1,4 @@
+-/* Avito Finder v1.0.31 — shared recovery policy, persisted rate-limit backoff and bounded async primitives.
++/* Avito Finder v1.0.32 — shared recovery policy, persisted rate-limit backoff and bounded async primitives.
+  * No Avito APIs, selectors, product scoring or network side effects live here.
+  */
+ (function(root, factory) {
+@@ -7,7 +7,7 @@
+   root.AvitoFinderRecovery = api;
+ })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
+   'use strict';
+-  const VERSION = '1.0.31';
++  const VERSION = '1.0.32';
+   const MAX_ATTEMPTS = 4;
+   const RECOVERY_BUDGET_MS = 90000;
+   const RATE_LIMIT_RECOVERY_BUDGET_MS = 120000;
+--- /mnt/data/v131_runtime/avito_content.js	2026-09-12 01:31:04.000000000 +0000
++++ /mnt/data/v132_work/avito_content.js	2026-09-12 03:05:20.873541538 +0000
+@@ -1,8 +1,8 @@
+-/* Avito Finder v1.0.31 — versioned public-DOM adapter with rate-limit classification, direct-delivery proof and bounded cancellable reads. */
++/* Avito Finder v1.0.32 — versioned public-DOM adapter with rate-limit classification, direct-delivery proof and bounded cancellable reads. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+-  const ADAPTER_VERSION = "1.0.31";
++  const ADAPTER_VERSION = "1.0.32";
+   const previous = globalThis.__avitoFinderAvitoRuntime;
+   if (previous?.version === ADAPTER_VERSION && !previous.disposed) return;
+   previous?.dispose?.();
