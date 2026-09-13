@@ -1,0 +1,87 @@
+{
+  "schema": "avito_finder_adapter_identity_ab_v1",
+  "run_order": "v139_first_then_alternating",
+  "outer_timeout_seconds": 60,
+  "rows": [
+    {
+      "index": 1,
+      "version": "v1.0.39",
+      "elapsed_seconds": 15.718,
+      "exit_code": 0,
+      "status": "PASS",
+      "stdout_tail": "{\"scope\": \"OFFLINE_PRODUCTION_ADAPTER_PING_VS_EXACT_MANIFEST\", \"manifest_version\": \"1.0.39\", \"actual_adapter_ping\": {\"ok\": true, \"version\": \"1.0.39\", \"busy\": false}, \"status\": \"PASS\", \"code\": null, \"avito_content_sha256\": \"523c28941fc7ad738f95b5c7fa18af0e8705a70bdded9136f9a628176ffb2000\", \"live_provider_calls\": 0, \"installed_live_acceptance\": \"NOT_RUN\"}\n"
+    },
+    {
+      "index": 2,
+      "version": "v1.0.40",
+      "elapsed_seconds": 0.963,
+      "exit_code": 0,
+      "status": "PASS",
+      "stdout_tail": "{\"scope\": \"OFFLINE_PRODUCTION_ADAPTER_PING_VS_EXACT_MANIFEST\", \"manifest_version\": \"1.0.40\", \"actual_adapter_ping\": {\"ok\": true, \"version\": \"1.0.40\", \"busy\": false}, \"status\": \"PASS\", \"code\": null, \"avito_content_sha256\": \"06174eeb07b9746c977dd0cc504dc3aa50c9b6c977f5ea27df0482bcc395c7d4\", \"live_provider_calls\": 0, \"installed_live_acceptance\": \"NOT_RUN\"}\n"
+    },
+    {
+      "index": 3,
+      "version": "v1.0.39",
+      "elapsed_seconds": 0.95,
+      "exit_code": 0,
+      "status": "PASS",
+      "stdout_tail": "{\"scope\": \"OFFLINE_PRODUCTION_ADAPTER_PING_VS_EXACT_MANIFEST\", \"manifest_version\": \"1.0.39\", \"actual_adapter_ping\": {\"ok\": true, \"version\": \"1.0.39\", \"busy\": false}, \"status\": \"PASS\", \"code\": null, \"avito_content_sha256\": \"523c28941fc7ad738f95b5c7fa18af0e8705a70bdded9136f9a628176ffb2000\", \"live_provider_calls\": 0, \"installed_live_acceptance\": \"NOT_RUN\"}\n"
+    },
+    {
+      "index": 4,
+      "version": "v1.0.40",
+      "elapsed_seconds": 1.883,
+      "exit_code": 0,
+      "status": "PASS",
+      "stdout_tail": "{\"scope\": \"OFFLINE_PRODUCTION_ADAPTER_PING_VS_EXACT_MANIFEST\", \"manifest_version\": \"1.0.40\", \"actual_adapter_ping\": {\"ok\": true, \"version\": \"1.0.40\", \"busy\": false}, \"status\": \"PASS\", \"code\": null, \"avito_content_sha256\": \"06174eeb07b9746c977dd0cc504dc3aa50c9b6c977f5ea27df0482bcc395c7d4\", \"live_provider_calls\": 0, \"installed_live_acceptance\": \"NOT_RUN\"}\n"
+    },
+    {
+      "index": 5,
+      "version": "v1.0.39",
+      "elapsed_seconds": 0.951,
+      "exit_code": 0,
+      "status": "PASS",
+      "stdout_tail": "{\"scope\": \"OFFLINE_PRODUCTION_ADAPTER_PING_VS_EXACT_MANIFEST\", \"manifest_version\": \"1.0.39\", \"actual_adapter_ping\": {\"ok\": true, \"version\": \"1.0.39\", \"busy\": false}, \"status\": \"PASS\", \"code\": null, \"avito_content_sha256\": \"523c28941fc7ad738f95b5c7fa18af0e8705a70bdded9136f9a628176ffb2000\", \"live_provider_calls\": 0, \"installed_live_acceptance\": \"NOT_RUN\"}\n"
+    },
+    {
+      "index": 6,
+      "version": "v1.0.40",
+      "elapsed_seconds": 0.957,
+      "exit_code": 0,
+      "status": "PASS",
+      "stdout_tail": "{\"scope\": \"OFFLINE_PRODUCTION_ADAPTER_PING_VS_EXACT_MANIFEST\", \"manifest_version\": \"1.0.40\", \"actual_adapter_ping\": {\"ok\": true, \"version\": \"1.0.40\", \"busy\": false}, \"status\": \"PASS\", \"code\": null, \"avito_content_sha256\": \"06174eeb07b9746c977dd0cc504dc3aa50c9b6c977f5ea27df0482bcc395c7d4\", \"live_provider_calls\": 0, \"installed_live_acceptance\": \"NOT_RUN\"}\n"
+    },
+    {
+      "index": 7,
+      "version": "v1.0.39",
+      "elapsed_seconds": 0.941,
+      "exit_code": 0,
+      "status": "PASS",
+      "stdout_tail": "{\"scope\": \"OFFLINE_PRODUCTION_ADAPTER_PING_VS_EXACT_MANIFEST\", \"manifest_version\": \"1.0.39\", \"actual_adapter_ping\": {\"ok\": true, \"version\": \"1.0.39\", \"busy\": false}, \"status\": \"PASS\", \"code\": null, \"avito_content_sha256\": \"523c28941fc7ad738f95b5c7fa18af0e8705a70bdded9136f9a628176ffb2000\", \"live_provider_calls\": 0, \"installed_live_acceptance\": \"NOT_RUN\"}\n"
+    },
+    {
+      "index": 8,
+      "version": "v1.0.40",
+      "elapsed_seconds": 0.955,
+      "exit_code": 0,
+      "status": "PASS",
+      "stdout_tail": "{\"scope\": \"OFFLINE_PRODUCTION_ADAPTER_PING_VS_EXACT_MANIFEST\", \"manifest_version\": \"1.0.40\", \"actual_adapter_ping\": {\"ok\": true, \"version\": \"1.0.40\", \"busy\": false}, \"status\": \"PASS\", \"code\": null, \"avito_content_sha256\": \"06174eeb07b9746c977dd0cc504dc3aa50c9b6c977f5ea27df0482bcc395c7d4\", \"live_provider_calls\": 0, \"installed_live_acceptance\": \"NOT_RUN\"}\n"
+    }
+  ],
+  "timings": {
+    "v1.0.39": [
+      15.718,
+      0.95,
+      0.951,
+      0.941
+    ],
+    "v1.0.40": [
+      0.963,
+      1.883,
+      0.957,
+      0.955
+    ]
+  },
+  "all_pass": true,
+  "production_runtime_changed_during_diagnosis": false
+}

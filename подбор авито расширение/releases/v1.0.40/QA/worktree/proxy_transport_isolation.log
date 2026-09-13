@@ -1,0 +1,17 @@
+HOST_STARTED
+CHAT_READY
+AVITO_READY
+STATE WAITING_FOR_ASSISTANT_WRITING_BLOCK
+STATE COMMAND_CAPTURED
+STATE AVITO_TAB_ACTIVE
+STATE REPORT_DELIVERY_IN_PROGRESS
+STATE WAITING_FOR_NEXT_ASSISTANT_FORM
+HOST_STARTED
+CHAT_READY
+AVITO_READY
+STATE WAITING_FOR_ASSISTANT_WRITING_BLOCK
+STATE COMMAND_CAPTURED
+STATE AVITO_TAB_ACTIVE
+STATE REPORT_DELIVERY_IN_PROGRESS
+STATE WAITING_FOR_NEXT_ASSISTANT_FORM
+{"scope": "PRODUCTION_WORKER_VM_AND_REAL_CHROMIUM_DOM; proxy transport simulated; NO LIVE PROVIDER/AVITO", "status": "PASS", "contract": "proxy/direct modes share identical sequential navigation URLs/order", "direct": {"direct": true, "navigation_urls": ["https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000001", "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000002", "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000003"], "navigation_tab_ids": [40, 41, 42], "cursor": 3, "status": "completed", "send_clicks_including_start": 2, "report_count": 1, "worker_status": "WAITING_FOR_NEXT_ASSISTANT_FORM"}, "proxy": {"direct": false, "navigation_urls": ["https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000001", "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000002", "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000003"], "navigation_tab_ids": [40, 41, 42], "cursor": 3, "status": "completed", "send_clicks_including_start": 2, "report_count": 1, "worker_status": "WAITING_FOR_NEXT_ASSISTANT_FORM"}}

@@ -1,0 +1,79 @@
+name: Diagnose v1.0.40 adapter identity deadline
+on:
+  push:
+    branches: [fix/v140-dedicated-requested-tab-allocation-2026-09-13]
+    paths:
+      - '.github/workflows/diagnose-v140-adapter-deadline.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      BASE: подбор авито расширение/releases/v1.0.39/v139_work
+      RELEASE: подбор авито расширение/releases/v1.0.40-diag
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v140-dedicated-requested-tab-allocation-2026-09-13
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Prepare Chromium identically to full gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+      - name: Materialize v1.0.40 without changing runtime beyond candidate patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RELEASE"
+          python tools/materialize_avito_v140.py "$BASE" "$RELEASE"
+      - name: Same-runner A/B adapter identity timings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, subprocess, sys, time
+          from pathlib import Path
+          base=Path('подбор авито расширение/releases/v1.0.39/v139_work')
+          cand=Path('подбор авито расширение/releases/v1.0.40-diag/v140_work')
+          out=Path('подбор авито расширение/v140_prepatch_tests/ADAPTER_IDENTITY_AB_2026-09-13.json')
+          rows=[]
+          # Baseline first intentionally measures the same cold-start envelope that failed the first v1.0.40 gate.
+          sequence=[('v1.0.39',base),('v1.0.40',cand),('v1.0.39',base),('v1.0.40',cand),('v1.0.39',base),('v1.0.40',cand),('v1.0.39',base),('v1.0.40',cand)]
+          for i,(version,root) in enumerate(sequence,1):
+              report=Path('/tmp')/f'adapter-{i}.json'
+              cmd=[sys.executable,str(root/'tests/check_packaged_adapter_v136.py'),str(root),str(report)]
+              start=time.monotonic()
+              try:
+                  cp=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=60)
+                  elapsed=round(time.monotonic()-start,3)
+                  row={'index':i,'version':version,'elapsed_seconds':elapsed,'exit_code':cp.returncode,'status':'PASS' if cp.returncode==0 else 'FAIL','stdout_tail':cp.stdout[-2000:]}
+              except subprocess.TimeoutExpired as e:
+                  elapsed=round(time.monotonic()-start,3)
+                  row={'index':i,'version':version,'elapsed_seconds':elapsed,'exit_code':None,'status':'TIMEOUT_60','stdout_tail':str((e.stdout or ''))[-2000:]}
+              rows.append(row); print(json.dumps(row),flush=True)
+          by={v:[r['elapsed_seconds'] for r in rows if r['version']==v and r['status']=='PASS'] for v in ['v1.0.39','v1.0.40']}
+          result={'schema':'avito_finder_adapter_identity_ab_v1','run_order':'v139_first_then_alternating','outer_timeout_seconds':60,'rows':rows,'timings':by,'all_pass':all(r['status']=='PASS' for r in rows),'production_runtime_changed_during_diagnosis':False}
+          out.write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+          assert result['all_pass'],result
+          PY
+      - name: Persist diagnostic evidence only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- 'подбор авито расширение/v140_prepatch_tests/ADAPTER_IDENTITY_AB_2026-09-13.json'
+          git commit -m 'qa: persist v1.0.39 vs v1.0.40 adapter deadline A/B'
+          git push origin HEAD:fix/v140-dedicated-requested-tab-allocation-2026-09-13

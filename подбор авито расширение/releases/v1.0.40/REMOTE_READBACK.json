@@ -1,0 +1,22 @@
+{
+  "scope": "INDEPENDENT_FRESH_GITHUB_CHECKOUT_V140",
+  "verified_commit": "274c69e00100448c0aa2ecb0ff0d3ec93c65fb15",
+  "version": "1.0.40",
+  "archive": "AVITO_FINDER_v1.0.40_DEDICATED_REQUESTED_TAB_ALLOCATION_2026-09-13.zip",
+  "sha256": "04f9bdc205eaa3578d462005ea15749184c5f7e744bd24a19c43e5a88bc1e017",
+  "bytes": 495520,
+  "source_files_byte_equal": 150,
+  "worktree_groups_pass": 35,
+  "final_zip_groups_pass": 35,
+  "groups_fail": 0,
+  "node_tests_pass": 370,
+  "dedicated_tab_regression": "PASS_5_OF_5",
+  "prior_selector_contract": "PASS_5_OF_5",
+  "runtime_changed": [
+    "avito_content.js",
+    "manifest.json",
+    "service_worker.js"
+  ],
+  "status": "PASS",
+  "installed_live_acceptance": "NOT_RUN"
+}

@@ -1,0 +1,22 @@
+'use strict';
+const {loadWorker}=require('../helpers/worker_vm.cjs');
+const w=loadWorker(), C=w.C;
+const url='https://www.avito.ru/moskva/nastolnye_kompyutery/pc_12345678';
+const form=steps=>`Режим: AVITO_UI\nСтраница: ${url}\nШаги:\n${steps}`;
+const summary={href:url,title:''};
+const detail={title:'PC',direct_delivery:{confirmed:true,visible:true,enabled:true,exact_text:'Купить с доставкой',element_tag:'button'},description:'visible'};
+const findings=[];
+function record(id,actual,expected){findings.push({id,actual,expected,defect_reproduced:JSON.stringify(actual)!==JSON.stringify(expected)});}
+record('DIRECT_PROOF_LOST',w.ctx.rawCollectedRecord(summary,detail).direct_delivery?.confirmed??null,true);
+record('UNREAD_ROWS_FABRICATED',w.ctx.compactSequentialCheckpoint({candidates:[summary],details:[],cursor:0,status:'paused_for_connection'}).collected.length,0);
+let many=Array.from({length:31},(_,i)=>url.replace('12345678',String(20000000+i)));
+let queue=C.parseCommandForm(`Режим: AVITO_UI\nСтраница: ${url}\nОчередь:\n${many.join('\n')}\nШаги:\nСобери публичные данные лотов из очереди пакетом 30.`);
+record('QUEUE31_SILENTLY_TRUNCATED',{valid:queue.valid,count:queue.ui_plan.steps[0].selected_urls?.length},{valid:false,count:31});
+record('PRIVATE_PAGE_ALLOWED',C.parseCommandForm(form('Собери до 30 видимых объявлений.').replace(url,'https://www.avito.ru/profile/messenger')).valid,false);
+record('CREDENTIAL_URL_ALLOWED',C.isAvitoUrl('https://user:secret@www.avito.ru/all'),false);
+record('WRONG_PORT_ALLOWED',C.isAvitoUrl('https://www.avito.ru:8443/all'),false);
+record('TYPE_SILENT_TRUNCATION',C.parseCommandForm(form(`Введи «${'я'.repeat(161)}» в поле «Поиск».`)).valid,false);
+record('UNKNOWN_STEP_SKIPPED',C.parseCommandForm(form('Собери до 30 видимых объявлений.\nНажми неизвестную кнопку без точного имени.')).valid,false);
+record('QUEUE_MIXED_ACTION_DISCARDED',C.parseCommandForm(`Режим: AVITO_UI\nСтраница: ${url}\nОчередь:\n${url}\nШаги:\nСобери публичные данные лотов из очереди пакетом 1.\nНажми «Сбросить».`).valid,false);
+record('WAIT_SILENTLY_SHORTENED',C.parseCommandForm(form('Подожди 25 секунд.')).valid,false);
+console.log(JSON.stringify({source_root:process.env.AF_SOURCE_ROOT||'local',findings},null,2));w.dispose();

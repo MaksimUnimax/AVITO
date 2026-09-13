@@ -1,0 +1,272 @@
+{
+  "scope": "OFFLINE_PRODUCTION_RUNTIME_CHROMIUM_DOM_CHROME_API_DOUBLES",
+  "version": "1.0.40",
+  "complete": true,
+  "results": [
+    {
+      "name": "adapter_identity",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 19.355,
+      "deadline_seconds": 45
+    },
+    {
+      "name": "node",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 1.274,
+      "deadline_seconds": 45
+    },
+    {
+      "name": "avito",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 4.175,
+      "deadline_seconds": 45
+    },
+    {
+      "name": "chat",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 27.322,
+      "deadline_seconds": 60
+    },
+    {
+      "name": "start_receipt",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 12.342,
+      "deadline_seconds": 45
+    },
+    {
+      "name": "composer_01_05",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 11.191,
+      "deadline_seconds": 45
+    },
+    {
+      "name": "composer_06_10",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 17.15,
+      "deadline_seconds": 45
+    },
+    {
+      "name": "composer_11_15",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 17.207,
+      "deadline_seconds": 45
+    },
+    {
+      "name": "composer_16_20",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 8.733,
+      "deadline_seconds": 45
+    },
+    {
+      "name": "composer_21_25",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 7.229,
+      "deadline_seconds": 45
+    },
+    {
+      "name": "composer_26_29",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 7.082,
+      "deadline_seconds": 45
+    },
+    {
+      "name": "receipts",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 31.939,
+      "deadline_seconds": 60
+    },
+    {
+      "name": "cycle_full_three_page_folded_cycle",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 22.509,
+      "deadline_seconds": 90
+    },
+    {
+      "name": "cycle_assistant_first_start_then_three_pages",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 22.513,
+      "deadline_seconds": 90
+    },
+    {
+      "name": "cycle_ip_block_recovery_then_three_pages",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 22.618,
+      "deadline_seconds": 90
+    },
+    {
+      "name": "cycle_rate_limit_recovery_then_three_pages",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 23.819,
+      "deadline_seconds": 90
+    },
+    {
+      "name": "cycle_late_body_then_worker_restart_reconcile",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 34.544,
+      "deadline_seconds": 90
+    },
+    {
+      "name": "cycle_captcha_manual_boundary",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 9.688,
+      "deadline_seconds": 90
+    },
+    {
+      "name": "dom_contracts",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 3.329,
+      "deadline_seconds": 30
+    },
+    {
+      "name": "popup_lifecycle",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 7.937,
+      "deadline_seconds": 30
+    },
+    {
+      "name": "actions_scopes",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 5.09,
+      "deadline_seconds": 30
+    },
+    {
+      "name": "proxy_transport_isolation",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 19.26,
+      "deadline_seconds": 60
+    },
+    {
+      "name": "queue_six_details_two_batches",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 16.557,
+      "deadline_seconds": 115
+    },
+    {
+      "name": "queue_rate_limit_mid_queue_restart_direct_route",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 12.045,
+      "deadline_seconds": 115
+    },
+    {
+      "name": "queue_manual_captcha_same_child_resume",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 12.096,
+      "deadline_seconds": 115
+    },
+    {
+      "name": "queue_restart_during_persisted_gap",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 13.947,
+      "deadline_seconds": 115
+    },
+    {
+      "name": "queue_stop_during_late_detail_response",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 8.482,
+      "deadline_seconds": 115
+    },
+    {
+      "name": "queue_removed_listing_is_negative_observation",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 9.835,
+      "deadline_seconds": 115
+    },
+    {
+      "name": "queue_thirty_detail_large_report",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 13.253,
+      "deadline_seconds": 115
+    },
+    {
+      "name": "writing_body_stability",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 10.796,
+      "deadline_seconds": 45
+    },
+    {
+      "name": "parser_block02",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 0.032,
+      "deadline_seconds": 20
+    },
+    {
+      "name": "payload_ownership_block03",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 0.114,
+      "deadline_seconds": 30
+    },
+    {
+      "name": "ordinary_form_terminal_gate",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 1.618,
+      "deadline_seconds": 20
+    },
+    {
+      "name": "form_gate_source_contract",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 0.032,
+      "deadline_seconds": 10
+    },
+    {
+      "name": "cycle_repeat_three_pages",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_seconds": 22.265,
+      "deadline_seconds": 90
+    },
+    {
+      "name": "installed_environment_probe",
+      "exit_code": 0,
+      "status": "PROBE_EXECUTED_NOT_ACCEPTANCE",
+      "duration_seconds": 6.836,
+      "deadline_seconds": 20
+    }
+  ],
+  "pass": 35,
+  "fail": 0,
+  "live_provider_calls": 0,
+  "installed_live_acceptance": "NOT_RUN",
+  "installed_environment_probe": {
+    "scope": "NORMAL_UNPACKED_MV3_INSTALL_PROBE",
+    "live_provider_calls": 0,
+    "policy_modified": false,
+    "browser": "Chromium 152.0.7977.0",
+    "relevant_managed_policy": {},
+    "service_worker_observed": false,
+    "status": "LOAD_NOT_OBSERVED"
+  }
+}
