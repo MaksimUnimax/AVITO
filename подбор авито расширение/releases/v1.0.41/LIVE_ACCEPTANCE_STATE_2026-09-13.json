@@ -2,18 +2,34 @@
   "schema": "avito_finder_live_acceptance_state_v1",
   "date": "2026-09-13",
   "current_main_release": "1.0.41",
-  "installed_reported_version": null,
+  "installed_reported_version": "1.0.41",
   "task_id": "af-20260913121226-xf3c",
-  "target_scenario": "Dell TOP_REVALIDATE_PRE on IP-block firewall landing",
-  "observed_provider_classification": "AVITO_IP_BLOCK",
-  "observed_runtime_status": "AVITO_IP_BLOCK_RECOVERY_EXHAUSTED",
   "classifier_fix_live_observation": "PASS_TO_NEXT_LAYER",
-  "queue_cursor": "0/1",
-  "queue_attempted": 0,
-  "cards_read": 0,
+  "dell_4750223208": {
+    "direct_current_page_read": "PASS",
+    "title": "Dell Vostro 3470",
+    "price": "10000 RUB",
+    "cpu": "Intel Core i5-8400",
+    "ram": "16 GB",
+    "storage": "256 GB SSD",
+    "gpu": "Nvidia GT 710",
+    "working_condition_stated": true,
+    "direct_delivery_button": "Купить с доставкой",
+    "location": "Южно-Сахалинск"
+  },
+  "mini_8156773014": {
+    "navigation_result": "AVITO_IP_BLOCK_RECOVERY_EXHAUSTED",
+    "automatic_recovery_attempts": 4,
+    "post_failure_status": "AVITO_IP_BLOCK",
+    "post_failure_url_suffix": "#block",
+    "snapshot_fingerprint": "3568:8a657f63",
+    "cards_read": 0
+  },
+  "lenovo_8375159229": "NOT_REVALIDATED",
   "baseline_preserved": "150/150",
   "full_installed_e2e": "NOT_COMPLETE",
   "installed_live_acceptance": "FAIL",
   "runtime_patch_required": "UNDETERMINED_PENDING_EXACT_RECOVERY_TELEMETRY",
-  "next_safe_step": "Do not blindly rerun the same collection. Diagnose the bounded IP-block recovery attempts and determine whether exhaustion came from unchanged/blocked egress, endpoint creation/rotation failure, transport/auth failure, or a runtime state-machine defect."
+  "causal_boundary": "The v1.0.41 classifier now routes the firewall page as AVITO_IP_BLOCK. The unresolved failure is inside/under the bounded proxy/egress recovery layer, not the previous CAPTCHA classifier defect.",
+  "next_safe_step": "Do not spend another four recovery attempts. Read Finder proxy popup telemetry: active profile, API-key loaded state, IP probe before/after, endpoint_create state, target_status and last recovery attempt. Then decide whether this is missing session key, unchanged/blocked egress, provider rotation/create failure, auth/transport failure, or a runtime state-machine defect."
 }
