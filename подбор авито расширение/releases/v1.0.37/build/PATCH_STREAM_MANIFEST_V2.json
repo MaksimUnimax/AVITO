@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-13",
+  "base_version": "1.0.36 R2",
+  "base_archive_sha256": "c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c",
+  "encoding": "gzip(mtime=0, level=9) then base64",
+  "encoded_path": "v136_to_v137_proxy_recovery_integrity.v2.patch.gz.b64",
+  "patch_bytes": 42559,
+  "patch_sha256": "83435898a6b253d50c60e525e9679b4e46baaa5aa472f0cfaccec4faf0fd1002",
+  "gzip_sha256": "dbbba72388c3e11e58b25530f32bec13993c4a3c81fcab7737c2d519be466203",
+  "base64_bytes": 15328,
+  "supersedes_manifest": "PATCH_STREAM_MANIFEST.json",
+  "reason_for_v2": "First complete worktree runner exposed one additional legacy test-only exact version expectation in tests/v135_prompt_form_terminal_gate.test.py. Runtime diff did not change. The old 34 PASS / 1 FAIL run is preserved separately.",
+  "changed_paths_expected": [
+    "avito_content.js",
+    "manifest.json",
+    "popup.js",
+    "service_worker.js",
+    "tests/ip_block_ui_plan_recovery_v124.test.js",
+    "tests/ip_block_verified_egress_v123.test.js",
+    "tests/proxy_recovery_integrity_dynamic_v137.test.js",
+    "tests/proxy_recovery_integrity_v137.test.js",
+    "tests/traffic_lite_zero_media.test.js",
+    "tests/v135_prompt_form_terminal_gate.test.py"
+  ],
+  "production_runtime_changed_expected": ["manifest.json", "avito_content.js", "service_worker.js", "popup.js"],
+  "explicitly_unchanged_runtime": ["chatgpt_content.js", "core.js", "proxy_manager.js", "recovery.js", "popup.html", "popup.css"]
+}

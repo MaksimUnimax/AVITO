@@ -1,0 +1,19 @@
+{
+  "date": "2026-09-13",
+  "scope": "FINAL_FROZEN_ZIP_FRESH_EXTRACT_LOCAL_QA",
+  "version": "1.0.37",
+  "archive": "AVITO_FINDER_v1.0.37_PROXY_RECOVERY_INTEGRITY_2026-09-13.zip",
+  "archive_sha256": "2f24a6d7c99bff669c9ed2296179aa31c885a8b7a55a4a0ac1e08902ec7ba760",
+  "archive_bytes": 489132,
+  "source_files": 144,
+  "crc": "PASS",
+  "roundtrip_source_bytes": "PASS",
+  "targeted_proxy_regressions": {"pass":16,"fail":0},
+  "full_runner": {"complete":true,"groups_pass":35,"groups_fail":0},
+  "node_tests_pass": 367,
+  "installed_environment_probe": "ENVIRONMENT_BLOCKED_NOT_ACCEPTANCE",
+  "installed_live_acceptance": "NOT_RUN",
+  "live_provider_calls": 0,
+  "archive_frozen": true,
+  "note": "This exact archive is frozen. No further source or executable byte changes are allowed under this filename/hash. Next gate is independent GitHub reconstruction/readback of the same bytes, then installed user Chrome E2E."
+}

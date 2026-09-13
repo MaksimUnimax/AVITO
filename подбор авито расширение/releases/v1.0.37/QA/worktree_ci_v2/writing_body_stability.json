@@ -1,0 +1,166 @@
+{
+  "block": "01 writing capture/finality",
+  "results": [
+    {
+      "id": "B01-S01",
+      "name": "complete valid block",
+      "input": "valid AVITO_UI block + ready Copy",
+      "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+      "expected": "one exact command",
+      "actual": {
+        "count": 1,
+        "exact": true,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B01-S02",
+      "name": "toolbar ready before body tail",
+      "input": "partial 565-ish body; tail arrives after initial stability",
+      "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+      "expected": "no partial submission; one final full command",
+      "actual": {
+        "before_tail": 0,
+        "count": 1,
+        "full_tail": true,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B01-S03",
+      "name": "three-chunk stream",
+      "input": "mode, then page, then steps",
+      "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+      "expected": "only final three-chunk body emitted",
+      "actual": {
+        "count": 1,
+        "valid_tail": true,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B01-S04",
+      "name": "same-size payload mutation",
+      "input": "valid block text changes 19→21 after toolbar appears",
+      "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+      "expected": "fingerprint reset; final 21 captured",
+      "actual": {
+        "count": 1,
+        "contains_21": true,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B01-S05",
+      "name": "Copy initially disabled",
+      "input": "complete body but disabled local Copy",
+      "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+      "expected": "wait, then one capture after enable",
+      "actual": {
+        "before_enable": 0,
+        "after": 1,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B01-S06",
+      "name": "ordinary markdown code block",
+      "input": "code-block-viewer + local Copy + completed assistant-turn Copy, no writing block",
+      "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+      "expected": "zero commands; one terminal same-chat form error",
+      "actual": {
+        "command_count": 0,
+        "format_error_count": 1,
+        "later_format_error_count": 1,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B01-S07",
+      "name": "empty shell then body",
+      "input": "writing block root exists empty, body arrives later",
+      "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+      "expected": "ignore empty; capture final",
+      "actual": {
+        "empty_phase": 0,
+        "final": 1,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B01-S08",
+      "name": "long writing block",
+      "input": "~20k+ chars stable command",
+      "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+      "expected": "one full long payload",
+      "actual": {
+        "count": 1,
+        "len": 21151,
+        "expected_len": 21152,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B01-S09",
+      "name": "stable invalid command",
+      "input": "invalid block with no page/steps",
+      "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+      "expected": "longer invalid settle then one exact validator candidate",
+      "actual": {
+        "at_180ms": 0,
+        "at_360ms": 1,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B01-S10",
+      "name": "late body mutation after first sample",
+      "input": "valid body gains trailing section during payload settle",
+      "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+      "expected": "settle resets; final body only",
+      "actual": {
+        "count": 1,
+        "has_last": true,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B01-S11",
+      "name": "stable block repeated polling",
+      "input": "same finished block remains visible",
+      "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+      "expected": "exactly one candidate, no duplicates",
+      "actual": {
+        "first": 1,
+        "later": 1,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B01-S12",
+      "name": "later plain assistant turn",
+      "input": "command captured, later non-writing assistant appears",
+      "emulation": "production chatgpt_content.js in Chromium DOM fixture",
+      "expected": "no duplicate/rebinding",
+      "actual": {
+        "before_new_assistant": 1,
+        "after": 1,
+        "pass": true
+      },
+      "status": "PASS"
+    }
+  ],
+  "pass": 12,
+  "fail": 0
+}

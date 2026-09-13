@@ -1,0 +1,64 @@
+{
+  "manifest_version": 3,
+  "name": "Avito Finder",
+  "short_name": "Avito Finder",
+  "version": "1.0.37",
+  "version_name": "1.0.37-proxy-recovery-integrity",
+  "description": "Avito Finder: bounded, cancellable visible-UI execution, same-chat reports, verified proxy configuration and fresh-document recovery; manual CAPTCHA.",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "tabs",
+    "storage",
+    "scripting",
+    "debugger",
+    "proxy",
+    "webRequest",
+    "webRequestAuthProvider",
+    "declarativeNetRequest",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://www.avito.ru/*",
+    "https://avito.ru/*",
+    "https://api.dashboard.proxy.market/*",
+    "http://www.avito.ru/*",
+    "http://avito.ru/*",
+    "https://proxy.market/*",
+    "https://*.proxy.market/*",
+    "https://api.ipify.org/*",
+    "https://api64.ipify.org/*"
+  ],
+  "background": {
+    "service_worker": "service_worker.js"
+  },
+  "action": {
+    "default_title": "Avito Finder",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": [
+        "core.js",
+        "chatgpt_content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.avito.ru/*",
+        "https://avito.ru/*"
+      ],
+      "js": [
+        "core.js",
+        "avito_content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "scope": "PRODUCTION_WORKER_VM_AND_REAL_CHROMIUM_DOM; CHROME_API_DOUBLES; NOT_INSTALLED_OR_LIVE",
+  "live_provider_calls": 0,
+  "results": [
+    {
+      "name": "stop_during_late_detail_response",
+      "status": "PASS",
+      "send_clicks_including_start": 1,
+      "reports": 0,
+      "last_report_characters": 0,
+      "cursor": 1,
+      "state": "CANCELLED_BY_USER",
+      "delivery_checkpoints": [],
+      "trace": [
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_START_AND_ANCHOR",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_BEGIN_PROMPT_POLL",
+          "url": null
+        },
+        {
+          "method": "navigate",
+          "tab": 7,
+          "message": null,
+          "url": "https://www.avito.ru/all/nastolnye_kompyutery?f=ASgCAgECAUXGmgwYeyJmcm9tIjo4MDAwLCJ0byI6MTUwMDB9&q=computer&s=104"
+        },
+        {
+          "method": "execute",
+          "tab": 7,
+          "message": null,
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 7,
+          "message": "AF_AVITO_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 7,
+          "message": "AF_GET_ROUTE_CONTEXT",
+          "url": null
+        },
+        {
+          "method": "navigate",
+          "tab": 40,
+          "message": null,
+          "url": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000001"
+        },
+        {
+          "method": "message",
+          "tab": 40,
+          "message": "AF_AVITO_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 40,
+          "message": "AF_SEQUENTIAL_READ_PUBLIC_LISTING",
+          "url": null
+        },
+        {
+          "method": "close",
+          "tab": 40,
+          "message": null,
+          "url": null
+        },
+        {
+          "method": "navigate",
+          "tab": 41,
+          "message": null,
+          "url": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000002"
+        },
+        {
+          "method": "message",
+          "tab": 41,
+          "message": "AF_AVITO_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 41,
+          "message": "AF_SEQUENTIAL_READ_PUBLIC_LISTING"
+        },
+        {
+          "method": "message",
+          "tab": 7,
+          "message": "AF_CANCEL_AVITO_OPERATION",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 41,
+          "message": "AF_CANCEL_AVITO_OPERATION",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_STOP",
+          "url": null
+        }
+      ],
+      "duration_seconds": 7.992
+    }
+  ],
+  "pass": 1,
+  "fail": 0
+}

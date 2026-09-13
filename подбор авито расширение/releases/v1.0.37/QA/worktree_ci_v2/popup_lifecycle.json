@@ -1,0 +1,163 @@
+{
+  "scope": "ACTUAL_POPUP_AND_CHAT_DOM_WITH_CHROME_RPC_DOUBLES_NOT_INSTALLED",
+  "live_provider_calls": 0,
+  "results": [
+    {
+      "name": "resume_REPORT_DELIVERY_BLOCKED",
+      "status": "PASS",
+      "seconds": 0.603
+    },
+    {
+      "name": "resume_REPORT_DELIVERY_UNCERTAIN",
+      "status": "PASS",
+      "seconds": 0.145
+    },
+    {
+      "name": "resume_REPORT_READY_IN_COMPOSER",
+      "status": "PASS",
+      "seconds": 0.147
+    },
+    {
+      "name": "resume_PAUSED_USER_COMPOSER_OCCUPIED",
+      "status": "PASS",
+      "seconds": 0.159
+    },
+    {
+      "name": "resume_disabled_IDLE",
+      "status": "PASS",
+      "seconds": 0.114
+    },
+    {
+      "name": "resume_disabled_CANCELLED_BY_USER",
+      "status": "PASS",
+      "seconds": 0.122
+    },
+    {
+      "name": "resume_disabled_AVITO_TAB_ACTIVE",
+      "status": "PASS",
+      "seconds": 0.116
+    },
+    {
+      "name": "resume_disabled_REPORT_DELIVERY_IN_PROGRESS",
+      "status": "PASS",
+      "seconds": 0.116
+    },
+    {
+      "name": "manual_captcha_resume_button",
+      "status": "PASS",
+      "seconds": 0.124
+    },
+    {
+      "name": "timeout_no_retry_buttons_reenabled_error_survives_refresh",
+      "status": "PASS",
+      "seconds": 1.614
+    },
+    {
+      "name": "stop_one_rpc",
+      "status": "PASS",
+      "seconds": 0.16
+    },
+    {
+      "name": "status_refresh_single_flight",
+      "status": "PASS",
+      "seconds": 0.133
+    },
+    {
+      "name": "copy_report_and_prompt",
+      "status": "PASS",
+      "seconds": 0.173
+    },
+    {
+      "name": "credentials_hidden_and_explicit_toggle",
+      "status": "PASS",
+      "seconds": 0.164
+    },
+    {
+      "name": "popup_routes_AF_PROXY_MARKET_SYNC",
+      "status": "PASS",
+      "seconds": 0.163
+    },
+    {
+      "name": "popup_routes_AF_PROXY_APPLY",
+      "status": "PASS",
+      "seconds": 0.162
+    },
+    {
+      "name": "popup_routes_AF_PROXY_KEY_CHECK",
+      "status": "PASS",
+      "seconds": 0.161
+    },
+    {
+      "name": "popup_routes_AF_PROXY_ENDPOINT_CREATE",
+      "status": "PASS",
+      "seconds": 0.162
+    },
+    {
+      "name": "popup_routes_AF_PROXY_CREATE_ACKNOWLEDGE",
+      "status": "PASS",
+      "seconds": 0.159
+    },
+    {
+      "name": "popup_routes_AF_PROXY_PROFILE_RESTORE",
+      "status": "PASS",
+      "seconds": 0.144
+    },
+    {
+      "name": "popup_routes_AF_PROXY_PROFILE_DELETE",
+      "status": "PASS",
+      "seconds": 0.158
+    },
+    {
+      "name": "popup_routes_AF_PROXY_TRAFFIC_REFRESH",
+      "status": "PASS",
+      "seconds": 0.164
+    },
+    {
+      "name": "popup_routes_AF_PROXY_DIAGNOSTIC",
+      "status": "PASS",
+      "seconds": 0.157
+    },
+    {
+      "name": "off_means_release_not_forced_direct",
+      "status": "PASS",
+      "seconds": 0.115
+    },
+    {
+      "name": "active_profile_off_routes_release",
+      "status": "PASS",
+      "seconds": 0.185
+    },
+    {
+      "name": "data_saver_change_routes_boolean",
+      "status": "PASS",
+      "seconds": 0.164
+    },
+    {
+      "name": "profile_change_reads_selected_not_active",
+      "status": "PASS",
+      "seconds": 0.157
+    },
+    {
+      "name": "chat_reload_exact_recovery_rpc_and_initial_anchor",
+      "status": "PASS",
+      "seconds": 0.159
+    },
+    {
+      "name": "online_does_not_destroy_active_poll_or_call_legacy_server",
+      "status": "PASS",
+      "seconds": 0.201
+    },
+    {
+      "name": "spa_other_chat_pauses_return_recovers_same_anchor",
+      "status": "PASS",
+      "seconds": 0.275
+    },
+    {
+      "name": "same_route_mutations_do_not_poll_worker",
+      "status": "PASS",
+      "seconds": 0.184
+    }
+  ],
+  "pass": 31,
+  "fail": 0
+}

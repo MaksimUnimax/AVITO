@@ -1,0 +1,11 @@
+START protect against edit during staging: price
+{"test": "protect against edit during staging: price", "status": "PASS", "ms": 2195}
+START protect against edit during staging: blank_line
+{"test": "protect against edit during staging: blank_line", "status": "PASS", "ms": 2156}
+START protect against edit during staging: zwj
+{"test": "protect against edit during staging: zwj", "status": "PASS", "ms": 2150}
+START protect against edit during staging: undo_same
+{"test": "protect against edit during staging: undo_same", "status": "PASS", "ms": 2146}
+START missing Send leaves complete report, does not clear composer
+{"test": "missing Send leaves complete report, does not clear composer", "status": "PASS", "ms": 8164}
+{"scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE", "installed_extension": false, "live_chatgpt": false, "pass": 5, "fail": 0, "page_errors": []}

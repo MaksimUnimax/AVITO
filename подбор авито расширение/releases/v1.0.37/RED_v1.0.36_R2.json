@@ -1,0 +1,26 @@
+{
+  "date": "2026-09-13",
+  "base_version": "1.0.36",
+  "revision": "R2",
+  "base_archive_sha256": "c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c",
+  "scope": "PRE_PATCH_PROXY_RECOVERY_INTEGRITY_RED",
+  "test": "tests/proxy_recovery_integrity_v137.test.js",
+  "tests_total": 10,
+  "tests_pass": 0,
+  "tests_fail": 10,
+  "exit_code": 1,
+  "runtime_modified_before_red": false,
+  "failed_invariants": [
+    "diagnostic requires Finder-owned exact PAC",
+    "producer/consumer probe field contract",
+    "probe status separated from Avito target status and mixed IP+CAPTCHA visible",
+    "current attempt persisted before CAPTCHA terminal exit",
+    "probe errors durable in recovery summary",
+    "active-profile auth evidence survives same-profile internal PAC reapply",
+    "stale key_check cannot masquerade as loaded session API key",
+    "attempt>=3 endpoint-create skip is explicit when API key unavailable",
+    "CAPTCHA manual gate captured before report staging clears blocked_reason",
+    "release version expected to advance to 1.0.37"
+  ],
+  "note": "RED is intentional. This file is evidence that exact v1.0.36 R2 fails the desired invariants before any production patch. It is not a QA failure of a v1.0.37 build because no v1.0.37 runtime existed yet."
+}

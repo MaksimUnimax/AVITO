@@ -1,0 +1,22 @@
+{
+  "patch_sha256": "83435898a6b253d50c60e525e9679b4e46baaa5aa472f0cfaccec4faf0fd1002",
+  "changed_paths": [
+    "avito_content.js",
+    "manifest.json",
+    "popup.js",
+    "service_worker.js",
+    "tests/ip_block_ui_plan_recovery_v124.test.js",
+    "tests/ip_block_verified_egress_v123.test.js",
+    "tests/proxy_recovery_integrity_dynamic_v137.test.js",
+    "tests/proxy_recovery_integrity_v137.test.js",
+    "tests/traffic_lite_zero_media.test.js",
+    "tests/v135_prompt_form_terminal_gate.test.py"
+  ],
+  "production_runtime_changed": [
+    "avito_content.js",
+    "manifest.json",
+    "popup.js",
+    "service_worker.js"
+  ],
+  "status": "PASS"
+}

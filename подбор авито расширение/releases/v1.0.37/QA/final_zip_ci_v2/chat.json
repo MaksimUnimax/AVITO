@@ -1,0 +1,65 @@
+{
+  "scope": "OFFLINE_REAL_CHROMIUM_CHATGPT_DOM_ADAPTER_WITH_MESSAGE_SHIM",
+  "live_chatgpt": false,
+  "installed_extension": false,
+  "tests": [
+    {
+      "test": "report sends once, returns new exact user turn and restores same-chat continuation identity",
+      "status": "PASS",
+      "elapsed_ms": 2197
+    },
+    {
+      "test": "concurrent and later duplicate delivery IDs produce one Send click",
+      "status": "PASS",
+      "elapsed_ms": 2145
+    },
+    {
+      "test": "STOP during report staging prevents delayed Send click",
+      "status": "PASS",
+      "elapsed_ms": 2133
+    },
+    {
+      "test": "user unsent composer text is preserved and report is not sent",
+      "status": "PASS",
+      "elapsed_ms": 161
+    },
+    {
+      "test": "user edit during report staging cancels Send and preserves edited text",
+      "status": "PASS",
+      "elapsed_ms": 2146
+    },
+    {
+      "test": "conversation route change during staging prevents Send into another chat",
+      "status": "PASS",
+      "elapsed_ms": 2143
+    },
+    {
+      "test": "wrong pinned conversation cannot receive report",
+      "status": "PASS",
+      "elapsed_ms": 129
+    },
+    {
+      "test": "STOP during initial Start staging prevents delayed Start click",
+      "status": "PASS",
+      "elapsed_ms": 2140
+    },
+    {
+      "test": "completed Writing Block captured exactly once without external browser connector",
+      "status": "PASS",
+      "elapsed_ms": 4848
+    },
+    {
+      "test": "ordinary markdown code block is non-executable and terminates with one form error",
+      "status": "PASS",
+      "elapsed_ms": 4545
+    },
+    {
+      "test": "manual user turn can re-anchor CAPTCHA gate and next real Writing Block is captured",
+      "status": "PASS",
+      "elapsed_ms": 4468
+    }
+  ],
+  "browser_page_errors": [],
+  "pass": 11,
+  "fail": 0
+}

@@ -1,0 +1,25 @@
+{"name": "sent-message body recognition: folded", "status": "PASS", "ms": 2404}
+{"name": "sent-message body recognition: visible_controls", "status": "PASS", "ms": 2247}
+{"name": "sent-message body recognition: plain", "status": "PASS", "ms": 2246}
+{"name": "sent-message body recognition: split_role", "status": "PASS", "ms": 2246}
+{"name": "sent-message body recognition: hydrating", "status": "PASS", "ms": 2353}
+{"name": "sent-message body recognition: remount", "status": "PASS", "ms": 2351}
+{"name": "sent-message body recognition: article", "status": "PASS", "ms": 2245}
+{"name": "sent-message body recognition: wrapped_controls", "status": "PASS", "ms": 2345}
+{"name": "sent-message body recognition: label_only", "status": "PASS", "ms": 2348}
+{"name": "19,495-character folded report acknowledged after one Send", "status": "PASS", "ms": 2353}
+{"name": "hidden body is not scraped or accepted merely because it exists", "status": "PASS", "ms": 140}
+{"name": "no false receipt: foreign", "status": "PASS", "ms": 139}
+{"name": "no false receipt: prefix", "status": "PASS", "ms": 147}
+{"name": "no false receipt: wrong_price", "status": "PASS", "ms": 142}
+{"name": "no false receipt: missing_tail", "status": "PASS", "ms": 140}
+{"name": "no false receipt: duplicate", "status": "PASS", "ms": 146}
+{"name": "hidden labels and controls excluded from message text", "status": "PASS", "ms": 141}
+{"name": "expand control pointing outside pending user message never clicked", "status": "PASS", "ms": 448}
+{"name": "failed durable intent prevents actual Send click", "status": "PASS", "ms": 2146}
+{"name": "acknowledgement wait fenced after STOP", "status": "PASS", "ms": 2244}
+{"name": "acknowledgement wait fenced after different_chat", "status": "PASS", "ms": 2244}
+{"name": "receipt migration/recovery: legacy", "status": "PASS", "ms": 245}
+{"name": "receipt migration/recovery: receipt_with_evicted_predecessor", "status": "PASS", "ms": 246}
+{"name": "receipt migration/recovery: unknown_predecessor", "status": "PASS", "ms": 142}
+{"name": "newer unrelated turn cannot steal matching report anchor", "status": "PASS", "ms": 140}

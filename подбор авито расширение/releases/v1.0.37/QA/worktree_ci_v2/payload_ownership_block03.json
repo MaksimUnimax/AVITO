@@ -1,0 +1,112 @@
+{
+  "block": "03 worker payload ownership/supersede",
+  "results": [
+    {
+      "id": "B03-S01",
+      "name": "valid payload accepted",
+      "input": "waiting state + complete valid AVITO_UI candidate",
+      "emulation": "production service_worker.js in Chrome API VM",
+      "expected": "accepted; no unvalidated durable state",
+      "actual": {
+        "response": "avito_task_queued",
+        "status": "COMMAND_CAPTURED",
+        "last_key": true,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B03-S02",
+      "name": "invalid payload reports validation",
+      "input": "waiting state + stable invalid command",
+      "emulation": "production service_worker.js in Chrome API VM",
+      "expected": "validation report delivered/continuation; no Avito mutation",
+      "actual": {
+        "reason": "COMMAND_INVALID_AFTER_FULL_COPY",
+        "validation_reported": true,
+        "nav": 0,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B03-S03",
+      "name": "legacy unvalidated state recovery",
+      "input": "FORM_TEXT_CAPTURED_UNVALIDATED from <=1.0.33",
+      "emulation": "production service_worker.js in Chrome API VM",
+      "expected": "read-only reset to waiting; form key cleared",
+      "actual": {
+        "status": "WAITING_FOR_NEXT_ASSISTANT_FORM",
+        "last_key": null,
+        "blocked": null,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B03-S04",
+      "name": "larger same-turn supersedes unsent validation",
+      "input": "REPORT_READY_IN_COMPOSER from 660-char partial; same assistant yields 6800-ish full payload",
+      "emulation": "production service_worker.js in Chrome API VM",
+      "expected": "owned staged validation discarded; larger payload accepted",
+      "actual": {
+        "accepted": true,
+        "discard_calls": 1,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B03-S05",
+      "name": "same-size payload cannot supersede",
+      "input": "unsent validation from 660; same turn candidate <=660 bytes",
+      "emulation": "production service_worker.js in Chrome API VM",
+      "expected": "COMMAND_ALREADY_IN_FLIGHT; no stage discard",
+      "actual": {
+        "reason": "COMMAND_ALREADY_IN_FLIGHT",
+        "discard": false,
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B03-S06",
+      "name": "different assistant cannot supersede",
+      "input": "larger candidate but assistant_turn_id differs",
+      "emulation": "production service_worker.js in Chrome API VM",
+      "expected": "COMMAND_ALREADY_IN_FLIGHT; no discard",
+      "actual": {
+        "reason": "COMMAND_ALREADY_IN_FLIGHT",
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B03-S07",
+      "name": "clicked report cannot be superseded",
+      "input": "larger same-turn payload but report_send_attempted=true",
+      "emulation": "production service_worker.js in Chrome API VM",
+      "expected": "COMMAND_ALREADY_IN_FLIGHT; never clear after irreversible Send boundary",
+      "actual": {
+        "reason": "COMMAND_ALREADY_IN_FLIGHT",
+        "pass": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B03-S08",
+      "name": "stage ownership refusal blocks supersede",
+      "input": "larger same-turn payload but composer refuses exact owned-stage discard",
+      "emulation": "production service_worker.js in Chrome API VM",
+      "expected": "remain in-flight; no replacement command",
+      "actual": {
+        "reason": "COMMAND_ALREADY_IN_FLIGHT",
+        "status": "REPORT_READY_IN_COMPOSER",
+        "pass": true
+      },
+      "status": "PASS"
+    }
+  ],
+  "pass": 8,
+  "fail": 0
+}

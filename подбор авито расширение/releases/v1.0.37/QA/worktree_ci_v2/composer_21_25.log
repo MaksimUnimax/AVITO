@@ -1,0 +1,11 @@
+START unsupported editor transformation fails with readback diagnostics, not user blame
+{"test": "unsupported editor transformation fails with readback diagnostics, not user blame", "status": "PASS", "ms": 2203}
+START read-only reconciliation: confirmed
+{"test": "read-only reconciliation: confirmed", "status": "PASS", "ms": 146}
+START read-only reconciliation: staged
+{"test": "read-only reconciliation: staged", "status": "PASS", "ms": 137}
+START read-only reconciliation: unrelated
+{"test": "read-only reconciliation: unrelated", "status": "PASS", "ms": 1650}
+START read-only reconciliation: prefix
+{"test": "read-only reconciliation: prefix", "status": "PASS", "ms": 1647}
+{"scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE", "installed_extension": false, "live_chatgpt": false, "pass": 5, "fail": 0, "page_errors": []}
