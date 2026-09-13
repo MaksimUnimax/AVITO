@@ -1,0 +1,221 @@
+name: Build and verify Avito Finder v1.0.37 proxy recovery integrity v2
+on:
+  push:
+    branches: [fix/v137-proxy-recovery-integrity-2026-09-13]
+    paths: ['.github/workflows/build-avito-v137-v2.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: avito-v137-proxy-recovery-integrity-v2
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      checked_commit: ${{ steps.finish.outputs.commit }}
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      BRANCH: fix/v137-proxy-recovery-integrity-2026-09-13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v137-proxy-recovery-integrity-2026-09-13
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare offline browser dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          echo "CHROMIUM=$BROWSER" >> "$GITHUB_ENV"
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+          echo "AF_BASE=$GITHUB_WORKSPACE/подбор авито расширение/releases/v1.0.36-r2/v136_work" >> "$GITHUB_ENV"
+          echo "AF_RELEASE=$GITHUB_WORKSPACE/подбор авито расширение/releases/v1.0.37" >> "$GITHUB_ENV"
+          echo "AF_SOURCE=$GITHUB_WORKSPACE/подбор авито расширение/releases/v1.0.37/v137_work" >> "$GITHUB_ENV"
+          echo '99554aaa67ff733fd6213993121987d5a7b5f4d23d9c26ff60abfe64f07f93c5  tools/package_avito_v137.py' | sha256sum -c -
+      - name: Verify exact v1.0.36 R2 base and deterministic patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,zipfile
+          z=Path('подбор авито расширение/releases/v1.0.36-r2/AVITO_FINDER_v1.0.36_PACKAGED_ADAPTER_CONSISTENCY_R2_2026-09-12.zip')
+          assert hashlib.sha256(z.read_bytes()).hexdigest()=='c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c'
+          with zipfile.ZipFile(z) as f: assert f.testzip() is None and len(f.namelist())==141
+          PY
+          base64 -d "$AF_RELEASE/build/v136_to_v137_proxy_recovery_integrity.v2.patch.gz.b64" | gzip -d > /tmp/v137.patch
+          echo '83435898a6b253d50c60e525e9679b4e46baaa5aa472f0cfaccec4faf0fd1002  /tmp/v137.patch' | sha256sum -c -
+          test "$(wc -c < /tmp/v137.patch)" -eq 42559
+      - name: Prove RED on exact v1.0.36 R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$AF_RELEASE/QA/red_ci_v2"
+          set +e
+          AF_SOURCE_ROOT="$AF_BASE" node --test "$AF_RELEASE/tests/proxy_recovery_integrity_v137.test.js" > "$AF_RELEASE/QA/red_ci_v2/static.tap" 2>&1
+          S=$?
+          node --test "$AF_RELEASE/tests/proxy_recovery_integrity_dynamic_v137.test.js" > "$AF_RELEASE/QA/red_ci_v2/dynamic.tap" 2>&1
+          D=$?
+          set -e
+          test "$S" -eq 1; test "$D" -eq 1
+          grep -q '# pass 0' "$AF_RELEASE/QA/red_ci_v2/static.tap"; grep -q '# fail 10' "$AF_RELEASE/QA/red_ci_v2/static.tap"
+          grep -q '# pass 0' "$AF_RELEASE/QA/red_ci_v2/dynamic.tap"; grep -q '# fail 6' "$AF_RELEASE/QA/red_ci_v2/dynamic.tap"
+      - name: Materialize v1.0.37 source and assert minimal diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$AF_SOURCE" "$AF_RELEASE/QA/worktree_ci_v2" "$AF_RELEASE/QA/final_zip_ci_v2"
+          cp -a "$AF_BASE" "$AF_SOURCE"
+          (cd "$AF_SOURCE" && patch -p1 < /tmp/v137.patch)
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          base=Path('подбор авито расширение/releases/v1.0.36-r2/v136_work'); new=Path('подбор авито расширение/releases/v1.0.37/v137_work')
+          changed=[]
+          rels=set([p.relative_to(base) for p in base.rglob('*') if p.is_file()]+[p.relative_to(new) for p in new.rglob('*') if p.is_file()])
+          for r in sorted(rels):
+              a=base/r;b=new/r
+              if not a.exists() or not b.exists() or a.read_bytes()!=b.read_bytes(): changed.append(str(r))
+          expected=['avito_content.js','manifest.json','popup.js','service_worker.js','tests/ip_block_ui_plan_recovery_v124.test.js','tests/ip_block_verified_egress_v123.test.js','tests/proxy_recovery_integrity_dynamic_v137.test.js','tests/proxy_recovery_integrity_v137.test.js','tests/traffic_lite_zero_media.test.js','tests/v135_prompt_form_terminal_gate.test.py']
+          assert changed==expected,(changed,expected)
+          prod=[x for x in changed if not x.startswith('tests/')]
+          assert prod==['avito_content.js','manifest.json','popup.js','service_worker.js']
+          for f in ['chatgpt_content.js','core.js','proxy_manager.js','recovery.js','popup.html','popup.css']:
+              assert (base/f).read_bytes()==(new/f).read_bytes(),f
+          (Path('подбор авито расширение/releases/v1.0.37')/'MATERIALIZATION.json').write_text(json.dumps({'patch_sha256':'83435898a6b253d50c60e525e9679b4e46baaa5aa472f0cfaccec4faf0fd1002','changed_paths':changed,'production_runtime_changed':prod,'status':'PASS'},indent=2)+'\n')
+          PY
+      - name: GREEN targeted regressions and source metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd "$AF_SOURCE" && node --test tests/proxy_recovery_integrity_v137.test.js tests/proxy_recovery_integrity_dynamic_v137.test.js) | tee "$AF_RELEASE/QA/targeted_green_v2.tap"
+          cp "$AF_RELEASE/SOURCE_README_v1.0.37.md" "$AF_SOURCE/README.md"
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          base=Path('подбор авито расширение/releases/v1.0.36-r2/v136_work'); new=Path('подбор авито расширение/releases/v1.0.37/v137_work')
+          runtime=['manifest.json','avito_content.js','service_worker.js','popup.js','chatgpt_content.js','core.js','proxy_manager.js','recovery.js','popup.html','popup.css']
+          H=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+          obj={'version':'1.0.37','date':'2026-09-13','base_version':'1.0.36 R2','base_archive_sha256':'c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c','base_source_files':141,'patch_stream_sha256':'83435898a6b253d50c60e525e9679b4e46baaa5aa472f0cfaccec4faf0fd1002','runtime_changed':[f for f in runtime if (base/f).read_bytes()!=(new/f).read_bytes()],'runtime_unchanged':[f for f in runtime if (base/f).read_bytes()==(new/f).read_bytes()],'runtime_hashes':{f:{'before':H(base/f),'after':H(new/f)} for f in runtime},'api_key_persistence_changed':False,'api_key_storage_contract':'session-scoped preserved; stale persistent key_check is rendered as stale, not as loaded key','navigation_queue_cursor_changed':False,'captcha_automation_added':False,'ordinary_markdown_execution_added':False,'live_provider_calls_during_patch':0,'installed_live_acceptance':'NOT_RUN'}
+          (new/'BUILD_ORIGIN_v1.0.37.json').write_text(json.dumps(obj,ensure_ascii=False,indent=2)+'\n')
+          rows=[]
+          for p in sorted(new.rglob('*')):
+              if not p.is_file() or '__pycache__' in p.parts: continue
+              rel=str(p.relative_to(new))
+              if rel=='SHA256SUMS.txt': continue
+              rows.append(f'{H(p)}  {rel}')
+          (new/'SHA256SUMS.txt').write_text('\n'.join(rows)+'\n')
+          assert sum(1 for p in new.rglob('*') if p.is_file() and '__pycache__' not in p.parts)==144
+          PY
+      - name: Full regression from materialized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          AF_QA_OUTPUT="$AF_RELEASE/QA/worktree_ci_v2" python -u "$AF_SOURCE/tests/run_all_v136.py"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('подбор авито расширение/releases/v1.0.37/QA/worktree_ci_v2/summary.json').read_text())
+          assert d['complete'] and d['pass']==35 and d['fail']==0,d
+          PY
+      - name: Package final ZIP and rerun full suite from fresh extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$AF_RELEASE/AVITO_FINDER_v1.0.37_PROXY_RECOVERY_INTEGRITY_2026-09-13.zip"
+          rm -f "$ZIP" "$AF_RELEASE/BUILD_v1.0.37.json"
+          python tools/package_avito_v137.py "$AF_SOURCE" "$ZIP"
+          FINAL=$(mktemp -d); export FINAL
+          python - <<'PY'
+          import os,zipfile,json,hashlib
+          from pathlib import Path
+          root=Path('подбор авито расширение/releases/v1.0.37'); build=json.loads((root/'BUILD_v1.0.37.json').read_text()); z=root/build['archive']
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==build['archive_sha256']
+          with zipfile.ZipFile(z) as f:
+              assert f.testzip() is None and len(f.namelist())==144
+              f.extractall(os.environ['FINAL'])
+          PY
+          AF_QA_OUTPUT="$AF_RELEASE/QA/final_zip_ci_v2" python -u "$FINAL/v137_work/tests/run_all_v136.py"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('подбор авито расширение/releases/v1.0.37'); a=json.loads((root/'QA/worktree_ci_v2/summary.json').read_text()); b=json.loads((root/'QA/final_zip_ci_v2/summary.json').read_text()); build=json.loads((root/'BUILD_v1.0.37.json').read_text())
+          assert a['complete'] and a['pass']==35 and a['fail']==0
+          assert b['complete'] and b['pass']==35 and b['fail']==0
+          receipt={'version':'1.0.37','status':'FINAL_ZIP_OFFLINE_QA_PASS_LIVE_UNVERIFIED','archive':build['archive'],'sha256':build['archive_sha256'],'bytes':build['archive_bytes'],'source_files':build['source_files'],'worktree_groups_pass':35,'worktree_groups_fail':0,'final_zip_groups_pass':35,'final_zip_groups_fail':0,'targeted_regressions':'PASS','installed_live_acceptance':'NOT_RUN','live_provider_calls':0}
+          (root/'CHECKPOINT.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          PY
+      - name: Persist exact source ZIP and QA on patch branch
+        id: finish
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- 'подбор авито расширение/releases/v1.0.37' tools/package_avito_v137.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: persist Avito Finder v1.0.37 exact source ZIP and complete QA'
+            git push origin HEAD:"$BRANCH"
+          fi
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-v137-proxy-recovery-integrity-build-v2
+          path: подбор авито расширение/releases/v1.0.37/
+          if-no-files-found: error
+  remote-readback:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BRANCH: fix/v137-proxy-recovery-integrity-2026-09-13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.checked_commit }}
+          fetch-depth: 0
+      - name: Verify final archive and all source bytes in independent checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,subprocess,zipfile
+          from pathlib import Path
+          root=Path('подбор авито расширение/releases/v1.0.37'); build=json.loads((root/'BUILD_v1.0.37.json').read_text()); q1=json.loads((root/'QA/worktree_ci_v2/summary.json').read_text());q2=json.loads((root/'QA/final_zip_ci_v2/summary.json').read_text())
+          assert q1['complete'] and q1['pass']==35 and q1['fail']==0
+          assert q2['complete'] and q2['pass']==35 and q2['fail']==0
+          z=root/build['archive']; data=z.read_bytes(); assert hashlib.sha256(data).hexdigest()==build['archive_sha256'] and len(data)==build['archive_bytes']
+          with zipfile.ZipFile(z) as f:
+              assert f.testzip() is None and len(f.namelist())==build['source_files']
+              for n,h in build['source_hashes'].items():
+                  a=f.read('v137_work/'+n); b=(root/'v137_work'/n).read_bytes(); assert a==b and hashlib.sha256(a).hexdigest()==h,n
+          origin=json.loads((root/'v137_work/BUILD_ORIGIN_v1.0.37.json').read_text()); assert origin['runtime_changed']==['manifest.json','avito_content.js','service_worker.js','popup.js']
+          r={'scope':'INDEPENDENT_FRESH_GITHUB_CHECKOUT_FINAL_V137_ZIP_SOURCE_AND_QA','verified_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'version':'1.0.37','archive':build['archive'],'sha256':build['archive_sha256'],'bytes':build['archive_bytes'],'source_files_byte_equal':build['source_files'],'runtime_changed':origin['runtime_changed'],'worktree_groups_pass':35,'final_zip_groups_pass':35,'groups_fail':0,'status':'PASS','installed_live_acceptance':'NOT_RUN'}
+          (root/'REMOTE_READBACK.json').write_text(json.dumps(r,indent=2)+'\n'); print(json.dumps(r))
+          PY
+      - name: Persist independent readback receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          git add 'подбор авито расширение/releases/v1.0.37/REMOTE_READBACK.json'
+          if ! git diff --cached --quiet; then
+            git commit -m 'qa: independent v1.0.37 ZIP and source remote readback'
+            git push origin HEAD:"$BRANCH"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-v137-final-remote-verified-v2
+          path: подбор авито расширение/releases/v1.0.37/
+          if-no-files-found: error
