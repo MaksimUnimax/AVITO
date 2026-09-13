@@ -3,8 +3,7 @@ const fs=require('fs');
 const vm=require('vm');
 const assert=require('assert');
 const path=require('path');
-const sourcePath=process.argv[2];
-if(!sourcePath) throw new Error('SOURCE_PATH_REQUIRED');
+const sourcePath=process.argv[2] || path.resolve(__dirname,'..','service_worker.js');
 const source=fs.readFileSync(sourcePath,'utf8');
 
 function extractFunction(name){
@@ -30,7 +29,7 @@ function extractFunction(name){
   if(closeParen<0) throw new Error(`FUNCTION_PARAMS_UNTERMINATED:${name}`);
   const brace=source.indexOf('{',closeParen);
   if(brace<0) throw new Error(`FUNCTION_BODY_NOT_FOUND:${name}`);
-  let depth=0; quote=null; esc=false; line=false; block=false;
+  let depth=0; quote=null; esc=false, line=false, block=false;
   for(let i=brace;i<source.length;i++){
     const ch=source[i], next=source[i+1];
     if(line){if(ch==='\n') line=false; continue;}
@@ -50,7 +49,9 @@ let created=0, applied=0, logged=0;
 const context={
   String,
   Number,
+  Boolean,
   Error,
+  directPublicAvitoUrl: value=>String(value||'').startsWith('https://www.avito.ru/') ? String(value) : null,
   persistedRunOwnedAvitoTab: async()=>null,
   selectVisibleAvitoTab: async()=>{throw new Error('AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB');},
   createInitialPublicAvitoTab: async(state,purpose)=>{created++; return {tab:{id:777,windowId:state.current_window_id,url:'https://www.avito.ru/'},created:true,navigated:false,reused:false,source:'initial_active_public_root'};},
