@@ -1,0 +1,21 @@
+{
+  "schema": "avito_finder_full_history_audit_remote_readback_v1",
+  "status": "PASS",
+  "verified_main_commit": "9892db180170cc443439d66a92cac2b08f5f3a9f",
+  "md_sha256": "ab0d5fcdbc8ab788f70cf18a9cca687d4b5a7e8a202c3124095d4784ece7cf35",
+  "json_sha256": "4c66c580c3bf286196f230d66d466bfefe982cef23e03648da6931f91d334028",
+  "receipt_sha256": "1c2251ce32f9895c9bbbf8d29fec78678107489771940a7be79ba8db23b26399",
+  "top_level_copies_byte_identical": true,
+  "runtime_changes_since_rule20": [],
+  "current_release": "1.0.38",
+  "current_release_live_acceptance": "NOT_RUN_LIVE_UNVERIFIED",
+  "verification_source": {
+    "workflow_run": 34742081744,
+    "job": 103683404623,
+    "checkout_result": "PASS",
+    "content_hash_validation": "PASS",
+    "runtime_diff_validation": "PASS",
+    "original_receipt_push": "FAILED_PERMISSION_403_ONLY",
+    "receipt_persisted_via_github_connector": true
+  }
+}
