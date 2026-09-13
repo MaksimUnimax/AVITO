@@ -1,0 +1,24 @@
+{
+  "schema": "avito_finder_operator_command_error_v1",
+  "date": "2026-09-13",
+  "task_id": "af-20260913103028-k9qv",
+  "installed_version": "1.0.40",
+  "assistant_writing_block_hash": "1275:7968f6d7",
+  "declared_mode": "AVITO_UI",
+  "validator_reasons": [
+    "UI_PLAN_UNSUPPORTED_STEP",
+    "UI_PLAN_UNSUPPORTED_STEP",
+    "UI_PLAN_STEP_REQUIRED"
+  ],
+  "avito_mutation_performed": false,
+  "classification": "ASSISTANT_COMMAND_AUTHORING_ERROR_NOT_EXTENSION_RUNTIME_DEFECT",
+  "cause": "A passive hold/no-op instruction was encoded as AVITO_UI steps. The local validator only accepts supported executable UI actions and requires at least one valid step.",
+  "runtime_patch_required": false,
+  "preserve_live_state": {
+    "stage": "AVITO_NAVIGATION",
+    "reason": "CAPTCHA_MANUAL_REQUIRED",
+    "cards_read": 0,
+    "baseline": "150/150"
+  },
+  "next_action": "Use an accepted DIAGNOSE_DOM command only when a new post-manual state needs to be observed; do not treat passive waiting as an AVITO_UI plan."
+}
