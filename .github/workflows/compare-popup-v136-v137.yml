@@ -1,0 +1,72 @@
+name: Compare v1.0.36 R2 vs v1.0.37 popup lifecycle
+on:
+  push:
+    branches: [fix/v137-proxy-recovery-integrity-2026-09-13]
+    paths: ['.github/workflows/compare-popup-v136-v137.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v137-proxy-recovery-integrity-2026-09-13
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install identical Chromium test environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+      - name: Materialize v137 from exact v136 R2 without changing runtime patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='подбор авито расширение/releases/v1.0.36-r2/v136_work'
+          NEW=/tmp/v137_work
+          cp -a "$BASE" "$NEW"
+          base64 -d 'подбор авито расширение/releases/v1.0.37/build/v136_to_v137_proxy_recovery_integrity.v2.patch.gz.b64' | gzip -d > /tmp/v137.patch
+          echo '83435898a6b253d50c60e525e9679b4e46baaa5aa472f0cfaccec4faf0fd1002  /tmp/v137.patch' | sha256sum -c -
+          (cd "$NEW" && patch -p1 < /tmp/v137.patch)
+          echo "BASE=$GITHUB_WORKSPACE/$BASE" >> "$GITHUB_ENV"
+          echo "NEW=$NEW" >> "$GITHUB_ENV"
+      - name: A/B popup lifecycle — 4 repeats each, unchanged 30s per-run ceiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/popup-ab
+          python - <<'PY'
+          import json, os, subprocess, time
+          from pathlib import Path
+          rows=[]
+          for label,root in [('v136',os.environ['BASE']),('v137',os.environ['NEW'])]:
+              script=str(Path(root)/'tests/v129/browser_popup_lifecycle.py')
+              for i in range(1,5):
+                  out=Path(f'/tmp/popup-ab/{label}-{i}.json')
+                  env=os.environ.copy(); env['AF_SOURCE_ROOT']=root; env['AF_POPUP_LIFECYCLE_REPORT']=str(out)
+                  t=time.monotonic()
+                  cp=subprocess.run(['timeout','30s','python',script],env=env,text=True,capture_output=True)
+                  elapsed=round(time.monotonic()-t,3)
+                  result={'version':label,'repeat':i,'exit_code':cp.returncode,'elapsed_seconds':elapsed,'stdout_tail':cp.stdout[-1200:],'stderr_tail':cp.stderr[-1200:]}
+                  if out.exists():
+                      data=json.loads(out.read_text()); result.update({'cases_pass':data['pass'],'cases_fail':data['fail']})
+                  rows.append(result); print(json.dumps(result,ensure_ascii=False),flush=True)
+                  assert cp.returncode==0,result
+                  assert result.get('cases_pass')==31 and result.get('cases_fail')==0,result
+          Path('/tmp/popup-ab/summary.json').write_text(json.dumps({'scope':'SAME_CI_RUNNER_AB_POPUP_LIFECYCLE','per_run_timeout_seconds':30,'results':rows},indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: popup-v136-v137-ab
+          path: /tmp/popup-ab/
+          if-no-files-found: error
