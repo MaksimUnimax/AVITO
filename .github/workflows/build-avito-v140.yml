@@ -1,0 +1,195 @@
+name: Build and verify Avito Finder v1.0.40 dedicated requested tab allocation
+on:
+  push:
+    branches: [fix/v140-dedicated-requested-tab-allocation-2026-09-13]
+    paths:
+      - '.github/workflows/build-avito-v140.yml'
+      - 'tools/materialize_avito_v140.py'
+      - 'tools/package_avito_v140.py'
+      - 'подбор авито расширение/v140_prepatch_tests/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: avito-v140-dedicated-requested-tab-allocation
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    outputs:
+      checked_commit: ${{ steps.persist.outputs.commit }}
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      BRANCH: fix/v140-dedicated-requested-tab-allocation-2026-09-13
+      BASE: подбор авито расширение/releases/v1.0.39/v139_work
+      RELEASE: подбор авито расширение/releases/v1.0.40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v140-dedicated-requested-tab-allocation-2026-09-13
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Prepare Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+      - name: Verify Rule 20 and exact v1.0.39 authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,zipfile
+          from pathlib import Path
+          audit=json.loads(Path('подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.40_2026-09-13.json').read_text())
+          assert audit['status']=='FULL_HISTORY_AUDIT=PASS' and audit['runtime_changed_during_audit'] is False
+          r=Path('подбор авито расширение/releases/v1.0.39'); b=json.loads((r/'BUILD_v1.0.39.json').read_text()); z=r/b['archive']
+          assert b['archive_sha256']=='a4a0ae626de4692c62cd76d87be19e34749b488e76afa2764828a025db08bb98'
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==b['archive_sha256']
+          with zipfile.ZipFile(z) as f: assert f.testzip() is None and len(f.namelist())==b['source_files']
+          assert json.loads(Path('подбор авито расширение/releases/v1.0.39/v139_work/manifest.json').read_text())['version']=='1.0.39'
+          live=json.loads((r/'LIVE_ACCEPTANCE_STATE_2026-09-13.json').read_text()); assert live['v139_installed_acceptance']=='FAIL'
+          PY
+      - name: RED — exact v1.0.39 terminates ambiguous first binding despite explicit URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RELEASE/QA/red"; mkdir -p "$RELEASE/QA/red"
+          T='подбор авито расширение/v140_prepatch_tests/dedicated_requested_tab_on_ambiguity_v140.test.js'
+          set +e
+          node "$T" "$BASE/service_worker.js" > "$RELEASE/QA/red/dedicated_requested_tab.log" 2>&1
+          RC=$?
+          set -e
+          cat "$RELEASE/QA/red/dedicated_requested_tab.log"
+          test "$RC" -eq 1
+          grep -q 'AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB' "$RELEASE/QA/red/dedicated_requested_tab.log"
+          printf '{"status":"RED_CONFIRMED","source":"v1.0.39","exit_code":%s,"failure":"AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB"}\n' "$RC" > "$RELEASE/QA/red/RED.json"
+      - name: Materialize minimal v1.0.40
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RELEASE/v140_work" "$RELEASE/QA/worktree" "$RELEASE/QA/final_zip"
+          python tools/materialize_avito_v140.py "$BASE" "$RELEASE"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('подбор авито расширение/releases/v1.0.40/MATERIALIZATION.json').read_text())
+          assert d['production_runtime_changed']==['avito_content.js','manifest.json','service_worker.js'],d
+          assert d['safe_allocation_contract']['ambiguous_existing_tabs_are_never_guessed'] is True
+          PY
+      - name: GREEN — dedicated requested tab regression and prior selector contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node "$RELEASE/v140_work/tests/dedicated_requested_tab_on_ambiguity_v140.test.js" "$RELEASE/v140_work/service_worker.js" | tee "$RELEASE/QA/targeted_green.log"
+          grep -q 'PASS 5/5' "$RELEASE/QA/targeted_green.log"
+          node "$RELEASE/v140_work/tests/visible_tab_exact_request_disambiguation_v139.test.js" "$RELEASE/v140_work/service_worker.js" | tee "$RELEASE/QA/prior_selector_green.log"
+          grep -q 'PASS 5/5' "$RELEASE/QA/prior_selector_green.log"
+      - name: Full regression — worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          AF_QA_OUTPUT="$RELEASE/QA/worktree" python -u "$RELEASE/v140_work/tests/run_all_v136.py"
+          python - <<'PY'
+          import json,re
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.40/QA/worktree')
+          d=json.loads((r/'summary.json').read_text()); assert d['complete'] and d['pass']==35 and d['fail']==0,d
+          node=(r/'node.log').read_text(); assert re.search(r'# pass 370\b',node) and re.search(r'# fail 0\b',node),node[-2000:]
+          PY
+      - name: Package final ZIP and rerun from fresh extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$RELEASE/AVITO_FINDER_v1.0.40_DEDICATED_REQUESTED_TAB_ALLOCATION_2026-09-13.zip"
+          rm -f "$ZIP" "$RELEASE/BUILD_v1.0.40.json"
+          python tools/package_avito_v140.py "$RELEASE/v140_work" "$ZIP"
+          FINAL=$(mktemp -d); export FINAL
+          python - <<'PY'
+          import hashlib,json,os,zipfile
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.40'); b=json.loads((r/'BUILD_v1.0.40.json').read_text()); z=r/b['archive']
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==b['archive_sha256']
+          with zipfile.ZipFile(z) as f:
+              assert f.testzip() is None and len(f.namelist())==b['source_files']; f.extractall(os.environ['FINAL'])
+          PY
+          node "$FINAL/v140_work/tests/dedicated_requested_tab_on_ambiguity_v140.test.js" "$FINAL/v140_work/service_worker.js" | tee "$RELEASE/QA/final_targeted_green.log"
+          node "$FINAL/v140_work/tests/visible_tab_exact_request_disambiguation_v139.test.js" "$FINAL/v140_work/service_worker.js" | tee "$RELEASE/QA/final_prior_selector_green.log"
+          AF_QA_OUTPUT="$RELEASE/QA/final_zip" python -u "$FINAL/v140_work/tests/run_all_v136.py"
+          python - <<'PY'
+          import json,re
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.40'); a=json.loads((r/'QA/worktree/summary.json').read_text()); b=json.loads((r/'QA/final_zip/summary.json').read_text()); build=json.loads((r/'BUILD_v1.0.40.json').read_text())
+          assert a['complete'] and a['pass']==35 and a['fail']==0
+          assert b['complete'] and b['pass']==35 and b['fail']==0
+          assert re.search(r'# pass 370\b',(r/'QA/final_zip/node.log').read_text())
+          receipt={'version':'1.0.40','status':'FINAL_ZIP_OFFLINE_QA_PASS_LIVE_UNVERIFIED','archive':build['archive'],'sha256':build['archive_sha256'],'bytes':build['archive_bytes'],'source_files':build['source_files'],'targeted_dedicated_tab':'PASS_5_OF_5','prior_selector_contract':'PASS_5_OF_5','node_tests_pass':370,'worktree_groups_pass':35,'worktree_groups_fail':0,'final_zip_groups_pass':35,'final_zip_groups_fail':0,'installed_live_acceptance':'NOT_RUN','live_provider_calls':0}
+          (r/'CHECKPOINT.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          report=f'''# Avito Finder v1.0.40 — dedicated requested tab allocation\n\nStatus: `OFFLINE_QA_PASS / LIVE_UNVERIFIED`.\n\n## Live defect\n\nInstalled v1.0.39 task `af-20260913075253-v24r` stopped at `COMMAND_CAPTURED` with `AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB`, recovery=0, cursor unused and cards=0 even though the Writing Block supplied an explicit public Dell URL. The live report does not distinguish zero exact route matches from duplicate exact route matches; that subcase is not guessed.\n\n## Root cause\n\nAt the first-target allocation state, v1.0.39 could reuse a unique active/exact/single Avito tab, but when several candidates remained non-uniquely-reusable it terminated. `ensureAvitoTarget()` allocated a new public tab only for zero candidates. Therefore explicit requested-page authority was still discarded when safe reuse was impossible.\n\n## Minimal patch\n\nOnly `service_worker.js` behavior changes: on the first user-started binding, with navigation allowed and a valid explicit public requested URL, ambiguous existing Avito tabs are never guessed or mutated; Finder creates one new normal public Avito tab and routes that dedicated run-owned tab to the requested URL. Unique active/exact/single reuse, zero-tab bootstrap, diagnostics, already-bound runs, queue/cursor, report delivery, proxy/recovery and manual CAPTCHA boundaries remain unchanged. `manifest.json` and `avito_content.js` change release identity only.\n\n## RED → GREEN\n\nExact v1.0.39: RED with `AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB`. v1.0.40: dedicated-tab regression 5/5 and prior selector contract 5/5. Worktree grouped QA 35/35, Node 370/370. Final ZIP fresh extraction 35/35, Node 370/370.\n\n## Rule compliance\n\n| Rule | Status | Evidence |\n|---|---|---|\n| 1 root cause/state machine | PASS | first-target allocation boundary proven |\n| 2 exact layer | PASS | exact v1.0.39 ensureAvitoTarget RED |\n| 3 local != live | PASS | v1.0.40 remains LIVE_UNVERIFIED |\n| 4 baseline | PASS | WORK 150/150 and queue semantics untouched |\n| 5 ChatGPT↔Finder contract | PASS | capture/validator/report unchanged |\n| 6 reproduce before patch | PASS | exact v1.0.39 RED |\n| 7 causal chain | PASS | live v1.0.39 → allocation code → RED |\n| 8 minimal patch | PASS | service_worker behavior + release identities only |\n| 9 same defect scenario | PASS offline / LIVE_PENDING | exact allocation scenario GREEN; installed rerun required |\n| 10 prior regressions | PASS | prior selector + full suite |\n| 11 final build | PASS | fresh-extract full rerun |\n| 12 installed E2E | NOT_RUN | owner Chrome required |\n| 13 live FAIL rejects | PASS process | v1.0.39 marked FAIL before v1.0.40 |\n| 14 proxy transport isolation | PASS | proxy runtime unchanged |\n| 15 bounded waits | PASS | unchanged |\n| 16 test catches live bug | PASS | RED on exact v1.0.39 |\n| 17 exact source | PASS | exact remote-read v1.0.39 base |\n| 18 report | PASS | this report |\n| 19 GitHub persistence | PASS after remote readback | exact source/ZIP/QA persisted this cycle |\n| 20 full history audit | PASS | PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.40_2026-09-13.md/json + remote readback |\n\n## НАРУШЕННЫЕ ПРАВИЛА\n\nv1.0.39 exposed an incomplete abstraction under Rules 7/9/16: its regression proved unique-exact reuse but not the broader first-allocation invariant when the command has a complete explicit public URL and no existing tab is uniquely reusable. v1.0.40 moves the fix to that allocation boundary and keeps ambiguous existing tabs untouched.\n\nBuild SHA-256: `{build['archive_sha256']}`. Bytes: `{build['archive_bytes']}`. Source files: `{build['source_files']}`.\n'''
+          (r/'PATCH_REPORT_v1.0.40_RU.md').write_text(report,encoding='utf-8')
+          PY
+      - name: Persist source ZIP and QA
+        id: persist
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- "$RELEASE" tools/materialize_avito_v140.py tools/package_avito_v140.py 'подбор авито расширение/v140_prepatch_tests/'
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: persist Avito Finder v1.0.40 dedicated requested tab candidate'
+            git push origin HEAD:"$BRANCH"
+          fi
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-v140-dedicated-requested-tab
+          path: подбор авито расширение/releases/v1.0.40/
+          if-no-files-found: error
+  remote-readback:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.checked_commit }}
+          fetch-depth: 0
+      - name: Independent byte/hash/source readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,re,subprocess,zipfile
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.40'); b=json.loads((r/'BUILD_v1.0.40.json').read_text()); z=r/b['archive']
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==b['archive_sha256'] and len(z.read_bytes())==b['archive_bytes']
+          q1=json.loads((r/'QA/worktree/summary.json').read_text()); q2=json.loads((r/'QA/final_zip/summary.json').read_text()); assert q1['pass']==35 and q1['fail']==0 and q2['pass']==35 and q2['fail']==0
+          with zipfile.ZipFile(z) as f:
+              assert f.testzip() is None and len(f.namelist())==b['source_files']
+              for n,h in b['source_hashes'].items():
+                  x=f.read('v140_work/'+n); y=(r/'v140_work'/n).read_bytes(); assert x==y and hashlib.sha256(x).hexdigest()==h,n
+          o=json.loads((r/'v140_work/BUILD_ORIGIN_v1.0.40.json').read_text()); assert o['production_runtime_changed']==['avito_content.js','manifest.json','service_worker.js']
+          base=Path('подбор авито расширение/releases/v1.0.39/v139_work')
+          for n in ['chatgpt_content.js','core.js','proxy_manager.js','recovery.js','popup.js','popup.html','popup.css']:
+              assert (base/n).read_bytes()==(r/'v140_work'/n).read_bytes(),n
+          assert re.search(r'# pass 370\b',(r/'QA/final_zip/node.log').read_text())
+          receipt={'scope':'INDEPENDENT_FRESH_GITHUB_CHECKOUT_V140','verified_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'version':'1.0.40','archive':b['archive'],'sha256':b['archive_sha256'],'bytes':b['archive_bytes'],'source_files_byte_equal':b['source_files'],'worktree_groups_pass':35,'final_zip_groups_pass':35,'groups_fail':0,'node_tests_pass':370,'dedicated_tab_regression':'PASS_5_OF_5','prior_selector_contract':'PASS_5_OF_5','runtime_changed':o['production_runtime_changed'],'status':'PASS','installed_live_acceptance':'NOT_RUN'}
+          (r/'REMOTE_READBACK.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          PY
+      - name: Persist readback receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          git add -- 'подбор авито расширение/releases/v1.0.40/REMOTE_READBACK.json'
+          git commit -m 'qa: persist independent v1.0.40 remote readback'
+          git push origin HEAD:fix/v140-dedicated-requested-tab-allocation-2026-09-13
