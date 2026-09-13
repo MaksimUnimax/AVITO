@@ -27,15 +27,19 @@ async def start(page):
     await page.evaluate("c=>__AF_TEST_EXPORTS.chatCapture.startFixturePromptPoll({run_id:'fixture',conversation_id:c,anchor_turn_id:'start'})", CID)
 
 async def snapshot(page):
-    return await page.evaluate('''()=>({full:sentMessages.filter(m=>m.type==='AF_CAPTURE_FULL_TEXT').map(m=>m.candidate?.prompt_text||''),diagnostics:sentMessages.filter(m=>m.type==='AF_CAPTURE_DIAGNOSTIC').map(m=>({code:m.details?.code||'',structural_signature:m.details?.structural_signature||'',rejection_reason:m.details?.rejection_reason||''})),clone_count:window.__afWbCloneCount||0})''')
+    return await page.evaluate('''()=>({full:sentMessages.filter(m=>m.type==='AF_CAPTURE_FULL_TEXT').map(m=>m.candidate?.prompt_text||''),diagnostics:sentMessages.filter(m=>m.type==='AF_CAPTURE_DIAGNOSTIC').map(m=>({code:m.details?.code||'',structural_signature:m.details?.structural_signature||'',rejection_reason:m.details?.rejection_reason||''})),clone_count:window.__afWbCloneCount||0,confirm_invocations:window.__afConfirmInvocation||0})''')
 
 async def scenario_transient(page):
     await inject_runtime(page); await add_current_writing_block(page)
-    await page.evaluate('''()=>{const nativeClone=Element.prototype.cloneNode;window.__afWbCloneCount=0;Element.prototype.cloneNode=function(deep){const clone=nativeClone.call(this,deep);if(this instanceof Element&&this.id==='wb-root'){window.__afWbCloneCount+=1;if(window.__afWbCloneCount%10===0){const body=clone.querySelector('#wb');if(body)body.textContent='';}}return clone;};}''')
+    # Fail every other confirmLocalWritingBlockCopyAndExtract invocation only.
+    # Candidate discovery continues to see the same non-empty block, matching the
+    # installed live journal where writing_block=true/copy_ready=true while the
+    # confirmation read intermittently returns LOCAL_BODY_UNAVAILABLE.
+    await page.evaluate('''()=>{const nativeClone=Element.prototype.cloneNode;window.__afWbCloneCount=0;window.__afConfirmInvocation=0;window.__afConfirmSecond=false;Element.prototype.cloneNode=function(deep){const clone=nativeClone.call(this,deep);if(this instanceof Element&&this.id==='wb-root'){window.__afWbCloneCount+=1;const stack=String(new Error().stack||'');if(stack.includes('confirmLocalWritingBlockCopyAndExtract')){if(window.__afConfirmSecond){window.__afConfirmSecond=false;}else{window.__afConfirmInvocation+=1;const miss=(window.__afConfirmInvocation%2)===1;if(miss){const body=clone.querySelector('#wb');if(body)body.textContent='';}else{window.__afConfirmSecond=true;}}}}return clone;};}''')
     await start(page); await page.wait_for_timeout(1250); s=await snapshot(page)
     codes=[x['code'] for x in s['diagnostics']]
     ok=s['full']==[VALID] and codes.count('PROMPT_PAYLOAD_EXTRACTION_RETRY')>=1
-    return {'name':'transient same-block extraction miss','full_text_count':len(s['full']),'retry_count':codes.count('PROMPT_PAYLOAD_EXTRACTION_RETRY'),'structural_restarts':codes.count('PROMPT_DOM_STABILITY_STARTED'),'pass':ok}
+    return {'name':'transient same-block extraction miss','full_text_count':len(s['full']),'retry_count':codes.count('PROMPT_PAYLOAD_EXTRACTION_RETRY'),'structural_restarts':codes.count('PROMPT_DOM_STABILITY_STARTED'),'confirm_invocations':s['confirm_invocations'],'pass':ok}
 
 async def scenario_churn(page):
     await inject_runtime(page); await add_current_writing_block(page,True)
@@ -47,12 +51,15 @@ async def scenario_churn(page):
 
 async def scenario_bounded_failure(page):
     await inject_runtime(page); await add_current_writing_block(page)
-    await page.evaluate('''()=>{const nativeClone=Element.prototype.cloneNode;window.__afWbCloneCount=0;Element.prototype.cloneNode=function(deep){const clone=nativeClone.call(this,deep);if(this instanceof Element&&this.id==='wb-root'){window.__afWbCloneCount+=1;if(window.__afWbCloneCount%6===0){const body=clone.querySelector('#wb');if(body)body.textContent='';}}return clone;};}''')
+    # Candidate reads stay valid forever, but every confirmation-layer local body
+    # extraction is forced empty. v1.0.42 must end in the bounded exact-reason
+    # terminal instead of resetting/polling forever.
+    await page.evaluate('''()=>{const nativeClone=Element.prototype.cloneNode;window.__afWbCloneCount=0;window.__afConfirmInvocation=0;Element.prototype.cloneNode=function(deep){const clone=nativeClone.call(this,deep);if(this instanceof Element&&this.id==='wb-root'){window.__afWbCloneCount+=1;const stack=String(new Error().stack||'');if(stack.includes('confirmLocalWritingBlockCopyAndExtract')){window.__afConfirmInvocation+=1;const body=clone.querySelector('#wb');if(body)body.textContent='';}}return clone;};}''')
     await start(page); await page.wait_for_timeout(900); s=await snapshot(page)
     codes=[x['code'] for x in s['diagnostics']]
     bounded=codes.count('PROMPT_PAYLOAD_EXTRACTION_FAILED_BOUNDED')==1
     ok=len(s['full'])==0 and bounded
-    return {'name':'persistent extraction loss bounded terminal','full_text_count':len(s['full']),'retry_count':codes.count('PROMPT_PAYLOAD_EXTRACTION_RETRY'),'bounded_failure_count':codes.count('PROMPT_PAYLOAD_EXTRACTION_FAILED_BOUNDED'),'pass':ok}
+    return {'name':'persistent extraction loss bounded terminal','full_text_count':len(s['full']),'retry_count':codes.count('PROMPT_PAYLOAD_EXTRACTION_RETRY'),'bounded_failure_count':codes.count('PROMPT_PAYLOAD_EXTRACTION_FAILED_BOUNDED'),'confirm_invocations':s['confirm_invocations'],'pass':ok}
 
 async def main():
     manifest=json.loads((SOURCE/'manifest.json').read_text(encoding='utf-8'))
