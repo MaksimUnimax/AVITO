@@ -1,0 +1,10 @@
+{
+  "schema": "avito_finder_rule20_remote_readback_v1",
+  "date": "2026-09-13",
+  "branch": "fix/v141-ip-block-firewall-classifier-2026-09-13",
+  "audit_json_blob_sha": "4bb4202d7bad91ac2b602c67b0bb6eb3f0f8385b",
+  "status": "PASS",
+  "full_history_audit": "FULL_HISTORY_AUDIT=PASS",
+  "runtime_changed_before_red": false,
+  "next_gate": "Create exact-v1.0.40 RED regression from the observed IP-firewall landing page."
+}
