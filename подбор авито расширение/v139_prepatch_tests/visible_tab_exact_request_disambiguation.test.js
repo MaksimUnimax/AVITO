@@ -1,10 +1,12 @@
 'use strict';
 const fs=require('fs');
+const path=require('path');
 const vm=require('vm');
 const assert=require('assert');
 
-const sourcePath=process.argv[2];
-if(!sourcePath) throw new Error('SOURCE_PATH_REQUIRED');
+// Exact prepatch RED supplies argv[2]. Once copied into release/tests, the
+// aggregate `node --test tests/*.test.js` must test that release's own worker.
+const sourcePath=process.argv[2] || path.resolve(__dirname,'..','service_worker.js');
 const source=fs.readFileSync(sourcePath,'utf8');
 
 function extractFunction(name){
