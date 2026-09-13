@@ -1,0 +1,14 @@
+{
+  "schema": "avito_finder_v142_remote_readback",
+  "version": "1.0.42",
+  "status": "PASS",
+  "branch": "fix/v142-writing-block-payload-oscillation-2026-09-13",
+  "head": "17cbeeba6f7e5bb57975bb75fbd643a5e1439a05",
+  "archive": "AVITO_FINDER_v1.0.42_WRITING_BLOCK_CAPTURE_STABILITY_RECOVERY_2026-09-13.zip",
+  "archive_sha256": "616874dcdd67a05aaa63efbe5a3f670f91646cce9022db7038296525cfd63167",
+  "archive_bytes": 505192,
+  "source_files": 154,
+  "targeted_green": "3/3 PASS",
+  "grouped_qa": "35/35 PASS",
+  "installed_live_e2e": "NOT_RUN / LIVE_UNVERIFIED"
+}
