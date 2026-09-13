@@ -42,6 +42,18 @@ for rel in version_tests:
     assert '1.0.37' in x, rel
     p.write_text(x.replace('1.0.37','1.0.38'),encoding='utf-8')
 
+# This historical regression intentionally described the old recovery policy.
+# Keep its safety assertions, but update only the policy it is meant to lock:
+# manual creation remains explicit; automatic Avito escalation may create one
+# endpoint inside the current package, now sticky (-1) instead of per-request (0).
+p=target/'tests'/'proxy_profiles.test.js'; x=p.read_text(encoding='utf-8')
+old_title='test("manual endpoint creation remains explicit; automatic recovery may create one rotation=0 endpoint only inside the existing package", () => {'
+new_title='test("manual endpoint creation remains explicit; automatic Avito recovery may create one sticky rotation=-1 endpoint only inside the existing package", () => {'
+assert x.count(old_title)==1
+assert x.count('assert.match(worker, /rotation:\\s*0/);')==1
+x=x.replace(old_title,new_title).replace('assert.match(worker, /rotation:\\s*0/);','assert.match(worker, /rotation:\\s*-1/);')
+p.write_text(x,encoding='utf-8')
+
 base_files={p.relative_to(base) for p in base.rglob('*') if p.is_file()}
 new_files={p.relative_to(target) for p in target.rglob('*') if p.is_file()}
 changed=[]
