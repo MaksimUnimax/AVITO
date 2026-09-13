@@ -1,0 +1,106 @@
+TAP version 13
+# Subtest: dynamic diagnostic rejects wrong PAC even when runtime mode/profile say proxy
+ok 1 - dynamic diagnostic rejects wrong PAC even when runtime mode/profile say proxy
+  ---
+  duration_ms: 22.577694
+  type: 'test'
+  ...
+# Subtest: dynamic auth evidence survives same-profile internal PAC reapply
+ok 2 - dynamic auth evidence survives same-profile internal PAC reapply
+  ---
+  duration_ms: 14.612644
+  type: 'test'
+  ...
+# Subtest: dynamic attempt 3 CAPTCHA persists current recovery receipt before terminal report
+ok 3 - dynamic attempt 3 CAPTCHA persists current recovery receipt before terminal report
+  ---
+  duration_ms: 26.347449
+  type: 'test'
+  ...
+# Subtest: dynamic attempt 3 without session API key records explicit endpoint-create skip
+ok 4 - dynamic attempt 3 without session API key records explicit endpoint-create skip
+  ---
+  duration_ms: 6.746372
+  type: 'test'
+  ...
+# Subtest: dynamic egress probe errors survive in prepared result and durable diagnostic fields
+ok 5 - dynamic egress probe errors survive in prepared result and durable diagnostic fields
+  ---
+  duration_ms: 11.738933
+  type: 'test'
+  ...
+# Subtest: dynamic delivered CAPTCHA failure enters manual gate immediately without wake re-probe
+ok 6 - dynamic delivered CAPTCHA failure enters manual gate immediately without wake re-probe
+  ---
+  duration_ms: 8.49198
+  type: 'test'
+  ...
+# Subtest: proxy diagnostic requires Finder-owned exact active-profile PAC, not mode name alone
+ok 7 - proxy diagnostic requires Finder-owned exact active-profile PAC, not mode name alone
+  ---
+  duration_ms: 1.120039
+  type: 'test'
+  ...
+# Subtest: recovery producer and popup use the same probe_before/probe_after contract
+ok 8 - recovery producer and popup use the same probe_before/probe_after contract
+  ---
+  duration_ms: 0.351272
+  type: 'test'
+  ...
+# Subtest: popup separates transport probe state from target verification and shows mixed IP block + CAPTCHA
+ok 9 - popup separates transport probe state from target verification and shows mixed IP block + CAPTCHA
+  ---
+  duration_ms: 0.241906
+  type: 'test'
+  ...
+# Subtest: current recovery attempt is persisted before CAPTCHA becomes terminal
+ok 10 - current recovery attempt is persisted before CAPTCHA becomes terminal
+  ---
+  duration_ms: 0.251123
+  type: 'test'
+  ...
+# Subtest: probe errors are retained in the durable recovery summary instead of only transient logs
+ok 11 - probe errors are retained in the durable recovery summary instead of only transient logs
+  ---
+  duration_ms: 0.186191
+  type: 'test'
+  ...
+# Subtest: same-profile internal PAC reapplies do not erase active-profile auth evidence
+ok 12 - same-profile internal PAC reapplies do not erase active-profile auth evidence
+  ---
+  duration_ms: 0.162676
+  type: 'test'
+  ...
+# Subtest: stale key_check cannot masquerade as a currently loaded provider key
+ok 13 - stale key_check cannot masquerade as a currently loaded provider key
+  ---
+  duration_ms: 0.199826
+  type: 'test'
+  ...
+# Subtest: attempt >=3 records explicit endpoint-create skip reason when provider key is unavailable
+ok 14 - attempt >=3 records explicit endpoint-create skip reason when provider key is unavailable
+  ---
+  duration_ms: 0.204845
+  type: 'test'
+  ...
+# Subtest: CAPTCHA manual gate is derived before report staging clears blocked_reason
+ok 15 - CAPTCHA manual gate is derived before report staging clears blocked_reason
+  ---
+  duration_ms: 0.409691
+  type: 'test'
+  ...
+# Subtest: manifest and Avito adapter remain same release version
+ok 16 - manifest and Avito adapter remain same release version
+  ---
+  duration_ms: 1.0303
+  type: 'test'
+  ...
+1..16
+# tests 16
+# suites 0
+# pass 16
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 147.639858

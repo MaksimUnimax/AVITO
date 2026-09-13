@@ -1,0 +1,15 @@
+{
+  "version": "1.0.37",
+  "status": "FINAL_ZIP_OFFLINE_QA_PASS_LIVE_UNVERIFIED",
+  "archive": "AVITO_FINDER_v1.0.37_PROXY_RECOVERY_INTEGRITY_2026-09-13.zip",
+  "sha256": "4eaf64038ffd6c5b08ed7d97fdb0d13848edd8a7a9db04ad928f74b1f371ac9d",
+  "bytes": 488986,
+  "source_files": 144,
+  "worktree_groups_pass": 35,
+  "worktree_groups_fail": 0,
+  "final_zip_groups_pass": 35,
+  "final_zip_groups_fail": 0,
+  "targeted_regressions": "PASS",
+  "installed_live_acceptance": "NOT_RUN",
+  "live_provider_calls": 0
+}

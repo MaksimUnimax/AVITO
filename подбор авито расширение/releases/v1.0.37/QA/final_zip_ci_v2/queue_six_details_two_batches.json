@@ -1,0 +1,808 @@
+{
+  "scope": "PRODUCTION_WORKER_VM_AND_REAL_CHROMIUM_DOM; CHROME_API_DOUBLES; NOT_INSTALLED_OR_LIVE",
+  "live_provider_calls": 0,
+  "results": [
+    {
+      "name": "six_details_two_batches",
+      "status": "PASS",
+      "send_clicks_including_start": 3,
+      "reports": 2,
+      "last_report_characters": 4429,
+      "cursor": 6,
+      "state": "WAITING_FOR_NEXT_ASSISTANT_FORM",
+      "delivery_checkpoints": [
+        {
+          "version": 1,
+          "kind": "assistant_explicit_public_url_queue",
+          "parent_tab_id": 7,
+          "parent_window_id": 2,
+          "parent_url": "https://www.avito.ru/all/nastolnye_kompyutery?f=ASgCAgECAUXGmgwYeyJmcm9tIjo4MDAwLCJ0byI6MTUwMDB9&q=computer&s=104",
+          "candidates": [
+            {
+              "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000001",
+              "title": ""
+            },
+            {
+              "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000002",
+              "title": ""
+            },
+            {
+              "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000003",
+              "title": ""
+            },
+            {
+              "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000004",
+              "title": ""
+            },
+            {
+              "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000005",
+              "title": ""
+            },
+            {
+              "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000006",
+              "title": ""
+            }
+          ],
+          "cursor": 3,
+          "batch_size": 3,
+          "card_gap_ms": 0,
+          "cards_closed": 3,
+          "details": [
+            {
+              "summary": {
+                "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000001",
+                "title": ""
+              },
+              "details": {
+                "title": "Fixture PC 1",
+                "price": "10 000 ₽",
+                "location": "",
+                "seller": "",
+                "seller_rating": "",
+                "seller_badges": [],
+                "delivery": [],
+                "direct_delivery": {
+                  "confirmed": true,
+                  "text": "Купить с доставкой",
+                  "exact_text": "Купить с доставкой",
+                  "element_tag": "button",
+                  "role": "button",
+                  "enabled": true,
+                  "visible": true,
+                  "href": "",
+                  "marker": "new-direct-purchase",
+                  "testid": null,
+                  "aria_label": null,
+                  "source": "visible_exact_interactive_purchase_control_not_clicked",
+                  "reason": "VISIBLE_ENABLED_EXACT_BUY_WITH_DELIVERY_CONTROL"
+                },
+                "availability": "UNKNOWN",
+                "captured_at": "2026-09-13T03:49:20.522Z",
+                "truncated_fields": [],
+                "section_text_limit": 1800,
+                "image_count": null,
+                "sections": [
+                  {
+                    "heading": "Характеристики",
+                    "text": "CPU TEST / RAM 16 GB / SSD 256 GB"
+                  }
+                ],
+                "description": "Synthetic CPU RAM SSD fixture 1; Рабочий компьютер.",
+                "source": "visible_public_listing_dom",
+                "blocked_reason": null
+              }
+            },
+            {
+              "summary": {
+                "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000002",
+                "title": ""
+              },
+              "details": {
+                "title": "Fixture PC 2",
+                "price": "10 000 ₽",
+                "location": "",
+                "seller": "",
+                "seller_rating": "",
+                "seller_badges": [],
+                "delivery": [],
+                "direct_delivery": {
+                  "confirmed": true,
+                  "text": "Купить с доставкой",
+                  "exact_text": "Купить с доставкой",
+                  "element_tag": "button",
+                  "role": "button",
+                  "enabled": true,
+                  "visible": true,
+                  "href": "",
+                  "marker": "new-direct-purchase",
+                  "testid": null,
+                  "aria_label": null,
+                  "source": "visible_exact_interactive_purchase_control_not_clicked",
+                  "reason": "VISIBLE_ENABLED_EXACT_BUY_WITH_DELIVERY_CONTROL"
+                },
+                "availability": "UNKNOWN",
+                "captured_at": "2026-09-13T03:49:20.653Z",
+                "truncated_fields": [],
+                "section_text_limit": 1800,
+                "image_count": null,
+                "sections": [
+                  {
+                    "heading": "Характеристики",
+                    "text": "CPU TEST / RAM 16 GB / SSD 256 GB"
+                  }
+                ],
+                "description": "Synthetic CPU RAM SSD fixture 2; Рабочий компьютер.",
+                "source": "visible_public_listing_dom",
+                "blocked_reason": null
+              }
+            },
+            {
+              "summary": {
+                "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000003",
+                "title": ""
+              },
+              "details": {
+                "title": "Fixture PC 3",
+                "price": "10 000 ₽",
+                "location": "",
+                "seller": "",
+                "seller_rating": "",
+                "seller_badges": [],
+                "delivery": [],
+                "direct_delivery": {
+                  "confirmed": true,
+                  "text": "Купить с доставкой",
+                  "exact_text": "Купить с доставкой",
+                  "element_tag": "button",
+                  "role": "button",
+                  "enabled": true,
+                  "visible": true,
+                  "href": "",
+                  "marker": "new-direct-purchase",
+                  "testid": null,
+                  "aria_label": null,
+                  "source": "visible_exact_interactive_purchase_control_not_clicked",
+                  "reason": "VISIBLE_ENABLED_EXACT_BUY_WITH_DELIVERY_CONTROL"
+                },
+                "availability": "UNKNOWN",
+                "captured_at": "2026-09-13T03:49:20.782Z",
+                "truncated_fields": [],
+                "section_text_limit": 1800,
+                "image_count": null,
+                "sections": [
+                  {
+                    "heading": "Характеристики",
+                    "text": "CPU TEST / RAM 16 GB / SSD 256 GB"
+                  }
+                ],
+                "description": "Synthetic CPU RAM SSD fixture 3; Рабочий компьютер.",
+                "source": "visible_public_listing_dom",
+                "blocked_reason": null
+              }
+            }
+          ],
+          "failed": [],
+          "captcha": null,
+          "queue_source": "assistant_explicit_url_order",
+          "status": "paused_after_test_batch",
+          "blocked_reason": null,
+          "batch_operation_key": "af-20260913034913-ptry:user-1|assistant-0|631:2c3d2bf7",
+          "batch_start_cursor": 0,
+          "batch_end_cursor": 3,
+          "resume_after": 1789271360784,
+          "in_flight": null,
+          "connection": null,
+          "pending_close": null
+        },
+        {
+          "version": 1,
+          "kind": "assistant_explicit_public_url_queue",
+          "parent_tab_id": 7,
+          "parent_window_id": 2,
+          "parent_url": "https://www.avito.ru/all/nastolnye_kompyutery?f=ASgCAgECAUXGmgwYeyJmcm9tIjo4MDAwLCJ0byI6MTUwMDB9&q=computer&s=104",
+          "candidates": [
+            {
+              "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000001",
+              "title": ""
+            },
+            {
+              "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000002",
+              "title": ""
+            },
+            {
+              "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000003",
+              "title": ""
+            },
+            {
+              "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000004",
+              "title": ""
+            },
+            {
+              "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000005",
+              "title": ""
+            },
+            {
+              "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000006",
+              "title": ""
+            }
+          ],
+          "cursor": 6,
+          "batch_size": 3,
+          "card_gap_ms": 0,
+          "cards_closed": 6,
+          "details": [
+            {
+              "summary": {
+                "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000001",
+                "title": ""
+              },
+              "details": {
+                "title": "Fixture PC 1",
+                "price": "10 000 ₽",
+                "location": "",
+                "seller": "",
+                "seller_rating": "",
+                "seller_badges": [],
+                "delivery": [],
+                "direct_delivery": {
+                  "confirmed": true,
+                  "text": "Купить с доставкой",
+                  "exact_text": "Купить с доставкой",
+                  "element_tag": "button",
+                  "role": "button",
+                  "enabled": true,
+                  "visible": true,
+                  "href": "",
+                  "marker": "new-direct-purchase",
+                  "testid": null,
+                  "aria_label": null,
+                  "source": "visible_exact_interactive_purchase_control_not_clicked",
+                  "reason": "VISIBLE_ENABLED_EXACT_BUY_WITH_DELIVERY_CONTROL"
+                },
+                "availability": "UNKNOWN",
+                "captured_at": "2026-09-13T03:49:20.522Z",
+                "truncated_fields": [],
+                "section_text_limit": 1800,
+                "image_count": null,
+                "sections": [
+                  {
+                    "heading": "Характеристики",
+                    "text": "CPU TEST / RAM 16 GB / SSD 256 GB"
+                  }
+                ],
+                "description": "Synthetic CPU RAM SSD fixture 1; Рабочий компьютер.",
+                "source": "visible_public_listing_dom",
+                "blocked_reason": null
+              }
+            },
+            {
+              "summary": {
+                "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000002",
+                "title": ""
+              },
+              "details": {
+                "title": "Fixture PC 2",
+                "price": "10 000 ₽",
+                "location": "",
+                "seller": "",
+                "seller_rating": "",
+                "seller_badges": [],
+                "delivery": [],
+                "direct_delivery": {
+                  "confirmed": true,
+                  "text": "Купить с доставкой",
+                  "exact_text": "Купить с доставкой",
+                  "element_tag": "button",
+                  "role": "button",
+                  "enabled": true,
+                  "visible": true,
+                  "href": "",
+                  "marker": "new-direct-purchase",
+                  "testid": null,
+                  "aria_label": null,
+                  "source": "visible_exact_interactive_purchase_control_not_clicked",
+                  "reason": "VISIBLE_ENABLED_EXACT_BUY_WITH_DELIVERY_CONTROL"
+                },
+                "availability": "UNKNOWN",
+                "captured_at": "2026-09-13T03:49:20.653Z",
+                "truncated_fields": [],
+                "section_text_limit": 1800,
+                "image_count": null,
+                "sections": [
+                  {
+                    "heading": "Характеристики",
+                    "text": "CPU TEST / RAM 16 GB / SSD 256 GB"
+                  }
+                ],
+                "description": "Synthetic CPU RAM SSD fixture 2; Рабочий компьютер.",
+                "source": "visible_public_listing_dom",
+                "blocked_reason": null
+              }
+            },
+            {
+              "summary": {
+                "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000003",
+                "title": ""
+              },
+              "details": {
+                "title": "Fixture PC 3",
+                "price": "10 000 ₽",
+                "location": "",
+                "seller": "",
+                "seller_rating": "",
+                "seller_badges": [],
+                "delivery": [],
+                "direct_delivery": {
+                  "confirmed": true,
+                  "text": "Купить с доставкой",
+                  "exact_text": "Купить с доставкой",
+                  "element_tag": "button",
+                  "role": "button",
+                  "enabled": true,
+                  "visible": true,
+                  "href": "",
+                  "marker": "new-direct-purchase",
+                  "testid": null,
+                  "aria_label": null,
+                  "source": "visible_exact_interactive_purchase_control_not_clicked",
+                  "reason": "VISIBLE_ENABLED_EXACT_BUY_WITH_DELIVERY_CONTROL"
+                },
+                "availability": "UNKNOWN",
+                "captured_at": "2026-09-13T03:49:20.782Z",
+                "truncated_fields": [],
+                "section_text_limit": 1800,
+                "image_count": null,
+                "sections": [
+                  {
+                    "heading": "Характеристики",
+                    "text": "CPU TEST / RAM 16 GB / SSD 256 GB"
+                  }
+                ],
+                "description": "Synthetic CPU RAM SSD fixture 3; Рабочий компьютер.",
+                "source": "visible_public_listing_dom",
+                "blocked_reason": null
+              }
+            },
+            {
+              "summary": {
+                "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000004",
+                "title": ""
+              },
+              "details": {
+                "title": "Fixture PC 4",
+                "price": "10 000 ₽",
+                "location": "",
+                "seller": "",
+                "seller_rating": "",
+                "seller_badges": [],
+                "delivery": [],
+                "direct_delivery": {
+                  "confirmed": true,
+                  "text": "Купить с доставкой",
+                  "exact_text": "Купить с доставкой",
+                  "element_tag": "button",
+                  "role": "button",
+                  "enabled": true,
+                  "visible": true,
+                  "href": "",
+                  "marker": "new-direct-purchase",
+                  "testid": null,
+                  "aria_label": null,
+                  "source": "visible_exact_interactive_purchase_control_not_clicked",
+                  "reason": "VISIBLE_ENABLED_EXACT_BUY_WITH_DELIVERY_CONTROL"
+                },
+                "availability": "UNKNOWN",
+                "captured_at": "2026-09-13T03:49:27.252Z",
+                "truncated_fields": [],
+                "section_text_limit": 1800,
+                "image_count": null,
+                "sections": [
+                  {
+                    "heading": "Характеристики",
+                    "text": "CPU TEST / RAM 16 GB / SSD 256 GB"
+                  }
+                ],
+                "description": "Synthetic CPU RAM SSD fixture 4; Рабочий компьютер.",
+                "source": "visible_public_listing_dom",
+                "blocked_reason": null
+              }
+            },
+            {
+              "summary": {
+                "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000005",
+                "title": ""
+              },
+              "details": {
+                "title": "Fixture PC 5",
+                "price": "10 000 ₽",
+                "location": "",
+                "seller": "",
+                "seller_rating": "",
+                "seller_badges": [],
+                "delivery": [],
+                "direct_delivery": {
+                  "confirmed": true,
+                  "text": "Купить с доставкой",
+                  "exact_text": "Купить с доставкой",
+                  "element_tag": "button",
+                  "role": "button",
+                  "enabled": true,
+                  "visible": true,
+                  "href": "",
+                  "marker": "new-direct-purchase",
+                  "testid": null,
+                  "aria_label": null,
+                  "source": "visible_exact_interactive_purchase_control_not_clicked",
+                  "reason": "VISIBLE_ENABLED_EXACT_BUY_WITH_DELIVERY_CONTROL"
+                },
+                "availability": "UNKNOWN",
+                "captured_at": "2026-09-13T03:49:27.384Z",
+                "truncated_fields": [],
+                "section_text_limit": 1800,
+                "image_count": null,
+                "sections": [
+                  {
+                    "heading": "Характеристики",
+                    "text": "CPU TEST / RAM 16 GB / SSD 256 GB"
+                  }
+                ],
+                "description": "Synthetic CPU RAM SSD fixture 5; Рабочий компьютер.",
+                "source": "visible_public_listing_dom",
+                "blocked_reason": null
+              }
+            },
+            {
+              "summary": {
+                "href": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000006",
+                "title": ""
+              },
+              "details": {
+                "title": "Fixture PC 6",
+                "price": "10 000 ₽",
+                "location": "",
+                "seller": "",
+                "seller_rating": "",
+                "seller_badges": [],
+                "delivery": [],
+                "direct_delivery": {
+                  "confirmed": true,
+                  "text": "Купить с доставкой",
+                  "exact_text": "Купить с доставкой",
+                  "element_tag": "button",
+                  "role": "button",
+                  "enabled": true,
+                  "visible": true,
+                  "href": "",
+                  "marker": "new-direct-purchase",
+                  "testid": null,
+                  "aria_label": null,
+                  "source": "visible_exact_interactive_purchase_control_not_clicked",
+                  "reason": "VISIBLE_ENABLED_EXACT_BUY_WITH_DELIVERY_CONTROL"
+                },
+                "availability": "UNKNOWN",
+                "captured_at": "2026-09-13T03:49:27.511Z",
+                "truncated_fields": [],
+                "section_text_limit": 1800,
+                "image_count": null,
+                "sections": [
+                  {
+                    "heading": "Характеристики",
+                    "text": "CPU TEST / RAM 16 GB / SSD 256 GB"
+                  }
+                ],
+                "description": "Synthetic CPU RAM SSD fixture 6; Рабочий компьютер.",
+                "source": "visible_public_listing_dom",
+                "blocked_reason": null
+              }
+            }
+          ],
+          "failed": [],
+          "captcha": null,
+          "queue_source": "assistant_explicit_url_order",
+          "status": "completed",
+          "blocked_reason": null,
+          "batch_operation_key": "af-20260913034913-ptry:user-2|assistant-1|171:8e34c863",
+          "batch_start_cursor": 3,
+          "batch_end_cursor": 6,
+          "resume_after": null,
+          "in_flight": null,
+          "connection": null,
+          "pending_close": null
+        }
+      ],
+      "trace": [
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_START_AND_ANCHOR",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_BEGIN_PROMPT_POLL",
+          "url": null
+        },
+        {
+          "method": "navigate",
+          "tab": 7,
+          "message": null,
+          "url": "https://www.avito.ru/all/nastolnye_kompyutery?f=ASgCAgECAUXGmgwYeyJmcm9tIjo4MDAwLCJ0byI6MTUwMDB9&q=computer&s=104"
+        },
+        {
+          "method": "execute",
+          "tab": 7,
+          "message": null,
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 7,
+          "message": "AF_AVITO_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 7,
+          "message": "AF_GET_ROUTE_CONTEXT",
+          "url": null
+        },
+        {
+          "method": "navigate",
+          "tab": 40,
+          "message": null,
+          "url": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000001"
+        },
+        {
+          "method": "message",
+          "tab": 40,
+          "message": "AF_AVITO_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 40,
+          "message": "AF_SEQUENTIAL_READ_PUBLIC_LISTING",
+          "url": null
+        },
+        {
+          "method": "close",
+          "tab": 40,
+          "message": null,
+          "url": null
+        },
+        {
+          "method": "navigate",
+          "tab": 41,
+          "message": null,
+          "url": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000002"
+        },
+        {
+          "method": "message",
+          "tab": 41,
+          "message": "AF_AVITO_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 41,
+          "message": "AF_SEQUENTIAL_READ_PUBLIC_LISTING",
+          "url": null
+        },
+        {
+          "method": "close",
+          "tab": 41,
+          "message": null,
+          "url": null
+        },
+        {
+          "method": "navigate",
+          "tab": 42,
+          "message": null,
+          "url": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000003"
+        },
+        {
+          "method": "message",
+          "tab": 42,
+          "message": "AF_AVITO_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 42,
+          "message": "AF_SEQUENTIAL_READ_PUBLIC_LISTING",
+          "url": null
+        },
+        {
+          "method": "close",
+          "tab": 42,
+          "message": null,
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_SEND_REPORT",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_BEGIN_PROMPT_POLL",
+          "url": null
+        },
+        {
+          "method": "execute",
+          "tab": 7,
+          "message": null,
+          "url": null
+        },
+        {
+          "method": "execute",
+          "tab": 7,
+          "message": null,
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 7,
+          "message": "AF_AVITO_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 7,
+          "message": "AF_GET_ROUTE_CONTEXT",
+          "url": null
+        },
+        {
+          "method": "navigate",
+          "tab": 43,
+          "message": null,
+          "url": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000004"
+        },
+        {
+          "method": "message",
+          "tab": 43,
+          "message": "AF_AVITO_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 43,
+          "message": "AF_SEQUENTIAL_READ_PUBLIC_LISTING",
+          "url": null
+        },
+        {
+          "method": "close",
+          "tab": 43,
+          "message": null,
+          "url": null
+        },
+        {
+          "method": "navigate",
+          "tab": 44,
+          "message": null,
+          "url": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000005"
+        },
+        {
+          "method": "message",
+          "tab": 44,
+          "message": "AF_AVITO_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 44,
+          "message": "AF_SEQUENTIAL_READ_PUBLIC_LISTING",
+          "url": null
+        },
+        {
+          "method": "close",
+          "tab": 44,
+          "message": null,
+          "url": null
+        },
+        {
+          "method": "navigate",
+          "tab": 45,
+          "message": null,
+          "url": "https://www.avito.ru/test/nastolnye_kompyutery/fixture_9000000006"
+        },
+        {
+          "method": "message",
+          "tab": 45,
+          "message": "AF_AVITO_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 45,
+          "message": "AF_SEQUENTIAL_READ_PUBLIC_LISTING",
+          "url": null
+        },
+        {
+          "method": "close",
+          "tab": 45,
+          "message": null,
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_SEND_REPORT",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_PING",
+          "url": null
+        },
+        {
+          "method": "message",
+          "tab": 1,
+          "message": "AF_CAPTURE_BEGIN_PROMPT_POLL",
+          "url": null
+        }
+      ],
+      "duration_seconds": 16.095
+    }
+  ],
+  "pass": 1,
+  "fail": 0
+}
