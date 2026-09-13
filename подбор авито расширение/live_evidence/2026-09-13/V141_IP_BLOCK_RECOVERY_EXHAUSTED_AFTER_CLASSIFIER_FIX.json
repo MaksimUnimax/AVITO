@@ -1,0 +1,33 @@
+{
+  "schema": "avito_finder_live_evidence_v1",
+  "date": "2026-09-13",
+  "target_release": "1.0.41",
+  "task_id": "af-20260913121226-xf3c",
+  "plan_fingerprint": "375:7a598be8",
+  "target_url": "https://www.avito.ru/yuzhno-sahalinsk/nastolnye_kompyutery/dell_vostro_3470_4750223208",
+  "observed_status": "AVITO_IP_BLOCK_RECOVERY_EXHAUSTED",
+  "queue": {
+    "cursor": "0/1",
+    "attempted": 0,
+    "status": "paused_for_connection",
+    "count": 0,
+    "remaining": 1,
+    "batch_size": 1,
+    "gap_ms": 1000,
+    "concurrency": 1
+  },
+  "cards_read": 0,
+  "baseline_preserved": "150/150",
+  "classification_fix_observed": true,
+  "classification_observation": "The provider page reached the AVITO_IP_BLOCK recovery state rather than the former false CAPTCHA/manual boundary.",
+  "new_live_failure_layer": "bounded IP-block recovery exhausted before any listing page was read",
+  "not_proven_by_report": [
+    "installed version string was not printed in the report",
+    "which proxy profile or endpoint was used on each recovery attempt",
+    "whether egress IP changed between attempts",
+    "whether Proxy.Market endpoint creation occurred",
+    "which exact internal recovery subreason caused exhaustion"
+  ],
+  "runtime_patch_required": "UNDETERMINED_PENDING_EXACT_RECOVERY_TELEMETRY",
+  "next_gate": "Do not blindly rerun the same collection. Diagnose the exhausted recovery path and distinguish proxy/egress/provider failure from runtime defect first."
+}
