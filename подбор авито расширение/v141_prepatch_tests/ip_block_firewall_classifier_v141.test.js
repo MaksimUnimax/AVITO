@@ -1,6 +1,7 @@
 "use strict";
 const assert = require("node:assert/strict");
 const path = require("node:path");
+const test = require("node:test");
 
 const corePath = process.argv[2];
 if (!corePath) throw new Error("usage: node ip_block_firewall_classifier_v141.test.js <core.js>");
@@ -34,29 +35,42 @@ function probeFixture({ heading, bodyText, captchaIframe = false }) {
     querySelectorAll(selector) {
       if (selector.includes("a[data-marker='item-title']")) return [];
       if (selector.includes("h1,h2")) return iframe ? [headingNode, iframe] : [headingNode];
+      if (selector.includes("iframe[src*='captcha']")) return iframe ? [iframe] : [];
       return [];
     }
   };
   return Core.publicPageInterruptionProbe();
 }
 
-const firewall = probeFixture({
-  heading: "Доступ ограничен: проблема с IP",
-  bodyText: "Доступ ограничен: проблема с IP\nИногда такое случается, чтобы вернуться на сайт нажмите на кнопку Продолжить для решения капчи\nПродолжить"
+test("live IP firewall helper text mentioning future CAPTCHA is not a CAPTCHA challenge", () => {
+  const firewall = probeFixture({
+    heading: "Доступ ограничен: проблема с IP",
+    bodyText: "Доступ ограничен: проблема с IP\nИногда такое случается, чтобы вернуться на сайт нажмите на кнопку Продолжить для решения капчи\nПродолжить"
+  });
+  assert.equal(firewall.ip_block, true, "live firewall heading must remain IP-block evidence");
+  assert.equal(
+    firewall.captcha,
+    false,
+    "RED: a textual reference to a future CAPTCHA on the IP firewall landing page is not an actual CAPTCHA challenge"
+  );
 });
-assert.equal(firewall.ip_block, true, "live firewall heading must remain IP-block evidence");
-assert.equal(
-  firewall.captcha,
-  false,
-  "RED: a textual reference to a future CAPTCHA on the IP firewall landing page is not an actual CAPTCHA challenge"
-);
 
-const challenge = probeFixture({
-  heading: "Проверка безопасности",
-  bodyText: "Подтвердите, что вы человек",
-  captchaIframe: true
+test("plain concrete CAPTCHA remains manual", () => {
+  const challenge = probeFixture({
+    heading: "Проверка безопасности",
+    bodyText: "Подтвердите, что вы человек",
+    captchaIframe: true
+  });
+  assert.equal(challenge.captcha, true, "a concrete CAPTCHA challenge must remain manual");
+  assert.equal(challenge.ip_block, false, "plain CAPTCHA challenge must not masquerade as IP block");
 });
-assert.equal(challenge.captcha, true, "a concrete CAPTCHA challenge must remain manual");
-assert.equal(challenge.ip_block, false, "plain CAPTCHA challenge must not masquerade as IP block");
 
-console.log("PASS 2/2 — firewall hint disambiguated; real CAPTCHA preserved");
+test("concrete CAPTCHA challenge still wins on an IP-block-related surface", () => {
+  const mixed = probeFixture({
+    heading: "Доступ ограничен: проблема с IP",
+    bodyText: "Доступ ограничен: проблема с IP\nПодтвердите, что вы человек",
+    captchaIframe: true
+  });
+  assert.equal(mixed.ip_block, true, "IP heading remains observable evidence");
+  assert.equal(mixed.captcha, true, "structural CAPTCHA evidence must stay manual even when IP heading remains");
+});
