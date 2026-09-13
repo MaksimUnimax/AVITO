@@ -1,0 +1,50 @@
+name: RED Avito Finder v1.0.41 IP-block firewall classifier
+on:
+  push:
+    branches: [fix/v141-ip-block-firewall-classifier-2026-09-13]
+    paths:
+      - '.github/workflows/red-avito-v141-ip-block-classifier.yml'
+      - 'подбор авито расширение/v141_prepatch_tests/ip_block_firewall_classifier_v141.test.js'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v141-ip-block-firewall-classifier-2026-09-13
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify Rule 20 gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "const a=require('./подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.41_2026-09-13.json'); if(a.status!=='FULL_HISTORY_AUDIT=PASS'||a.runtime_changed_during_audit!==false) process.exit(1)"
+      - name: RED against exact v1.0.40 core
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p 'подбор авито расширение/releases/v1.0.41/QA/red'
+          TEST='подбор авито расширение/v141_prepatch_tests/ip_block_firewall_classifier_v141.test.js'
+          CORE='подбор авито расширение/releases/v1.0.40/v140_work/core.js'
+          set +e
+          node "$TEST" "$CORE" > 'подбор авито расширение/releases/v1.0.41/QA/red/ip_block_firewall_classifier.log' 2>&1
+          RC=$?
+          set -e
+          cat 'подбор авито расширение/releases/v1.0.41/QA/red/ip_block_firewall_classifier.log'
+          test "$RC" -ne 0
+          grep -q 'textual reference to a future CAPTCHA' 'подбор авито расширение/releases/v1.0.41/QA/red/ip_block_firewall_classifier.log'
+          printf '{\n  "status": "RED_CONFIRMED",\n  "source": "exact v1.0.40",\n  "exit_code": %s,\n  "live_failure": "IP firewall landing misclassified as CAPTCHA because helper text mentions future CAPTCHA",\n  "expected_after_patch": "ip_block=true, captcha=false without a concrete challenge"\n}\n' "$RC" > 'подбор авито расширение/releases/v1.0.41/QA/red/RED.json'
+      - name: Persist RED evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          git add -- 'подбор авито расширение/releases/v1.0.41/QA/red/'
+          git commit -m 'test: persist v1.0.41 exact-v1.0.40 classifier RED'
+          git push origin HEAD:fix/v141-ip-block-firewall-classifier-2026-09-13
