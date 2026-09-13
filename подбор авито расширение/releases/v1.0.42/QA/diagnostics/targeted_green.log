@@ -1,5 +1,5 @@
 {
-  "schema": "avito_finder_v142_capture_green_v1",
+  "schema": "avito_finder_v142_capture_green_v2",
   "source_version": "1.0.42",
   "source_root": "/home/runner/work/AVITO/AVITO/подбор авито расширение/releases/v1.0.42/v142_work",
   "scenarios": [
@@ -8,7 +8,8 @@
       "full_text_count": 1,
       "retry_count": 0,
       "structural_restarts": 1,
-      "confirm_invocations": 8,
+      "activity_count": 1,
+      "induced_miss_count": 0,
       "pass": false
     },
     {
@@ -20,11 +21,12 @@
     },
     {
       "name": "persistent extraction loss bounded terminal",
-      "full_text_count": 0,
-      "retry_count": 1,
-      "bounded_failure_count": 1,
-      "confirm_invocations": 6,
-      "pass": true
+      "full_text_count": 1,
+      "retry_count": 0,
+      "bounded_failure_count": 0,
+      "activity_count": 1,
+      "induced_miss_count": 0,
+      "pass": false
     }
   ],
   "status": "FAIL"
