@@ -17,8 +17,8 @@
     "name": "unrelated assistant-button churn",
     "future_expectation": "one exact AF_CAPTURE_FULL_TEXT despite unrelated control churn",
     "full_text_count": 0,
-    "structural_restarts": 9,
-    "distinct_structural_signatures": 9,
+    "structural_restarts": 10,
+    "distinct_structural_signatures": 10,
     "broken_behavior_observed": true,
     "future_expectation_pass": false
   },
