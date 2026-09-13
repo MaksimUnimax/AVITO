@@ -1,139 +1,111 @@
-# Rule 20 full-history audit authority
-
-`FULL_HISTORY_AUDIT=PASS` for the 2026-09-13 pre-patch authority. Before any future runtime patch, read in full:
-
-- `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md`;
-- `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json`;
-- `подбор авито расширение/history_audit/2026-09-13/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13_RECEIPT.json`;
-- Rule 20 in `PATCH_ENGINEERING_RULES.md`.
-
-The audit PASS closes only the historical-analysis gate. It does **not** make v1.0.38 live-accepted: v1.0.38 remains `LIVE_UNVERIFIED / installed Chrome E2E NOT_RUN`. Every future patch still requires a new exact live observation → RED regression on the exact installed target before runtime changes. Historical source gaps/mismatches in the audit must not be silently filled.
-
-# Обязательный порядок работы с Avito Finder
+# Avito Finder — обязательный startup authority
 
 Перед любой работой полностью прочитать:
 
 1. `подбор авито расширение/PATCH_ENGINEERING_RULES.md` — постоянные **20** правил.
 2. `подбор авито расширение/ТЕКУЩИЙ_ПРОГРЕСС.md`.
-3. Актуальный release authority (`PATCH_REPORT`, `REMOTE_READBACK`, `CHECKPOINT`, `BUILD`, `MATERIALIZATION`, `MAIN_RELEASE_RECEIPT`).
-4. Перед **любым следующим runtime-патчем** — последний `PRE_PATCH_FULL_HISTORY_AUDIT_*.md/json`.
+3. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md` и `.json`.
+4. Актуальный release authority: `PATCH_REPORT`, `REMOTE_READBACK`, `CHECKPOINT`, `BUILD`, `MATERIALIZATION`, `MAIN_RELEASE_RECEIPT`.
 
-## ЖЁСТКИЙ PRE-PATCH GATE — RULE 20
+## Rule 20
 
-До любого изменения runtime, manifest, release expectations или сборки следующей версии требуется **полный аудит ВСЕХ предыдущих патчей и кода без единого выборочного пропуска**.
+`FULL_HISTORY_AUDIT=PASS` для authority от 2026-09-13. Исторический audit охватывает все обнаруженные версии/patches/code authorities, а source gaps/mismatches отмечает явно. Перед будущим runtime patch этот audit обязателен как baseline; новый patch всё равно требует новой live observation → exact-source RED → minimal patch → full final ZIP QA → installed E2E.
 
-Нельзя ограничиваться «ключевыми» версиями. Нужно:
+## Текущая main authority
 
-- обнаружить все исторические версии/патчи/ветки/PR/commits;
-- для каждой прочитать доступный production-код, diff/patch и тесты;
-- пройти adjacent diffs exact-source версий;
-- восстановить цель, root cause, changed files/functions, state-machine contract, FAIL и regression каждой версии;
-- построить общую evolution matrix для capture/validator, navigation/queue/cursor, report delivery, proxy/auth/rotation/egress, IP-block/rate-limit/CAPTCHA;
-- отметить `SOURCE_UNAVAILABLE` там, где exact source отсутствует, и прочитать все доступные commits/diffs/docs/tests;
-- сохранить `PRE_PATCH_FULL_HISTORY_AUDIT_<next-version-or-date>.md/json` в GitHub и выполнить readback;
-- получить `FULL_HISTORY_AUDIT=PASS`.
+**Avito Finder v1.0.39 — Exact Requested Tab Disambiguation**.
 
-**До этого запрещено:** менять runtime JS, `manifest.json`, тестовые expectations под новый runtime, создавать executable patch branch или собирать новый release ZIP.
+Release root:
 
-Выборочный исторический анализ, который применялся раньше, новым требованиям не соответствует. Следующий patch без полного Rule-20 audit автоматически отклоняется.
+`подбор авито расширение/releases/v1.0.39/`
 
-## Точная текущая точка
+ZIP:
 
-Текущая main authority: **Avito Finder v1.0.38 — Avito Sticky Recovery**.
+`AVITO_FINDER_v1.0.39_EXACT_REQUESTED_TAB_DISAMBIGUATION_2026-09-13.zip`
 
-Финальный ZIP:
+- SHA-256: `a4a0ae626de4692c62cd76d87be19e34749b488e76afa2764828a025db08bb98`;
+- bytes: `492784`;
+- source files: `148`;
+- PR #5 merged;
+- merge commit: `8a5c9b9e8333ba617e6420db4352d972e3f6f0fd`;
+- main receipt: `releases/v1.0.39/MAIN_RELEASE_RECEIPT.json`;
+- final workflow: `34743734524`;
+- targeted exact-tab regression: `5/5 PASS`;
+- worktree grouped QA: `35/35 PASS`;
+- Node aggregate: `369/369 PASS`;
+- final ZIP fresh-extract grouped QA: `35/35 PASS`;
+- independent remote readback: `PASS`;
+- installed Chrome E2E: **NOT_RUN**.
 
-`подбор авито расширение/releases/v1.0.38/AVITO_FINDER_v1.0.38_AVITO_STICKY_RECOVERY_2026-09-13.zip`
+Status:
 
-- SHA-256: `2f1282e2262b322ef5f17a3852a388dd5480363b9fa5a60346f3264084d477f4`;
-- source files: `146`;
-- worktree full QA: `35 PASS / 0 FAIL`;
-- Node aggregate: `368 PASS / 0 FAIL`;
-- final ZIP fresh-extract QA: `35 PASS / 0 FAIL`;
-- independent GitHub remote readback: PASS;
-- installed user Chrome acceptance: **NOT_RUN**.
+`MAIN_AUTHORITY / OFFLINE_QA_PASS / REMOTE_BYTES_VERIFIED / LIVE_UNVERIFIED`.
 
-Статус: **MAIN_AUTHORITY / OFFLINE_QA_PASS / REMOTE_BYTES_VERIFIED / LIVE_UNVERIFIED**.
+## Почему появился v1.0.39
 
-## Почему появился v1.0.38
+Installed v1.0.38 task `af-20260913062414-29ps` дважды остановился на `COMMAND_CAPTURED` с `AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB`, recovery=0, mutations=0, cards read=0.
 
-Установленная v1.0.37 не прошла live acceptance: task `af-20260913040603-4j0t`, очередь TOP_REVALIDATE_PRE `0/3`, сначала `AVITO_IP_BLOCK_RECOVERY_EXHAUSTED`, затем после читаемого read-only DOM новый `RESUME_EXPLICIT_LISTING_QUEUE` снова получил `AVITO_IP_BLOCK`; ни одна карточка не прочитана.
+Команда уже содержала exact Dell URL, но v1.0.38 `selectVisibleAvitoTab(windowId)` игнорировал `requestedUrl`. При нескольких Avito tabs и активной вкладке ChatGPT selector видел несколько кандидатов и ни одной active Avito tab, поэтому завершался `AMBIGUOUS` ещё до routing.
 
-Exact v1.0.37 при recovery escalation создавал Proxy.Market endpoint с `rotation:0` («Каждый запрос») и reconciled только `rotate===0`. Валидный request-body RED на exact v1.0.37 подтверждает actual `0`, expected sticky `-1`. v1.0.38 меняет только recovery-created endpoint policy на sticky `-1` и reconciles только sticky endpoint.
+v1.0.39 сохраняет старые safety boundaries:
 
-Патч не обещает, что любой Avito IP-block будет снят. Live acceptance остаётся отдельным обязательным gate.
+- unique active Avito tab по-прежнему имеет приоритет;
+- если active Avito нет, допускается только **ровно один** existing tab, совпадающий с normalized requested public Avito route;
+- zero exact matches при нескольких tabs → `AMBIGUOUS`;
+- duplicate exact matches → `AMBIGUOUS`;
+- tab не навигируется ради disambiguation;
+- single-tab behavior сохранено.
 
-## Production scope v1.0.38
+Production behavior изменён только в `service_worker.js`; `manifest.json` и `avito_content.js` меняют release identity. `chatgpt_content.js`, `core.js`, `proxy_manager.js`, `recovery.js`, `popup.js/html/css` побайтно сохранены от v1.0.38.
 
-Из runtime относительно exact v1.0.37 изменены только:
+## Первый v1.0.39 full gate — сохранить как FAIL
 
-- `service_worker.js` — recovery-created endpoint `rotation 0 → -1`, candidate `rotate 0 → -1`;
-- `manifest.json` — release identity 1.0.38;
-- `avito_content.js` — adapter identity 1.0.38.
+Workflow `34743154320` = `33 PASS / 2 FAIL` и не является успешным gate.
 
-Побайтно неизменны:
+Причины:
 
-- `chatgpt_content.js`;
-- `core.js`;
-- `proxy_manager.js`;
-- `recovery.js`;
-- `popup.js`;
-- `popup.html`;
-- `popup.css`.
+1. новый permanent regression был standalone helper с обязательным `argv[2]`, а aggregate `node --test tests/*.test.js` запускает test-файлы без custom args → `SOURCE_PATH_REQUIRED`;
+2. `adapter_identity` hit старый 20s group deadline на `20.003s`.
 
-Не менялись queue/navigation/cursor, report delivery, Writing Block-only contract, manual CAPTCHA boundary, user-selected profile semantics и поиск/ранжирование ПК.
+A/B diagnostic `34743603061` без runtime changes доказал:
 
-API key Proxy.Market остаётся session-scoped. После extension reload/update `storage.session` может быть очищен, поэтому live recovery может потребовать повторной загрузки ключа. Persistent plaintext key storage не добавлять без отдельной задачи/security review.
+- v1.0.38 Node `368/368 PASS`;
+- temporary v1.0.39: sole FAIL = `SOURCE_PATH_REQUIRED` нового test-файла;
+- adapter timings на одном runner:
+  - v1.0.38 `19.55 / 0.96 / 0.95 / 0.75s`;
+  - v1.0.39 `2.39 / 1.20 / 0.77 / 0.89s`.
 
-## QA authority
+После этого сделаны только test-harness corrections: regression получает default соседний release worker при aggregate run; adapter identity QA deadline 20→30s. Production timeouts/runtime patch не менялись.
 
-Final successful workflow: `34738398529`.
+Diagnosis:
 
-- exact v1.0.37 authority PASS;
-- valid RED exact previous version PASS;
-- minimal materialization PASS;
-- same targeted GREEN PASS;
-- worktree full 35/35 PASS;
-- Node 368/368 PASS;
-- final ZIP fresh extract 35/35 PASS;
-- exact source/ZIP/QA persist PASS;
-- independent remote readback PASS.
-
-Independent verified commit: `17d8018872f6f1834bf5582ee5210797733a7d0a`.
-Readback receipt commit: `b87d493445c106be465f82fb53d9edc3450f80da`.
-
-## Сохранение промежуточного результата
-
-После каждого материального блока сохранять код, тесты, результаты и cursor в GitHub и проверять readback. Не оставлять единственную копию в чате/sandbox. Два CI-процесса не должны одновременно писать в одну release authority.
-
-## Отчёт каждого патча
-
-Показывать применимые правила с `PASS / FAIL / NOT_RUN / BLOCKED` и evidence. Отдельно писать `НАРУШЕННЫЕ ПРАВИЛА`. Исторические нарушения не выдавать за текущие. `NOT_RUN` не означает PASS. Проверять exact final ZIP. Rule 20 должен иметь отдельную строку с ссылкой на полный исторический audit.
+`подбор авито расширение/v139_prepatch_tests/FIRST_GATE_FAILURE_DIAGNOSIS.md`.
 
 ## Сохраняемые границы
 
 - Writing Block — единственная исполняемая assistant-команда.
 - Ordinary Markdown/code block — zero commands.
 - CAPTCHA остаётся ручной.
-- Proxy остаётся transport layer.
-- Нельзя делать blind resend отчётов или повтор неопределённых Avito mutations.
-- Queue/cursor и baseline 150/150 не сбрасывать.
-- Долгая доставка Dell сама по себе ranking criteria не меняет.
+- Proxy остаётся transport layer и не меняет target URL/order/queue/cursor/capture/report.
+- Blind resend отчётов запрещён.
+- Не повторять uncertain Avito mutation.
+- Baseline поиска `150/150` не сбрасывать.
+- TOP_REVALIDATE_PRE сохраняет Dell `4750223208`, Mini ITX `8156773014`, Lenovo `8375159229`.
+- Долгая доставка Dell сама по себе ranking не меняет.
+- Proxy.Market API key остаётся session-scoped; после extension reload может потребоваться загрузить его снова.
 
 ## История FAIL — не стирать
 
-- v1.0.30: `about:blank` navigation regression → v1.0.31 fix.
-- v1.0.35: package version mismatch → rejected.
-- v1.0.36 R1: test VM disposal; R2 test-only cleanup.
-- v1.0.36 R2: historical popup timeout retained.
-- v1.0.37: telemetry/state patch passed offline but failed live Avito acceptance.
-- v1.0.38 early harness attempts: brittle grep, bad relative module load, frozen ProxyCore monkeypatch — not counted as valid RED; runtime not accepted from them.
-- run `34737917297`: valid RED/GREEN, then aggregate Node exposed two test-only expectations; after test-only correction Node 368/368; final authority is `34738398529`.
+- v1.0.30 `about:blank` navigation regression → v1.0.31.
+- v1.0.35 version/adapter mismatch → rejected.
+- v1.0.36 R1 test VM disposal → R2 test-only cleanup.
+- v1.0.36 R2 historical popup timeout retained.
+- v1.0.37 offline QA PASS, live IP-block acceptance FAIL.
+- v1.0.38 ранние harness attempts не засчитывались; final workflow `34738398529` authority.
+- v1.0.39 first full gate `34743154320` FAIL сохранён; final authority workflow `34743734524`.
 
-## Следующий незакрытый gate
+## Следующий gate
 
-Сначала выполнить Rule 20 и материализовать полный исторический аудит. Только после `FULL_HISTORY_AUDIT=PASS` разрешён любой следующий кодовый patch.
+Установить exact main v1.0.39 **поверх существующей распакованной папки без удаления extension/storage**, Reload extension, обновить ChatGPT/Avito tabs, проверить version `1.0.39`, при необходимости снова загрузить Proxy.Market API key в session и повторить тот же TOP_REVALIDATE_PRE.
 
-Отдельно для текущего v1.0.38: установить exact ZIP без удаления extension storage, reload extension и вкладки, убедиться в версии 1.0.38, при необходимости заново загрузить Proxy.Market API key в session и повторить **ту же** TOP_REVALIDATE_PRE очередь с cursor `0/3`.
-
-До installed user Chrome E2E v1.0.38 нельзя называть доказанно рабочей на живом Avito.
+До успешного installed user Chrome E2E v1.0.39 нельзя называть доказанно рабочей на живом Avito.
