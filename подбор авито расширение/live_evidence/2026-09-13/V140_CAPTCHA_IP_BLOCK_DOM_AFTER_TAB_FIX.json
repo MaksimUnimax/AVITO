@@ -1,0 +1,31 @@
+{
+  "schema": "avito_finder_live_dom_evidence_v1",
+  "date": "2026-09-13",
+  "task_id": "af-20260913103028-k9qv",
+  "version": "1.0.40",
+  "stage": "AVITO_NAVIGATION",
+  "status": "BLOCKED_LOGIN_OR_CAPTCHA",
+  "reason": "CAPTCHA_MANUAL_REQUIRED",
+  "automatic_recovery_attempts": 1,
+  "cards_read": 0,
+  "baseline_preserved": "150/150",
+  "page": "https://www.avito.ru/yuzhno-sahalinsk/nastolnye_kompyutery/dell_vostro_3470_4750223208",
+  "visible_title": "Доступ ограничен: проблема с IP",
+  "visible_instruction": "Иногда такое случается, чтобы вернуться на сайт нажмите на кнопку Продолжить для решения капчи",
+  "visible_controls": ["button: Продолжить", "link: напишите поддержке"],
+  "page_claim": "С него идёт очень много запросов — как если бы вы разом открывали десятки вкладок или слишком часто обновляли страницу.",
+  "interpretation": {
+    "v139_ambiguity_regression_reproduced": false,
+    "v140_passed_old_failure_point": true,
+    "v140_reached_avito_navigation": true,
+    "current_blocker": "manual CAPTCHA / IP firewall",
+    "installed_e2e_complete": false,
+    "runtime_patch_authorized": false
+  },
+  "safety": {
+    "captcha_must_remain_manual": true,
+    "no_automatic_continue_click": true,
+    "no_new_queue": true,
+    "no_baseline_reset": true
+  }
+}
