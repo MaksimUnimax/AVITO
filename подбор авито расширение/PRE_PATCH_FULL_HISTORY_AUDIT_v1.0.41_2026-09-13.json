@@ -1,0 +1,49 @@
+{
+  "schema": "avito_finder_rule20_composite_audit_v1",
+  "date": "2026-09-13",
+  "target_patch": "1.0.41",
+  "status": "FULL_HISTORY_AUDIT=PASS",
+  "installed_target": "1.0.40",
+  "main_head_at_branch_creation": "f5730d833476d730bb734a72e62733c0bb5283e3",
+  "v140_release_merge": "91cdd5504392a6509e06b559d68d3576e728263e",
+  "inherited_full_authority": [
+    "PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md",
+    "PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json",
+    "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.40_2026-09-13.md",
+    "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.40_2026-09-13.json"
+  ],
+  "post_v140_release_compare": {
+    "ahead_by": 10,
+    "behind_by": 0,
+    "runtime_changed": false,
+    "changed_files_are_docs_evidence_receipts_only": true
+  },
+  "live_failure": {
+    "task_id": "af-20260913103028-k9qv",
+    "listing_id": "4750223208",
+    "visible_provider_state": "IP_BLOCK_FIREWALL_LANDING",
+    "finder_state": "BLOCKED_LOGIN_OR_CAPTCHA",
+    "cards_read": 0,
+    "baseline": "150/150"
+  },
+  "historical_contract": "AVITO_FINDER_v1.0.24_UI_PLAN_IP_BLOCK_RECOVERY_2026-09-08.md",
+  "causal_root": "Broad CAPTCHA text detection treats the IP firewall helper phrase 'для решения капчи' as an actual CAPTCHA. Because CAPTCHA wins classification before IP-block, bounded IP recovery/reload is skipped.",
+  "existing_test_gap": "ip_block_refresh_resilience.test.js asserts the worker branch but never feeds the real IP-firewall DOM/text through publicPageInterruptionProbe; therefore it cannot catch ip_block=true plus captcha=true on the live page.",
+  "origin_boundary": "Same broad CAPTCHA-first classifier family is present in exact available v1.0.36/v1.0.37 sources; defect is not attributed to the v1.0.40 allocation patch.",
+  "permitted_change": [
+    "interruption classifier/probe semantics",
+    "targeted regressions",
+    "release identity only"
+  ],
+  "must_preserve": [
+    "real CAPTCHA remains manual",
+    "existing bounded IP recovery and bypass-cache reload",
+    "proxy transport-only boundary",
+    "queue/cursor",
+    "target-tab lifecycle",
+    "ChatGPT capture/validator/report contract",
+    "baseline 150/150"
+  ],
+  "runtime_changed_during_audit": false,
+  "next_gate": "RED on exact v1.0.40 with real firewall landing fixture before runtime patch"
+}
