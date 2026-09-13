@@ -1,0 +1,28 @@
+{
+  "schema": "avito_finder_main_release_receipt_v139",
+  "version": "1.0.39",
+  "status": "MAIN_AUTHORITY_OFFLINE_QA_PASS_REMOTE_BYTES_VERIFIED_LIVE_UNVERIFIED",
+  "main_merge_commit": "8a5c9b9e8333ba617e6420db4352d972e3f6f0fd",
+  "pr": 5,
+  "verified_branch_commit": "8248b0075ce99a62ba47136faf0c180c5a8e1d41",
+  "workflow": 34743734524,
+  "archive": "AVITO_FINDER_v1.0.39_EXACT_REQUESTED_TAB_DISAMBIGUATION_2026-09-13.zip",
+  "archive_sha256": "a4a0ae626de4692c62cd76d87be19e34749b488e76afa2764828a025db08bb98",
+  "archive_bytes": 492784,
+  "source_files": 148,
+  "worktree_groups": "35 PASS / 0 FAIL",
+  "final_zip_groups": "35 PASS / 0 FAIL",
+  "node": "369 PASS / 0 FAIL",
+  "targeted_exact_requested_tab": "5 PASS / 0 FAIL",
+  "remote_readback": "PASS",
+  "rule20_full_history_audit": "PASS",
+  "first_full_gate_failure_preserved": {
+    "workflow": 34743154320,
+    "result": "33 PASS / 2 FAIL",
+    "classification": "test integration SOURCE_PATH_REQUIRED + pre-existing cold adapter identity deadline margin"
+  },
+  "ab_diagnostic_workflow": 34743603061,
+  "production_runtime_changed_relative_v138": ["avito_content.js", "manifest.json", "service_worker.js"],
+  "installed_live_acceptance": "NOT_RUN",
+  "baseline_reset": false
+}
