@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import hashlib, json, os, re, shutil, subprocess, sys, zipfile
+import base64, hashlib, json, re, subprocess, sys, zipfile
 from pathlib import Path
 COMMIT='7c094852bbdefdd9bbec2d7facc618993d61d63a'
 OUT=Path(sys.argv[1] if len(sys.argv)>1 else 'early-history-output'); OUT.mkdir(parents=True,exist_ok=True)
@@ -29,38 +29,42 @@ def runtime_summary(root):
   tests=[str(p.relative_to(r)) for p in r.rglob('*') if p.is_file() and ('tests' in p.parts or p.name.endswith('.test.js'))]
   candidates.append({'root':str(r.relative_to(root)) if r!=root else '.', 'version':o.get('version'),'version_name':o.get('version_name'),'runtime':files,'tests':sorted(tests)})
  return candidates
-# exact v1.0.1
+# exact v1.0.1 preserved in historical tree
 v101=git_bytes('AVITO_FINDER_v1.0.1_popup-assistant-protocol-prompt_TEST_CANDIDATE.zip')
 (OUT/'AVITO_FINDER_v1.0.1.zip').write_bytes(v101)
 safe_extract(OUT/'AVITO_FINDER_v1.0.1.zip',OUT/'v101')
-# exact v1.0.6 from preserved transport
+# v1.0.6 preserved Base64 transport. Do not call it exact unless advertised SHA matches.
 paths=subprocess.check_output(['git','-c','core.quotepath=false','ls-tree','-r','--name-only',COMMIT,'.github/avito-upload']).decode().splitlines()
 parts=sorted(p for p in paths if re.search(r'part-\d+\.txt$',p))
 b64=b''.join(git_bytes(p) for p in parts)
-import base64
 v106=base64.b64decode(b64,validate=True)
 expected='32e1523e1f0d9d8ff0b5f71f6e9df146542f80327628cd48d35bff73d90d31e9'
-assert sha(v106)==expected,(sha(v106),expected)
-(OUT/'AVITO_FINDER_v1.0.6.zip').write_bytes(v106); safe_extract(OUT/'AVITO_FINDER_v1.0.6.zip',OUT/'v106')
-# history archives
+actual=sha(v106); v106_zip_ok=False; v106_candidates=[]
+(OUT/'V106_RECONSTRUCTED_FROM_HISTORICAL_PARTS.zip').write_bytes(v106)
+try:
+ safe_extract(OUT/'V106_RECONSTRUCTED_FROM_HISTORICAL_PARTS.zip',OUT/'v106_candidate'); v106_zip_ok=True; v106_candidates=runtime_summary(OUT/'v106_candidate')
+except Exception as e:
+ (OUT/'V106_EXTRACTION_ERROR.txt').write_text(str(e),encoding='utf-8')
+# history archives must be scanned even if v1.0.6 transport mismatches.
 history=[]
 for name in ('History.zip','HistoryDocs.zip'):
  b=git_bytes(name); p=OUT/name; p.write_bytes(b); d=OUT/name.replace('.zip',''); safe_extract(p,d)
  names=[]; manifests=[]; archives=[]
  for f in d.rglob('*'):
   if not f.is_file():continue
-  rel=str(f.relative_to(d));
+  rel=str(f.relative_to(d))
   if re.search(r'1\.0\.\d+|v\d+',rel,re.I):names.append(rel)
   if f.name=='manifest.json':
    try:
     o=json.loads(f.read_text(encoding='utf-8-sig')); manifests.append({'path':rel,'version':o.get('version'),'name':o.get('name')})
    except:pass
   if f.suffix.lower() in ('.zip','.tar','.gz','.xz','.rar','.7z'):archives.append({'path':rel,'bytes':f.stat().st_size,'sha256':sha(f.read_bytes())})
- history.append({'archive':name,'bytes':len(b),'sha256':sha(b),'version_named_paths':names[:5000],'manifests':manifests,'nested_archives':archives})
-# Compare exact runtime v101-v106 where manifests found.
-summary={'historical_commit':COMMIT,'v1.0.1':{'bytes':len(v101),'sha256':sha(v101),'candidates':runtime_summary(OUT/'v101')},'v1.0.6':{'bytes':len(v106),'sha256':sha(v106),'transport_parts':parts,'candidates':runtime_summary(OUT/'v106')},'history':history}
+ history.append({'archive':name,'bytes':len(b),'sha256':sha(b),'version_named_paths':names[:10000],'manifests':manifests,'nested_archives':archives})
+summary={'historical_commit':COMMIT,
+ 'v1.0.1':{'authority':'EXACT_ZIP_FROM_HISTORICAL_TREE','bytes':len(v101),'sha256':sha(v101),'candidates':runtime_summary(OUT/'v101')},
+ 'v1.0.6':{'authority':'HISTORICAL_BASE64_STREAM_HASH_MISMATCH','advertised_sha256':expected,'reconstructed_sha256':actual,'hash_match':actual==expected,'bytes':len(v106),'zip_extractable':v106_zip_ok,'transport_parts':parts,'candidates':v106_candidates},
+ 'history':history}
 (OUT/'EARLY_HISTORY.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
-# Text grep evolution inventory across extracted history docs.
 keywords=['v1.0.1','v1.0.2','v1.0.3','v1.0.4','v1.0.5','v1.0.6','optional login','DIALOG_VISIBLE','Writing Block','CAPTCHA','explicit listing queue']
 hits={k:[] for k in keywords}
 for base in (OUT/'History',OUT/'HistoryDocs'):
@@ -71,4 +75,4 @@ for base in (OUT/'History',OUT/'HistoryDocs'):
   for k in keywords:
    if k.lower() in t.lower():hits[k].append(str(f.relative_to(OUT)))
 (OUT/'EARLY_TEXT_HITS.json').write_text(json.dumps(hits,ensure_ascii=False,indent=2),encoding='utf-8')
-print(json.dumps({'v101_sha256':sha(v101),'v106_sha256':sha(v106),'v101_candidates':summary['v1.0.1']['candidates'],'v106_candidates':summary['v1.0.6']['candidates'],'history_manifest_count':sum(len(x['manifests']) for x in history),'history_version_named_paths':sum(len(x['version_named_paths']) for x in history),'hits':{k:len(v) for k,v in hits.items()}},ensure_ascii=False))
+print(json.dumps({'v101_sha256':sha(v101),'v101_candidates':summary['v1.0.1']['candidates'],'v106_advertised_sha256':expected,'v106_reconstructed_sha256':actual,'v106_hash_match':actual==expected,'v106_zip_extractable':v106_zip_ok,'v106_candidates':v106_candidates,'history_manifest_count':sum(len(x['manifests']) for x in history),'history_version_named_paths':sum(len(x['version_named_paths']) for x in history),'hits':{k:len(v) for k,v in hits.items()}},ensure_ascii=False))
