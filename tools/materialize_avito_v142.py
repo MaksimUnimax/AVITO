@@ -70,16 +70,37 @@ def main() -> None:
     chat = replace_once(chat, old_diag, new_diag, "payload retry diagnostic fields")
     chat_path.write_text(chat, encoding="utf-8")
 
+    # The Worker validates the exact ChatGPT capture adapter protocol+version on
+    # every PING before it accepts commands. Because the capture adapter behavior
+    # changed from 0.6.18 to 0.6.19, the worker-side expected identity must advance
+    # in the same release. This is identity synchronization only; no worker state
+    # machine/recovery/navigation behavior is changed.
+    worker_path = DEST / "service_worker.js"
+    worker = worker_path.read_text(encoding="utf-8")
+    worker = replace_once(worker, 'const CAPTURE_VERSION = "0.6.18";', 'const CAPTURE_VERSION = "0.6.19";', "Worker capture adapter identity")
+    worker_path.write_text(worker, encoding="utf-8")
+
+    # Version-specific static contract from v1.0.41 is still semantically valid;
+    # only its release-identity assertion/label advances with the materialized
+    # manifest. Keep the behavior assertions unchanged.
+    form_gate_path = DEST / "tests" / "v135_prompt_form_terminal_gate.test.py"
+    form_gate = form_gate_path.read_text(encoding="utf-8")
+    form_gate = replace_once(form_gate, 'assert \'"version": "1.0.41"\' in manifest', 'assert \'"version": "1.0.42"\' in manifest', "Form-gate manifest identity expectation")
+    form_gate = replace_once(form_gate, "print('v1.0.41 prompt form terminal gate PASS')", "print('v1.0.42 prompt form terminal gate PASS')", "Form-gate release label")
+    form_gate_path.write_text(form_gate, encoding="utf-8")
+
     target_test = DEST / "tests" / "writing_block_capture_v142.py"
     shutil.copy2(GREEN_SOURCE, target_test)
 
     origin = {
-        "schema": "avito_finder_v142_materialization_v1",
+        "schema": "avito_finder_v142_materialization_v2",
         "version": "1.0.42",
         "base_version": "1.0.41",
-        "production_runtime_changed": ["chatgpt_content.js", "avito_content.js", "manifest.json"],
+        "production_runtime_changed": ["chatgpt_content.js", "service_worker.js", "avito_content.js", "manifest.json"],
         "runtime_behavior_changed": ["chatgpt_content.js"],
-        "identity_only_changed": ["avito_content.js", "manifest.json"],
+        "identity_only_changed": ["service_worker.js", "avito_content.js", "manifest.json"],
+        "test_only_changed": ["tests/v135_prompt_form_terminal_gate.test.py", "tests/writing_block_capture_v142.py"],
+        "service_worker_behavior_delta": "CAPTURE_VERSION 0.6.18 -> 0.6.19 only",
         "service_worker_byte_identical_to_v141": sha256(DEST / "service_worker.js") == sha256(BASE / "service_worker.js"),
         "proxy_manager_byte_identical_to_v141": sha256(DEST / "proxy_manager.js") == sha256(BASE / "proxy_manager.js"),
         "capture_contract": {
@@ -88,10 +109,15 @@ def main() -> None:
             "unrelated_assistant_controls_excluded_from_structural_signature": True,
             "payload_fingerprint_stability_retained": True,
             "ordinary_markdown_remains_non_executable": True,
+            "worker_capture_identity_matches_adapter": True,
         },
         "base_chatgpt_content_sha256": sha256(BASE / "chatgpt_content.js"),
         "materialized_chatgpt_content_sha256": sha256(DEST / "chatgpt_content.js"),
+        "base_service_worker_sha256": sha256(BASE / "service_worker.js"),
+        "materialized_service_worker_sha256": sha256(DEST / "service_worker.js"),
     }
+    if origin["service_worker_byte_identical_to_v141"]:
+        raise RuntimeError("service_worker identity did not advance with chat capture adapter")
     (DEST / "BUILD_ORIGIN_v1.0.42.json").write_text(json.dumps(origin, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(origin, ensure_ascii=False, indent=2))
 
