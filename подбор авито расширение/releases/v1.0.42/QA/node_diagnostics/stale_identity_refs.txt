@@ -1,0 +1,7 @@
+подбор авито расширение/releases/v1.0.42/v142_work/tests/ip_block_verified_egress_v123.test.js:23:test("v1.0.41 retains bounded diagnostic host permissions without all-URL access", () => {
+подбор авито расширение/releases/v1.0.42/v142_work/tests/ip_block_verified_egress_v123.test.js:24:  assert.equal(manifest.version, "1.0.41");
+подбор авито расширение/releases/v1.0.42/v142_work/tests/ip_block_ui_plan_recovery_v124.test.js:11:test("v1.0.41 is the unified recovery build", () => {
+подбор авито расширение/releases/v1.0.42/v142_work/tests/ip_block_ui_plan_recovery_v124.test.js:12:  assert.equal(manifest.version, "1.0.41");
+подбор авито расширение/releases/v1.0.42/v142_work/tests/traffic_lite_zero_media.test.js:12:test("v1.0.41 preserves zero-media Traffic Lite alongside unified recovery", () => {
+подбор авито расширение/releases/v1.0.42/v142_work/tests/traffic_lite_zero_media.test.js:13:  assert.equal(manifest.version, "1.0.41");
+подбор авито расширение/releases/v1.0.42/v142_work/tests/proxy_recovery_integrity_v137.test.js:79:  assert.equal(manifest.version,'1.0.41');
