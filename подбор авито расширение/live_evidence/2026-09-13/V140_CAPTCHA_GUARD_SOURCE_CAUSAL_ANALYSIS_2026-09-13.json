@@ -1,0 +1,34 @@
+{
+  "schema": "avito_finder_live_causal_analysis_v1",
+  "date": "2026-09-13",
+  "release": "1.0.40",
+  "task_id": "af-20260913103028-k9qv",
+  "observed_url": "https://www.avito.ru/yuzhno-sahalinsk/nastolnye_kompyutery/dell_vostro_3470_4750223208",
+  "observed_dom_snapshot": "3053:def76143",
+  "observed_page_status": "BLOCKED_LOGIN_OR_CAPTCHA",
+  "observed_heading": "Доступ ограничен: проблема с IP",
+  "visible_pre_captcha_button": "Продолжить",
+  "cards_read": 0,
+  "baseline_preserved": "150/150",
+  "source_authority": {
+    "core": "подбор авито расширение/releases/v1.0.40/v140_work/core.js",
+    "avito_content": "подбор авито расширение/releases/v1.0.40/v140_work/avito_content.js"
+  },
+  "parser_finding": {
+    "avito_ui_supports_click": true,
+    "valid_click_shape": "Нажми \"<visible target>\"",
+    "unsupported_noop_wait_plan_was_operator_error": true
+  },
+  "executor_finding": {
+    "pre_step_block_guard": true,
+    "guard_function": "detectBlock()",
+    "captcha_classification_precedes_ip_block_classification": true,
+    "effect": "Every AVITO_UI step is rejected as blocked before CLICK dispatch while CAPTCHA/firewall is detected."
+  },
+  "causal_conclusion": "A syntactically valid AVITO_UI click on the visible pre-CAPTCHA button would still not execute, because the content executor evaluates detectBlock() before every plan step and terminates the plan on BLOCKED_LOGIN_OR_CAPTCHA. The button must therefore be activated manually by the owner; no runtime patch is justified for this intended safety boundary.",
+  "prior_v139_ambiguity_gate_recurred": false,
+  "v140_allocation_observation": "PROGRESSED_BEYOND_PRIOR_COMMAND_CAPTURED_AMBIGUITY_TO_AVITO_NAVIGATION",
+  "full_installed_e2e": "NOT_COMPLETE",
+  "runtime_patch_required": false,
+  "next_safe_step": "Owner manually clicks Продолжить and solves CAPTCHA in the existing Avito tab. After normal listing page returns, resume the preserved Dell -> ITX -> Lenovo queue with an executable Writing Block."
+}
