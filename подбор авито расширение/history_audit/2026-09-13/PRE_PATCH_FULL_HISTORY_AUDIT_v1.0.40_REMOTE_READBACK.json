@@ -1,0 +1,13 @@
+{
+  "schema": "avito_finder_rule20_remote_readback_v1",
+  "date": "2026-09-13",
+  "target_version": "1.0.40",
+  "status": "PASS",
+  "md_path": "подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.40_2026-09-13.md",
+  "md_blob_sha": "03becfb470b33d8dc860572fa497b10bcd646aaf",
+  "json_path": "подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.40_2026-09-13.json",
+  "json_blob_sha": "3c44748d4a7ea052adfeef94cd94d085fb5ce3df",
+  "full_history_audit": "PASS",
+  "runtime_changed_before_readback": false,
+  "notes": "Both current v1.0.40 Rule-20 authorities were read back from main after persistence. This closes the pre-runtime history gate only."
+}
