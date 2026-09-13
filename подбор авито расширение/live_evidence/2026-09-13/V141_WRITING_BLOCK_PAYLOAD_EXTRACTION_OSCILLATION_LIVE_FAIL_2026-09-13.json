@@ -1,0 +1,47 @@
+{
+  "schema": "avito_finder_live_fail_v2",
+  "date": "2026-09-13",
+  "release": "1.0.41",
+  "task_id": "af-20260913121226-xf3c",
+  "assistant_turn_id": "request-6aa685f0-e0cc-83ea-ad54-8d1e253ac1bf-17",
+  "phase": "CHATGPT_WRITING_BLOCK_CAPTURE",
+  "status": "LIVE_FAIL_CAUSAL_CHAIN_PROVEN",
+  "live_observation": {
+    "pattern": "The same visible Writing Block repeatedly alternated between WRITING_BLOCK_LOCAL_BODY_UNAVAILABLE / payload_bytes=0 and payload_extracted=true / payload_bytes=2447. Each non-empty observation restarted PROMPT_DOM_STABILITY_STARTED; no command reached the Worker before the operator interrupted the loop.",
+    "representative_sequence": [
+      "2026-09-13T12:33:19.315Z PROMPT_EMPTY_WRITING_BLOCK_IGNORED payload_bytes=0 payload_extraction_error=WRITING_BLOCK_LOCAL_BODY_UNAVAILABLE",
+      "2026-09-13T12:33:20.029Z PROMPT_DOM_STABILITY_STARTED payload_bytes=2447 payload_extracted=true",
+      "2026-09-13T12:33:22.090Z PROMPT_EMPTY_WRITING_BLOCK_IGNORED payload_bytes=0 payload_extraction_error=WRITING_BLOCK_LOCAL_BODY_UNAVAILABLE",
+      "2026-09-13T12:33:22.809Z PROMPT_DOM_STABILITY_STARTED payload_bytes=2447 payload_extracted=true",
+      "2026-09-13T12:33:24.801Z PROMPT_EMPTY_WRITING_BLOCK_IGNORED payload_bytes=0 payload_extraction_error=WRITING_BLOCK_LOCAL_BODY_UNAVAILABLE",
+      "2026-09-13T12:33:25.553Z PROMPT_DOM_STABILITY_STARTED payload_bytes=2447 payload_extracted=true"
+    ],
+    "repetition": "The same empty -> non-empty -> stability restart pattern continued for more than one minute until a manual user turn interrupted polling.",
+    "copy_ready_during_loop": true,
+    "writing_block_detected_during_loop": true
+  },
+  "exact_v141_code_chain": [
+    "promptTick waits for structural stability",
+    "confirmLocalWritingBlockCopyAndExtract() re-resolves the Writing Block and extracts its local DOM body",
+    "when extraction is empty/unavailable, PROMPT_EMPTY_WRITING_BLOCK_IGNORED executes",
+    "that branch sets candidateFirstSeen = null and schedules another prompt check",
+    "on the next non-empty observation, !candidateFirstSeen forces structuralChanged=true",
+    "PROMPT_DOM_STABILITY_STARTED restarts the two-second structural gate from zero",
+    "the live renderer can become locally unreadable again at/after the gate, returning to the empty branch",
+    "there is no terminal budget for this empty/non-empty oscillation, so the cycle can repeat indefinitely"
+  ],
+  "root_cause": "Transient Writing Block local-body unavailability is treated as a full loss of candidate stability. Resetting candidateFirstSeen to null couples payload extraction failure back into the structural-stability gate and creates an unbounded restart loop.",
+  "historical_origin_boundary": "The same candidateFirstSeen=null empty-payload branch is present in exact v1.0.34 and remains present in exact v1.0.41. Exact authority is insufficient to claim it first appeared before v1.0.34.",
+  "supersedes": {
+    "file": "V141_WRITING_BLOCK_DOM_STABILITY_HANG_LIVE_FAIL_2026-09-13.json",
+    "scope": "causal interpretation only",
+    "reason": "The earlier screenshot-based record correctly captured a hang and a secondary structural-signature risk, but only labeled button churn as a high-confidence candidate pending signature evidence. The live journal now provides a more direct causal chain: local-body availability oscillation itself resets candidateFirstSeen and restarts the gate."
+  },
+  "secondary_risk_not_currently_proven_as_trigger": "writingBlockStructuralSignature still incorporates every assistant-section button snapshot, so unrelated assistant controls can perturb structural_signature. This remains a separate regression target but is not required to explain the observed live loop.",
+  "rule_implications": {
+    "rule_7": "Previous screenshot-only causal claim was premature; corrected by this evidence-backed chain.",
+    "rule_15": "FAIL in v1.0.41 capture path: the oscillation has no terminal condition.",
+    "rule_16": "FAIL in existing regression authority: current tests did not reproduce the live empty/non-empty body oscillation."
+  },
+  "patch_boundary": "No runtime patch is authorized by this evidence alone. Extend the full Rule-20 audit through v1.0.41 and add an exact-v1.0.41 RED reproducing intermittent local-body unavailability. Keep proxy/IP recovery as a separate state-machine issue."
+}
