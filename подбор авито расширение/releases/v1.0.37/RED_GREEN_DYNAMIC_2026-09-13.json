@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-13",
+  "scope": "DYNAMIC_REAL_WORKER_FUNCTIONS_WITH_CHROME_NETWORK_DOUBLES",
+  "test": "tests/proxy_recovery_integrity_dynamic_v137.test.js",
+  "base": {
+    "version": "1.0.36",
+    "revision": "R2",
+    "archive_sha256": "c703c9875687d69b2d2ab5e265268cb5fd9ef44d86a95c305a6ae24e4589104c",
+    "pass": 0,
+    "fail": 6,
+    "exit_code": 1
+  },
+  "patched_local_candidate": {
+    "version": "1.0.37",
+    "pass": 6,
+    "fail": 0,
+    "exit_code": 0,
+    "status": "GREEN_LOCAL_NOT_RELEASE_ACCEPTANCE"
+  },
+  "scenarios": [
+    "wrong/DIRECT PAC while runtime says proxy must produce PROXY_CONFIG_MISMATCH",
+    "active-profile auth evidence survives same-profile internal PAC reapply",
+    "attempt 3 plus visible CAPTCHA persists current attempt receipt before terminal same-chat report",
+    "missing session API key on attempt 3 persists endpoint-create SKIPPED/API_KEY_UNAVAILABLE",
+    "egress probe errors survive in prepared result and durable diagnostics",
+    "successful CAPTCHA failure report delivery enters CAPTCHA_MANUAL_WAIT immediately without wake re-probe"
+  ],
+  "live_network_requests": 0,
+  "provider_mutations": 0,
+  "note": "These are cross-layer dynamic regressions over real packaged worker functions. They intentionally use Chrome/network doubles and do not claim installed Chrome acceptance or a working live proxy."
+}
