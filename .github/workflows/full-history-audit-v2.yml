@@ -1,0 +1,43 @@
+name: Full Avito Finder history audit v2
+on:
+  push:
+    branches: [audit/full-history-2026-09-13]
+    paths:
+      - 'tools/full_history_audit_v2.py'
+      - '.github/workflows/full-history-audit-v2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch all refs
+        run: git fetch --all --tags --prune
+      - name: Run exhaustive v2 scanner
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/full_history_audit_v2.py --out audit-output-v2
+      - name: Show summary
+        run: cat audit-output-v2/SUMMARY.json
+      - name: Enforce audit-only branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=$(git merge-base origin/main HEAD)
+          changed=$(git -c core.quotepath=false diff --name-only "$base"..HEAD)
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -E '(^|/)(manifest\.json|service_worker\.js|chatgpt_content\.js|avito_content\.js|core\.js|proxy_manager\.js|recovery\.js|popup\.js|popup\.html|popup\.css)$'; then
+            echo AUDIT_BRANCH_RUNTIME_CHANGE_FORBIDDEN >&2; exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-full-history-audit-v2
+          path: audit-output-v2/
+          retention-days: 90
+          if-no-files-found: error
