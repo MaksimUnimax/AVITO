@@ -5,9 +5,10 @@
   "scenarios": [
     {
       "name": "transient same-block extraction miss",
-      "full_text_count": 0,
-      "retry_count": 1,
-      "structural_restarts": 10,
+      "full_text_count": 1,
+      "retry_count": 0,
+      "structural_restarts": 1,
+      "confirm_invocations": 8,
       "pass": false
     },
     {
@@ -22,6 +23,7 @@
       "full_text_count": 0,
       "retry_count": 1,
       "bounded_failure_count": 1,
+      "confirm_invocations": 6,
       "pass": true
     }
   ],
