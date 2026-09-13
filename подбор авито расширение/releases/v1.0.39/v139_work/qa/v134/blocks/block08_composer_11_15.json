@@ -1,0 +1,35 @@
+{
+  "scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE",
+  "installed_extension": false,
+  "live_chatgpt": false,
+  "tests": [
+    {
+      "test": "protect against edit during staging: price",
+      "status": "PASS",
+      "ms": 2168
+    },
+    {
+      "test": "protect against edit during staging: blank_line",
+      "status": "PASS",
+      "ms": 2148
+    },
+    {
+      "test": "protect against edit during staging: zwj",
+      "status": "PASS",
+      "ms": 2107
+    },
+    {
+      "test": "protect against edit during staging: undo_same",
+      "status": "PASS",
+      "ms": 2103
+    },
+    {
+      "test": "missing Send leaves complete report, does not clear composer",
+      "status": "PASS",
+      "ms": 8158
+    }
+  ],
+  "pass": 5,
+  "fail": 0,
+  "page_errors": []
+}

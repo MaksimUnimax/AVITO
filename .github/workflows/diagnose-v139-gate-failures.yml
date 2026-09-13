@@ -1,0 +1,98 @@
+name: Diagnose v1.0.39 gate failures A/B
+on:
+  push:
+    branches: [fix/v139-exact-requested-tab-disambiguation-2026-09-13]
+    paths: ['.github/workflows/diagnose-v139-gate-failures.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      BASE: подбор авито расширение/releases/v1.0.38/v138_work
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Prepare Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+      - name: Materialize candidate only in /tmp
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v139diag
+          python tools/materialize_avito_v139.py "$BASE" /tmp/v139diag
+          test "$(python -c "import json;print(json.load(open('/tmp/v139diag/v139_work/manifest.json'))['version'])")" = 1.0.39
+          git diff --quiet -- . ':!*.yml' ':!*.yaml' || { echo REPOSITORY_RUNTIME_DIRTY >&2; git status --short; exit 1; }
+      - name: Exact Node aggregate A/B
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/diag
+          set +e
+          (cd "$BASE" && node --test tests/*.test.js) > /tmp/diag/node_v138.log 2>&1
+          BRC=$?
+          (cd /tmp/v139diag/v139_work && node --test tests/*.test.js) > /tmp/diag/node_v139.log 2>&1
+          CRC=$?
+          set -e
+          echo "v138_exit=$BRC" | tee /tmp/diag/node_status.txt
+          echo "v139_exit=$CRC" | tee -a /tmp/diag/node_status.txt
+          tail -n 80 /tmp/diag/node_v138.log
+          tail -n 120 /tmp/diag/node_v139.log
+          test "$BRC" -eq 0
+          grep -q '# pass 368' /tmp/diag/node_v138.log
+          grep -q '# fail 0' /tmp/diag/node_v138.log
+          test "$CRC" -ne 0
+          grep -q 'SOURCE_PATH_REQUIRED' /tmp/diag/node_v139.log
+      - name: Adapter identity A/B four repeats under exact 20s limit
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > /tmp/diag/adapter_ab.tsv
+          run_one(){
+            label="$1"; root="$2"; idx="$3"; out="/tmp/diag/${label}_${idx}.json"; log="/tmp/diag/${label}_${idx}.log"; tm="/tmp/diag/${label}_${idx}.time"
+            set +e
+            /usr/bin/time -f '%e' -o "$tm" timeout --signal=KILL 20s python "$BASE/tests/check_packaged_adapter_v136.py" "$root" "$out" > "$log" 2>&1
+            rc=$?
+            set -e
+            sec=$(cat "$tm" 2>/dev/null || echo NA)
+            printf '%s\t%s\t%s\n' "$label" "$idx" "$rc:$sec" | tee -a /tmp/diag/adapter_ab.tsv
+          }
+          for i in 1 2 3 4; do run_one v138 "$BASE" "$i"; done
+          for i in 1 2 3 4; do run_one v139 /tmp/v139diag/v139_work "$i"; done
+          cat /tmp/diag/adapter_ab.tsv
+          python - <<'PY'
+          from pathlib import Path
+          rows=[]
+          for line in Path('/tmp/diag/adapter_ab.tsv').read_text().splitlines():
+              label,idx,val=line.split('\t'); rc,sec=val.split(':',1); rows.append((label,int(idx),int(rc),float(sec)))
+          for label in ('v138','v139'):
+              x=[r for r in rows if r[0]==label]
+              print(label,x)
+              assert any(r[2]==0 for r in x), (label,'no successful adapter run',x)
+          PY
+      - name: Prove diagnostics made no production runtime changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --short
+          bad=$(git -c core.quotepath=false diff --name-only | grep -E '(^|/)(manifest\.json|service_worker\.js|chatgpt_content\.js|avito_content\.js|core\.js|proxy_manager\.js|recovery\.js|popup\.js|popup\.html|popup\.css)$' || true)
+          test -z "$bad" || { echo "$bad"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v139-gate-failure-diagnostics
+          path: /tmp/diag/
+          retention-days: 90
+          if-no-files-found: error

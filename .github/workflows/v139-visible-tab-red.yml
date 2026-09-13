@@ -1,0 +1,52 @@
+name: v1.0.39 visible-tab RED
+on:
+  push:
+    branches: [fix/v139-exact-requested-tab-disambiguation-2026-09-13]
+    paths:
+      - 'подбор авито расширение/v139_prepatch_tests/**'
+      - '.github/workflows/v139-visible-tab-red.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert exact v1.0.38 regression is RED
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_file='подбор авито расширение/v139_prepatch_tests/visible_tab_exact_request_disambiguation.test.js'
+          source_file='подбор авито расширение/releases/v1.0.38/v138_work/service_worker.js'
+          set +e
+          node "$test_file" "$source_file" > /tmp/red.log 2>&1
+          rc=$?
+          set -e
+          cat /tmp/red.log
+          if [ "$rc" -eq 0 ]; then
+            echo 'EXPECTED_RED_BUT_TEST_PASSED' >&2
+            exit 1
+          fi
+          grep -q 'AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB' /tmp/red.log
+          printf '{"status":"RED_CONFIRMED","source":"v1.0.38","exit_code":%s,"expected_failure":"AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB"}\n' "$rc" > /tmp/V139_RED.json
+          cat /tmp/V139_RED.json
+      - name: Prove no runtime changes before RED
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=$(git merge-base origin/main HEAD)
+          changed=$(git -c core.quotepath=false diff --name-only "$base"..HEAD)
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -E '(^|/)(manifest\.json|service_worker\.js|chatgpt_content\.js|avito_content\.js|core\.js|proxy_manager\.js|recovery\.js|popup\.js|popup\.html|popup\.css)$'; then
+            echo 'RUNTIME_CHANGED_BEFORE_RED' >&2
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v139-visible-tab-red
+          path: /tmp/V139_RED.json
+          retention-days: 90

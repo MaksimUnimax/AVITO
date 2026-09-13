@@ -1,0 +1,24 @@
+{
+  "production_runtime_changed": [
+    "avito_content.js",
+    "manifest.json",
+    "service_worker.js"
+  ],
+  "changed_before_metadata": [
+    "avito_content.js",
+    "manifest.json",
+    "service_worker.js",
+    "tests/ip_block_ui_plan_recovery_v124.test.js",
+    "tests/ip_block_verified_egress_v123.test.js",
+    "tests/proxy_recovery_integrity_v137.test.js",
+    "tests/run_all_v136.py",
+    "tests/traffic_lite_zero_media.test.js",
+    "tests/v135_prompt_form_terminal_gate.test.py",
+    "tests/visible_tab_exact_request_disambiguation_v139.test.js"
+  ],
+  "test_harness_corrections": [
+    "visible_tab_exact_request_disambiguation_v139.test.js aggregate default source",
+    "run_all_v136.py adapter_identity deadline 20->30 after A/B evidence"
+  ],
+  "status": "PASS"
+}

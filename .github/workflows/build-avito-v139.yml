@@ -1,0 +1,194 @@
+name: Build and verify Avito Finder v1.0.39 exact requested tab disambiguation
+on:
+  push:
+    branches: [fix/v139-exact-requested-tab-disambiguation-2026-09-13]
+    paths:
+      - '.github/workflows/build-avito-v139.yml'
+      - 'tools/materialize_avito_v139.py'
+      - 'tools/package_avito_v139.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: avito-v139-exact-requested-tab-disambiguation
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    outputs:
+      checked_commit: ${{ steps.persist.outputs.commit }}
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      BRANCH: fix/v139-exact-requested-tab-disambiguation-2026-09-13
+      BASE: подбор авито расширение/releases/v1.0.38/v138_work
+      RELEASE: подбор авито расширение/releases/v1.0.39
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v139-exact-requested-tab-disambiguation-2026-09-13
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Prepare Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+      - name: Verify Rule 20 and exact v1.0.38 authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,zipfile
+          from pathlib import Path
+          audit=json.loads(Path('подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json').read_text())
+          assert audit['status']=='PASS' and audit['runtime_patch_during_audit'] is False
+          r=Path('подбор авито расширение/releases/v1.0.38'); b=json.loads((r/'BUILD_v1.0.38.json').read_text()); z=r/b['archive']
+          assert b['archive_sha256']=='2f1282e2262b322ef5f17a3852a388dd5480363b9fa5a60346f3264084d477f4'
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==b['archive_sha256']
+          with zipfile.ZipFile(z) as f: assert f.testzip() is None and len(f.namelist())==b['source_files']
+          assert json.loads(Path('подбор авито расширение/releases/v1.0.38/v138_work/manifest.json').read_text())['version']=='1.0.38'
+          rr=json.loads((r/'REMOTE_READBACK.json').read_text()); assert rr['status']=='PASS'
+          PY
+      - name: RED — exact v1.0.38 cannot bind unique exact requested tab among multiple Avito tabs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RELEASE/QA/red"; mkdir -p "$RELEASE/QA/red"
+          test_file='подбор авито расширение/v139_prepatch_tests/visible_tab_exact_request_disambiguation.test.js'
+          set +e
+          node "$test_file" "$BASE/service_worker.js" > "$RELEASE/QA/red/exact_requested_tab.log" 2>&1
+          RC=$?
+          set -e
+          cat "$RELEASE/QA/red/exact_requested_tab.log"
+          test "$RC" -eq 1
+          grep -q 'AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB' "$RELEASE/QA/red/exact_requested_tab.log"
+          printf '{"status":"RED_CONFIRMED","source":"v1.0.38","exit_code":%s,"failure":"AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB"}\n' "$RC" > "$RELEASE/QA/red/RED.json"
+      - name: Materialize minimal v1.0.39
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RELEASE/v139_work" "$RELEASE/QA/worktree" "$RELEASE/QA/final_zip"
+          python tools/materialize_avito_v139.py "$BASE" "$RELEASE"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('подбор авито расширение/releases/v1.0.39/MATERIALIZATION.json').read_text())
+          assert d['production_runtime_changed']==['avito_content.js','manifest.json','service_worker.js'],d
+          PY
+      - name: GREEN — exact requested-tab regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node "$RELEASE/v139_work/tests/visible_tab_exact_request_disambiguation_v139.test.js" "$RELEASE/v139_work/service_worker.js" | tee "$RELEASE/QA/targeted_green.log"
+          grep -q 'PASS 5/5' "$RELEASE/QA/targeted_green.log"
+      - name: Full regression — worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          AF_QA_OUTPUT="$RELEASE/QA/worktree" python -u "$RELEASE/v139_work/tests/run_all_v136.py"
+          python - <<'PY'
+          import json,re
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.39/QA/worktree')
+          d=json.loads((r/'summary.json').read_text()); assert d['complete'] and d['pass']==35 and d['fail']==0,d
+          node=(r/'node.log').read_text(); assert re.search(r'# pass 369\b',node) and re.search(r'# fail 0\b',node),node[-2000:]
+          PY
+      - name: Package final ZIP and rerun from fresh extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$RELEASE/AVITO_FINDER_v1.0.39_EXACT_REQUESTED_TAB_DISAMBIGUATION_2026-09-13.zip"
+          rm -f "$ZIP" "$RELEASE/BUILD_v1.0.39.json"
+          python tools/package_avito_v139.py "$RELEASE/v139_work" "$ZIP"
+          FINAL=$(mktemp -d); export FINAL
+          python - <<'PY'
+          import hashlib,json,os,zipfile
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.39'); b=json.loads((r/'BUILD_v1.0.39.json').read_text()); z=r/b['archive']
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==b['archive_sha256']
+          with zipfile.ZipFile(z) as f:
+              assert f.testzip() is None and len(f.namelist())==b['source_files']; f.extractall(os.environ['FINAL'])
+          PY
+          node "$FINAL/v139_work/tests/visible_tab_exact_request_disambiguation_v139.test.js" "$FINAL/v139_work/service_worker.js" | tee "$RELEASE/QA/final_targeted_green.log"
+          AF_QA_OUTPUT="$RELEASE/QA/final_zip" python -u "$FINAL/v139_work/tests/run_all_v136.py"
+          python - <<'PY'
+          import json,re
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.39'); a=json.loads((r/'QA/worktree/summary.json').read_text()); b=json.loads((r/'QA/final_zip/summary.json').read_text()); build=json.loads((r/'BUILD_v1.0.39.json').read_text())
+          assert a['complete'] and a['pass']==35 and a['fail']==0
+          assert b['complete'] and b['pass']==35 and b['fail']==0
+          assert re.search(r'# pass 369\b',(r/'QA/final_zip/node.log').read_text())
+          receipt={'version':'1.0.39','status':'FINAL_ZIP_OFFLINE_QA_PASS_LIVE_UNVERIFIED','archive':build['archive'],'sha256':build['archive_sha256'],'bytes':build['archive_bytes'],'source_files':build['source_files'],'targeted_exact_tab':'PASS_5_OF_5','node_tests_pass':369,'worktree_groups_pass':35,'worktree_groups_fail':0,'final_zip_groups_pass':35,'final_zip_groups_fail':0,'installed_live_acceptance':'NOT_RUN','live_provider_calls':0}
+          (r/'CHECKPOINT.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          report=f'''# Avito Finder v1.0.39 — exact requested tab disambiguation\n\nStatus: `OFFLINE_QA_PASS / LIVE_UNVERIFIED`.\n\n## Root cause\n\nInstalled v1.0.38 task `af-20260913062414-29ps` stopped twice at `COMMAND_CAPTURED` with `AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB`, recovery=0 and mutations=0. `ensureAvitoTarget` already knew the exact requested Dell URL, but `selectVisibleAvitoTab(windowId)` discarded that evidence and rejected every multiple-Avito-tab state before routing.\n\n## Patch\n\nOnly `service_worker.js` behavior changes: preserve unique active-Avito preference; otherwise, when several Avito tabs exist, bind only if exactly one existing candidate already matches the normalized requested public route. Zero matches and duplicate exact matches remain terminal ambiguity. No tab is navigated merely to resolve ambiguity. `manifest.json` and `avito_content.js` change only release identity to 1.0.39. Queue/cursor, target dispatch, proxy/recovery, capture/report and CAPTCHA boundaries are unchanged.\n\n## RED → GREEN\n\nExact v1.0.38: RED with `AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB`. v1.0.39: 5/5 targeted PASS. Full worktree 35/35, Node 369/369. Final ZIP fresh extraction 35/35, Node 369/369.\n\n## Rule compliance\n\n| Rule | Status | Evidence |\n|---|---|---|\n| 1 root cause/state machine | PASS | live fail → selector ignoring requestedUrl |\n| 2 exact layer | PASS | tests actual tab selector, not proxy/IP |\n| 3 local != live | PASS | release remains LIVE_UNVERIFIED |\n| 4 baseline | PASS | queue/cursor/proxy/capture untouched |\n| 5 ChatGPT↔Finder contract | PASS | unchanged |\n| 6 reproduce before patch | PASS | exact v1.0.38 RED |\n| 7 causal chain | PASS | live observation → code → RED |\n| 8 minimal patch | PASS | service_worker behavior + two version identity files |\n| 9 same defect scenario | PASS offline | 5/5 exact selector scenarios |\n| 10 prior regressions | PASS | full suite 35/35 + 369/369 |\n| 11 final build | PASS | fresh-extract rerun |\n| 12 installed E2E | NOT_RUN | owner Chrome required |\n| 13 live FAIL rejects | PASS process | v1.0.38 remained unaccepted |\n| 14 proxy transport isolation | PASS | proxy files byte-identical |\n| 15 bounded waits | PASS | unchanged |\n| 16 test catches live bug | PASS | RED on v1.0.38 |\n| 17 exact source | PASS | base v1.0.38 remote-verified authority |\n| 18 report | PASS | this report |\n| 19 GitHub persistence | PASS after remote readback/merge | source ZIP QA persisted in this release cycle |\n| 20 full history audit | PASS | PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md/json |\n\n## НАРУШЕННЫЕ ПРАВИЛА\n\nPrevious v1.0.38 behavior violated Rule 2/7/16 for this newly exposed state: exact requested-route evidence was available but not consumed by the target selector, and no permanent regression covered unique-exact-match disambiguation. This patch adds that regression while preserving ambiguity for zero/duplicate matches.\n\nBuild SHA-256: `{build['archive_sha256']}`. Bytes: `{build['archive_bytes']}`. Source files: `{build['source_files']}`.\n'''
+          (r/'PATCH_REPORT_v1.0.39_RU.md').write_text(report,encoding='utf-8')
+          PY
+      - name: Persist source ZIP and QA
+        id: persist
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- "$RELEASE" tools/materialize_avito_v139.py tools/package_avito_v139.py 'подбор авито расширение/v139_prepatch_tests/visible_tab_exact_request_disambiguation.test.js'
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: persist Avito Finder v1.0.39 exact requested tab candidate'
+            git push origin HEAD:"$BRANCH"
+          fi
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-v139-exact-tab
+          path: подбор авито расширение/releases/v1.0.39/
+          if-no-files-found: error
+  remote-readback:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.checked_commit }}
+          fetch-depth: 0
+      - name: Independent byte hash QA and diff readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,subprocess,zipfile
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.39'); b=json.loads((r/'BUILD_v1.0.39.json').read_text()); z=r/b['archive']
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==b['archive_sha256'] and len(z.read_bytes())==b['archive_bytes']
+          q1=json.loads((r/'QA/worktree/summary.json').read_text()); q2=json.loads((r/'QA/final_zip/summary.json').read_text()); assert q1['pass']==35 and q1['fail']==0 and q2['pass']==35 and q2['fail']==0
+          with zipfile.ZipFile(z) as f:
+              assert f.testzip() is None and len(f.namelist())==b['source_files']
+              for n,h in b['source_hashes'].items():
+                  x=f.read('v139_work/'+n); y=(r/'v139_work'/n).read_bytes(); assert x==y and hashlib.sha256(x).hexdigest()==h,n
+          o=json.loads((r/'v139_work/BUILD_ORIGIN_v1.0.39.json').read_text()); assert o['runtime_changed']==['avito_content.js','manifest.json','service_worker.js']; assert o['safe_selection_contract']['navigation_for_disambiguation'] is False
+          base=Path('подбор авито расширение/releases/v1.0.38/v138_work')
+          unchanged=['chatgpt_content.js','core.js','proxy_manager.js','recovery.js','popup.js','popup.html','popup.css']
+          for n in unchanged: assert (base/n).read_bytes()==(r/'v139_work'/n).read_bytes(),n
+          receipt={'scope':'INDEPENDENT_FRESH_GITHUB_CHECKOUT_V139','verified_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'version':'1.0.39','archive':b['archive'],'sha256':b['archive_sha256'],'bytes':b['archive_bytes'],'source_files_byte_equal':b['source_files'],'worktree_groups_pass':35,'final_zip_groups_pass':35,'groups_fail':0,'node_tests_pass':369,'exact_tab_regression':'PASS_5_OF_5','runtime_changed':o['runtime_changed'],'status':'PASS','installed_live_acceptance':'NOT_RUN'}
+          (r/'REMOTE_READBACK.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          PY
+      - name: Persist readback receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          git add -- 'подбор авито расширение/releases/v1.0.39/REMOTE_READBACK.json'
+          git commit -m 'qa: persist independent v1.0.39 remote readback'
+          git push origin HEAD:fix/v139-exact-requested-tab-disambiguation-2026-09-13
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-v139-remote-verified
+          path: подбор авито расширение/releases/v1.0.39/
+          if-no-files-found: error
