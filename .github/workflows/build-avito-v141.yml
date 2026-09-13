@@ -1,0 +1,177 @@
+name: Build and verify Avito Finder v1.0.41 IP-block firewall classifier
+on:
+  push:
+    branches: [fix/v141-ip-block-firewall-classifier-2026-09-13]
+    paths:
+      - '.github/workflows/build-avito-v141.yml'
+      - 'tools/materialize_avito_v141.py'
+      - 'tools/package_avito_v141.py'
+      - 'подбор авито расширение/v141_prepatch_tests/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: avito-v141-ip-block-firewall-classifier
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      checked_commit: ${{ steps.persist.outputs.commit }}
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      BRANCH: fix/v141-ip-block-firewall-classifier-2026-09-13
+      BASE: подбор авито расширение/releases/v1.0.40/v140_work
+      RELEASE: подбор авито расширение/releases/v1.0.41
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v141-ip-block-firewall-classifier-2026-09-13
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Prepare Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+      - name: Verify Rule 20 and exact v1.0.40 RED authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,zipfile
+          from pathlib import Path
+          audit=json.loads(Path('подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.41_2026-09-13.json').read_text())
+          assert audit['status']=='FULL_HISTORY_AUDIT=PASS' and audit['runtime_changed_during_audit'] is False
+          assert audit['installed_target']=='1.0.40'
+          r=Path('подбор авито расширение/releases/v1.0.40'); b=json.loads((r/'BUILD_v1.0.40.json').read_text()); z=r/b['archive']
+          assert b['archive_sha256']=='04f9bdc205eaa3578d462005ea15749184c5f7e744bd24a19c43e5a88bc1e017'
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==b['archive_sha256']
+          with zipfile.ZipFile(z) as f: assert f.testzip() is None and len(f.namelist())==b['source_files']
+          red=json.loads(Path('подбор авито расширение/releases/v1.0.41/QA/red/RED.json').read_text())
+          assert red['status']=='RED_CONFIRMED' and red['source']=='exact v1.0.40' and red['exit_code']!=0
+          PY
+      - name: Materialize minimal v1.0.41
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RELEASE/v141_work" "$RELEASE/QA/worktree" "$RELEASE/QA/final_zip"
+          python tools/materialize_avito_v141.py "$BASE" "$RELEASE"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('подбор авито расширение/releases/v1.0.41/MATERIALIZATION.json').read_text())
+          assert d['production_runtime_changed']==['avito_content.js','core.js','manifest.json'],d
+          assert d['runtime_behavior_changed']==['core.js'],d
+          assert d['service_worker_byte_identical_to_v140'] is True,d
+          assert d['proxy_manager_byte_identical_to_v140'] is True,d
+          assert d['classification_contract']['ip_firewall_future_captcha_hint_is_not_challenge'] is True
+          assert d['classification_contract']['structural_or_human_robot_captcha_remains_manual_even_with_ip_heading'] is True
+          PY
+      - name: GREEN — live firewall classifier and CAPTCHA preservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node "$RELEASE/v141_work/tests/ip_block_firewall_classifier_v141.test.js" "$RELEASE/v141_work/core.js" | tee "$RELEASE/QA/targeted_green.log"
+          grep -q '# pass 3' "$RELEASE/QA/targeted_green.log"
+          grep -q '# fail 0' "$RELEASE/QA/targeted_green.log"
+      - name: Full regression — worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          AF_QA_OUTPUT="$RELEASE/QA/worktree" python -u "$RELEASE/v141_work/tests/run_all_v136.py"
+          python - <<'PY'
+          import json,re
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.41/QA/worktree')
+          d=json.loads((r/'summary.json').read_text()); assert d['complete'] and d['pass']==35 and d['fail']==0,d
+          node=(r/'node.log').read_text(); assert re.search(r'# pass 373\b',node) and re.search(r'# fail 0\b',node),node[-3000:]
+          PY
+      - name: Package final ZIP and rerun from fresh extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$RELEASE/AVITO_FINDER_v1.0.41_IP_BLOCK_FIREWALL_CLASSIFIER_RECOVERY_2026-09-13.zip"
+          rm -f "$ZIP" "$RELEASE/BUILD_v1.0.41.json"
+          python tools/package_avito_v141.py "$RELEASE/v141_work" "$ZIP"
+          FINAL=$(mktemp -d); export FINAL
+          python - <<'PY'
+          import hashlib,json,os,zipfile
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.41'); b=json.loads((r/'BUILD_v1.0.41.json').read_text()); z=r/b['archive']
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==b['archive_sha256']
+          with zipfile.ZipFile(z) as f:
+              assert f.testzip() is None and len(f.namelist())==b['source_files']; f.extractall(os.environ['FINAL'])
+          PY
+          node "$FINAL/v141_work/tests/ip_block_firewall_classifier_v141.test.js" "$FINAL/v141_work/core.js" | tee "$RELEASE/QA/final_targeted_green.log"
+          AF_QA_OUTPUT="$RELEASE/QA/final_zip" python -u "$FINAL/v141_work/tests/run_all_v136.py"
+          python - <<'PY'
+          import json,re
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.41'); a=json.loads((r/'QA/worktree/summary.json').read_text()); b=json.loads((r/'QA/final_zip/summary.json').read_text()); build=json.loads((r/'BUILD_v1.0.41.json').read_text())
+          assert a['complete'] and a['pass']==35 and a['fail']==0
+          assert b['complete'] and b['pass']==35 and b['fail']==0
+          assert re.search(r'# pass 373\b',(r/'QA/final_zip/node.log').read_text()) and re.search(r'# fail 0\b',(r/'QA/final_zip/node.log').read_text())
+          receipt={'version':'1.0.41','status':'FINAL_ZIP_OFFLINE_QA_PASS_LIVE_UNVERIFIED','archive':build['archive'],'sha256':build['archive_sha256'],'bytes':build['archive_bytes'],'source_files':build['source_files'],'targeted_firewall_classifier':'PASS_3_OF_3','node_tests_pass':373,'worktree_groups_pass':35,'worktree_groups_fail':0,'final_zip_groups_pass':35,'final_zip_groups_fail':0,'installed_live_acceptance':'NOT_RUN','live_provider_calls':0,'baseline_preserved':'150/150'}
+          (r/'CHECKPOINT.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+'\n')
+          report=f'''# Avito Finder v1.0.41 — IP-block firewall classifier recovery\n\nStatus: `OFFLINE_QA_PASS / LIVE_UNVERIFIED`.\n\n## Live defect\n\nInstalled v1.0.40 task `af-20260913103028-k9qv` reached the Dell URL and visibly showed `Доступ ограничен: проблема с IP`. The landing text merely said that pressing `Продолжить` would lead to CAPTCHA. No CAPTCHA challenge was visible, yet Finder classified it as `BLOCKED_LOGIN_OR_CAPTCHA`, so the historical IP recovery/reload path was skipped and the page did not refresh. Cards read remained 0 and baseline 150/150 was preserved.\n\n## Root cause\n\n`publicPageInterruptionProbe()` used broad `/captcha|капч/` text detection. The IP firewall helper contains `для решения капчи`, so both `captcha=true` and `ip_block=true`. `detectBlock()` checks CAPTCHA first. Existing `ip_block_refresh_resilience.test.js` validated the worker branch statically but never sent the real provider text through the classifier, so it could stay green while the live page failed.\n\n## Historical contract\n\nThe v1.0.24 authority explicitly requires `AVITO_IP_BLOCK -> bounded recovery -> bypass-cache reload -> retry same plan`. v1.0.40 still contains that mechanism; this patch restores correct routing into it rather than adding a new refresh mechanism.\n\n## Minimal patch\n\nOnly `core.js` changes runtime behavior. Exact `Доступ ограничен: проблема с IP` is treated as strong IP-block evidence. A generic mention of future CAPTCHA or rate-limit explanation on that landing page no longer overrides IP-block. Concrete CAPTCHA evidence (captcha iframe/canvas/slider/Geetest structure or human/robot verification wording) still sets CAPTCHA and remains manual even if an IP heading is also present. `service_worker.js` and `proxy_manager.js` are byte-identical to v1.0.40. `manifest.json` and `avito_content.js` change release identity only.\n\n## RED → GREEN\n\nExact v1.0.40 classifier RED is persisted under `QA/red`. The first RED workflow attempt `34754784589` failed for a test-harness mistake (`location` absent) and remains historical FAIL; it is not counted as causal evidence. Corrected/refined RED runs prove the live classifier defect. v1.0.41 targeted classifier tests pass 3/3 and explicitly preserve a concrete CAPTCHA manual boundary.\n\n## Rule compliance\n\n| Rule | Status | Evidence |\n|---|---|---|\n| 1 root cause/state machine | PASS | classifier overlap blocks historical recovery route |\n| 2 exact layer | PASS | real firewall text through exact core probe |\n| 3 local != live | PASS | v1.0.41 remains LIVE_UNVERIFIED |\n| 4 baseline | PASS | search baseline 150/150 untouched |\n| 5 ChatGPT↔Finder contract | PASS | capture/validator/report unchanged |\n| 6 reproduce before patch | PASS | exact v1.0.40 RED |\n| 7 causal chain | PASS | live DOM -> probe flags -> classifier -> skipped recovery |\n| 8 minimal patch | PASS | core behavior only; two identity files |\n| 9 same scenario | PASS offline / LIVE_PENDING | exact firewall fixture GREEN; installed rerun required |\n| 10 prior regressions | PASS | full suite |\n| 11 final build | PASS | fresh-extract full rerun |\n| 12 installed E2E | NOT_RUN | owner Chrome required |\n| 13 live FAIL rejects | PASS process | v1.0.40 is not accepted for this scenario |\n| 14 proxy transport isolation | PASS | proxy runtime byte-identical |\n| 15 bounded waits | PASS | existing bounded recovery unchanged |\n| 16 test catches live bug | PASS | exact v1.0.40 RED |\n| 17 exact source | PASS | verified v1.0.40 ZIP/source base |\n| 18 report | PASS | this report |\n| 19 GitHub persistence | PASS after remote readback | source/ZIP/SHA/QA persisted |\n| 20 full history audit | PASS | v1.0.41 audit + remote readback |\n\n## НАРУШЕННЫЕ ПРАВИЛА\n\nThe previous code/test combination violated Rules 2 and 16: tests proved that an already-classified `AVITO_IP_BLOCK` would reload, but did not test whether the real provider firewall DOM was classified as IP-block. The earlier causal interpretation also violated Rule 7 by treating the combined Finder status as proof of a real CAPTCHA challenge. The first v1.0.41 RED workflow had a harness-only `location` ReferenceError; that FAIL is retained and was corrected without runtime changes.\n\nBuild SHA-256: `{build['archive_sha256']}`. Bytes: `{build['archive_bytes']}`. Source files: `{build['source_files']}`.\n'''
+          (r/'PATCH_REPORT_v1.0.41_RU.md').write_text(report,encoding='utf-8')
+          PY
+      - name: Persist source ZIP and QA
+        id: persist
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- "$RELEASE" tools/materialize_avito_v141.py tools/package_avito_v141.py 'подбор авито расширение/v141_prepatch_tests/'
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: persist Avito Finder v1.0.41 IP-block classifier candidate'
+            git push origin HEAD:"$BRANCH"
+          fi
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-v141-ip-block-firewall-classifier
+          path: подбор авито расширение/releases/v1.0.41/
+          if-no-files-found: error
+  remote-readback:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.checked_commit }}
+          fetch-depth: 0
+      - name: Independent byte/hash/source readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,re,zipfile
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.41'); b=json.loads((r/'BUILD_v1.0.41.json').read_text()); z=r/b['archive']
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==b['archive_sha256'] and len(z.read_bytes())==b['archive_bytes']
+          q1=json.loads((r/'QA/worktree/summary.json').read_text()); q2=json.loads((r/'QA/final_zip/summary.json').read_text()); assert q1['pass']==35 and q1['fail']==0 and q2['pass']==35 and q2['fail']==0
+          assert re.search(r'# pass 373\b',(r/'QA/final_zip/node.log').read_text())
+          with zipfile.ZipFile(z) as f:
+              assert f.testzip() is None and len(f.namelist())==b['source_files']
+              for n,h in b['source_hashes'].items():
+                  x=f.read('v141_work/'+n); y=(r/'v141_work'/n).read_bytes(); assert x==y and hashlib.sha256(x).hexdigest()==h,n
+          o=json.loads((r/'MATERIALIZATION.json').read_text()); assert o['runtime_behavior_changed']==['core.js']; assert o['service_worker_byte_identical_to_v140'] and o['proxy_manager_byte_identical_to_v140']
+          receipt={'status':'PASS','version':'1.0.41','checked_commit':'${{ needs.build.outputs.checked_commit }}','archive_sha256':b['archive_sha256'],'archive_bytes':b['archive_bytes'],'source_files':b['source_files'],'worktree_groups':'35/35','final_zip_groups':'35/35','node':'373/373','targeted':'3/3','runtime_behavior_changed':['core.js'],'service_worker_byte_identical_to_v140':True,'proxy_manager_byte_identical_to_v140':True,'installed_live_acceptance':'NOT_RUN'}
+          (r/'REMOTE_READBACK.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+'\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          git add -- 'подбор авито расширение/releases/v1.0.41/REMOTE_READBACK.json'
+          git commit -m 'qa: persist Avito Finder v1.0.41 remote readback'
+          git push origin HEAD:fix/v141-ip-block-firewall-classifier-2026-09-13
