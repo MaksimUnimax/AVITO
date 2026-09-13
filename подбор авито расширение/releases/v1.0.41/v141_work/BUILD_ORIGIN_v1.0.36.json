@@ -1,0 +1,51 @@
+{
+  "version": "1.0.36",
+  "source_archive_sha256": "3a1de9f67af1554038193adb9bf6a63f0e7ca5ef7c26690236e2fd57a287abd3",
+  "runtime_changed": [
+    "manifest.json",
+    "avito_content.js"
+  ],
+  "runtime_hashes": {
+    "manifest.json": {
+      "before": "96bcde44b37f1ab7f9d8f386fa66288c6a1dab08be22a48dbd2f3df938f753c3",
+      "after": "a2d746e3beb6e575f69347d3b0c778060c1e76c44845b9beebede671bf53b97a"
+    },
+    "avito_content.js": {
+      "before": "6bca275747e08f7e7508111342e0c33bf240762a23d608c89cb4f9f09f946d8f",
+      "after": "3a59fabdbcc2af40ea9c9bf4a07be2c1cdc991a30f1dda7cd66b158a0ab422c0"
+    },
+    "chatgpt_content.js": {
+      "before": "64eedf07f07fb69ba87d91bc51d49273237e577de770d48a97e2368dd7a39d18",
+      "after": "64eedf07f07fb69ba87d91bc51d49273237e577de770d48a97e2368dd7a39d18"
+    },
+    "service_worker.js": {
+      "before": "415b2ca3c3c196c059dee33587c2572c5d310c1e44c3404d0859f9707242e88a",
+      "after": "415b2ca3c3c196c059dee33587c2572c5d310c1e44c3404d0859f9707242e88a"
+    },
+    "core.js": {
+      "before": "b00830e8e2971186bf4a725725aa4676e29b09a7e32cc296b7ccf24c5e36ee9b",
+      "after": "b00830e8e2971186bf4a725725aa4676e29b09a7e32cc296b7ccf24c5e36ee9b"
+    },
+    "proxy_manager.js": {
+      "before": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66",
+      "after": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66"
+    },
+    "recovery.js": {
+      "before": "d49558f8decf4396bb5dd770d9c34608770ea14635166972a4fc8273270b936d",
+      "after": "d49558f8decf4396bb5dd770d9c34608770ea14635166972a4fc8273270b936d"
+    },
+    "popup.js": {
+      "before": "a107c7094dab8b2d8e3f568bdfb5a496db94ccd332457d4d6aff54b7d3b73990",
+      "after": "a107c7094dab8b2d8e3f568bdfb5a496db94ccd332457d4d6aff54b7d3b73990"
+    },
+    "popup.html": {
+      "before": "bff33dcce38ef853f255172826392a4d411937f92b68b8a8e1c013f56305eec3",
+      "after": "bff33dcce38ef853f255172826392a4d411937f92b68b8a8e1c013f56305eec3"
+    },
+    "popup.css": {
+      "before": "0c85a06c77c905b9203df91cecc24c8bd16095b1d44ddd176434a7ba352d6d56",
+      "after": "0c85a06c77c905b9203df91cecc24c8bd16095b1d44ddd176434a7ba352d6d56"
+    }
+  },
+  "live_acceptance": "NOT_RUN"
+}

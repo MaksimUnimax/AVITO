@@ -1,0 +1,124 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Avito Finder</title><link rel="stylesheet" href="popup.css"></head>
+<body><main>
+  <h1>Avito Finder</h1>
+  <p id="subtitle">Ассистент управляет видимым поиском. CAPTCHA проходит пользователь.</p>
+
+  <section class="proxy-panel" aria-labelledby="proxy-title">
+    <div class="proxy-heading">
+      <h2 id="proxy-title">Прокси Avito</h2>
+      <span id="proxy-main-badge" class="proxy-badge proxy-badge-off">ВЫКЛЮЧЕН</span>
+    </div>
+
+    <div class="proxy-main-card">
+      <label for="proxy-profile">Профиль</label>
+      <div class="profile-row">
+        <select id="proxy-profile" aria-describedby="proxy-profile-meta"><option value="">Нет профилей</option></select>
+        <button id="proxy-sync" class="secondary compact" type="button">Обновить</button>
+      </div>
+      <div id="proxy-profile-meta" class="muted">Синхронизируй профили Proxy.Market.</div>
+
+      <div id="proxy-credentials" class="credentials-card" hidden>
+        <div class="field-row">
+          <label for="proxy-profile-login">Логин</label>
+          <input id="proxy-profile-login" type="text" readonly spellcheck="false" autocomplete="off">
+        </div>
+        <div class="field-row">
+          <label for="proxy-profile-password">Пароль</label>
+          <div class="password-row">
+            <input id="proxy-profile-password" type="password" readonly spellcheck="false" autocomplete="current-password">
+            <button id="proxy-password-toggle" class="secondary compact" type="button" aria-controls="proxy-profile-password" aria-label="Показать пароль">Показать</button>
+          </div>
+        </div>
+        <div id="proxy-credentials-status" class="saved-ok">Данные профиля сохранены</div>
+      </div>
+
+      <button id="proxy-main-action" class="primary-action" type="button" disabled>Включить прокси</button>
+      <div id="proxy-status" class="proxy-status-line" aria-live="polite">Прокси выключен. Avito идёт напрямую.</div>
+
+      <div class="profile-tools">
+        <button id="proxy-remove-profile" class="danger-link" type="button" disabled>Удалить из расширения</button>
+      </div>
+    </div>
+
+    <div class="proxy-simple-row">
+      <label class="switch-line" title="Не загружать изображения, видео/аудио, шрифты и object-ресурсы Avito"><input id="proxy-data-saver" type="checkbox" checked> <span>Экономия трафика: без медиа</span></label>
+      <button id="proxy-traffic-refresh" class="secondary compact" type="button">Трафик</button>
+    </div>
+    <div id="proxy-traffic-status" class="muted" aria-live="polite">Трафик: нет данных</div>
+    <div class="muted">При включённом прокси Finder блокирует изображения, видео/аудио и шрифты до скачивания, включая CDN. Для CAPTCHA медиа временно разрешается и страница CAPTCHA один раз перезагружается только в её вкладке; Finder останавливается и ждёт пользователя. При ошибке соединения Finder выполняет ограниченное восстановление. Успех — новая читаемая страница Avito; проверка IP служит диагностикой, а не доказательством восстановления. Подготовленный отчёт сохраняется до подтверждения отправки в тот же чат.</div>
+
+    <details class="advanced">
+      <summary>Настройки Proxy.Market</summary>
+      <div class="advanced-body">
+        <label for="proxy-api-key">API key</label>
+        <div class="password-row">
+          <input id="proxy-api-key" type="password" autocomplete="off" placeholder="API key">
+          <button id="proxy-api-key-toggle" class="secondary compact" type="button" aria-controls="proxy-api-key" aria-label="Показать API key">Показать</button>
+        </div>
+        <div class="button-grid">
+          <button id="proxy-key-check" type="button">Проверить ключ</button>
+          <button id="proxy-key-import-button" class="secondary" type="button">Загрузить конфиг</button>
+          <button id="proxy-key-export" class="secondary" type="button">Скачать конфиг</button>
+          <input id="proxy-key-import" type="file" accept="application/json,.json" hidden>
+        </div>
+        <div id="proxy-key-status" class="status-compact" aria-live="polite">Ключ: не проверен</div>
+
+        <div class="proxy-grid advanced-grid">
+          <label>Package ID<input id="proxy-package-id" inputmode="numeric" placeholder="авто"></label>
+          <label>Order ID<input id="proxy-order-id" inputmode="numeric" placeholder="необязательно"></label>
+        </div>
+        <div id="proxy-operation-status" class="status-compact" aria-live="polite">Синхронизация ещё не запускалась</div>
+
+        <div class="advanced-divider"></div>
+        <strong>Создать endpoint</strong>
+        <div class="proxy-grid advanced-grid">
+          <label>Страна<input id="proxy-create-country" value="ru" maxlength="2"></label>
+          <label>Ротация<select id="proxy-create-rotation">
+            <option value="-1">Sticky session</option>
+            <option value="0">Каждый запрос</option>
+            <option value="5">5 минут</option>
+            <option value="15">15 минут</option>
+            <option value="30">30 минут</option>
+            <option value="60">60 минут</option>
+          </select></label>
+        </div>
+        <button id="proxy-endpoint-create" class="secondary" type="button">Создать и обновить список</button>
+        <div id="proxy-endpoint-status" class="status-compact" aria-live="polite">Создание не запускалось</div>
+      <button id="proxy-create-reconciled" type="button">Подтвердить ручную сверку endpoint</button>
+
+        <div class="advanced-divider"></div>
+        <button id="proxy-restore-hidden" class="secondary" type="button">Вернуть удалённые из расширения</button>
+      </div>
+    </details>
+
+    <details class="advanced">
+      <summary>Диагностика</summary>
+      <div class="advanced-body">
+        <button id="proxy-diagnostic" class="secondary" type="button">Проверить прокси Avito</button>
+        <div id="proxy-diagnostic-status" class="status-compact" aria-live="polite">Диагностика ещё не запускалась</div>
+      </div>
+    </details>
+  </section>
+
+<section class="assistant-prompt" aria-labelledby="assistant-prompt-title">
+    <h2 id="assistant-prompt-title">Промпт для ассистента</h2>
+    <p class="hint">Текст можно отредактировать. Кнопка копирует текущую версию промпта в буфер обмена.</p>
+    <textarea id="assistant-prompt" spellcheck="false" aria-label="Промпт для ассистента">Прими этот регламент как обязательное правило работы с Avito Finder:
+https://github.com/MaksimUnimax/AVITO/blob/main/AVITO_FINDER_OPERATOR_PROTOCOL_AND_ASSISTANT_PROMPT_v1.0.md
+
+Порядок работы:
+1. Перейди по ссылке и прочитай документ полностью.
+2. Прими документ как обязательный рабочий контракт для этого чата.
+3. До начала поиска подробно перескажи в чат своими словами: роли ассистента и расширения, разрешённые и запрещённые действия, порядок поиска, правила выбора карточек, CAPTCHA-границу и требования к итоговому отчёту.
+4. После пересказа напиши: «Правила приняты. Готов к работе с Avito Finder. Опиши, что нужно найти: товар, город, бюджет, обязательные и нежелательные параметры, допустимость доставки и критерии сравнения. После согласования напиши «Ищи».»
+5. Не начинай поиск, не выдавай AVITO_UI writing blocks и не управляй расширением до моей точной команды «Ищи».
+
+Соблюдай регламент в дальнейшем: расширение только исполняет ограниченные публичные UI-действия и возвращает сырые данные; ты управляешь поиском, сам выбираешь URL для подробного чтения, анализируешь данные и выдаёшь развёрнутый отчёт с минимум пятью кандидатами, если столько реально найдено.</textarea>
+    <button id="copy-assistant-prompt">Скопировать промпт</button>
+  </section>
+  <div id="status">IDLE</div><div id="ui-request-error" role="alert" aria-live="polite" hidden></div>
+<div id="detail"></div>
+  <div class="actions"><button id="start">Начать</button><button id="continue" disabled>Продолжить отчёт</button><button id="stop">Стоп</button></div>
+  <h2>Живой журнал</h2><pre id="logs"></pre>
+  <h2>Последний отчёт</h2><textarea id="report" readonly></textarea><button id="copy">Скопировать отчёт</button>
+</main><script src="popup.js"></script></body></html>
