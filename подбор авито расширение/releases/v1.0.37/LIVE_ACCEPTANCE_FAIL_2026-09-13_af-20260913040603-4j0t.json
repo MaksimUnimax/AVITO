@@ -1,0 +1,35 @@
+{
+  "date": "2026-09-13",
+  "task": "af-20260913040603-4j0t",
+  "installed_reported_version": "1.0.37",
+  "stage": "TOP_REVALIDATE_PRE",
+  "page": "https://www.avito.ru/yuzhno-sahalinsk/nastolnye_kompyutery/dell_vostro_3470_4750223208",
+  "plan": "575:97fe6009",
+  "status": "AVITO_IP_BLOCK_RECOVERY_EXHAUSTED",
+  "live_acceptance": "FAIL",
+  "step": {
+    "type": "COLLECT_EXPLICIT_LISTING_QUEUE",
+    "status": "paused_for_connection",
+    "cursor": 0,
+    "queue_total": 3,
+    "attempted": 0,
+    "read": 0,
+    "remaining": 3,
+    "batch": 3,
+    "gap_ms": 5000,
+    "simultaneous_open": 1,
+    "auto_closed": 0
+  },
+  "queue": [
+    "https://www.avito.ru/yuzhno-sahalinsk/nastolnye_kompyutery/dell_vostro_3470_4750223208",
+    "https://www.avito.ru/novosibirsk/nastolnye_kompyutery/minikompyuter_itx_i5-8400tddr4_16ssd_m2_256_nas_8156773014",
+    "https://www.avito.ru/vladimir/nastolnye_kompyutery/mini_pk_lenovo_m715s_8375159229"
+  ],
+  "cards_collected": 0,
+  "baseline_reset": false,
+  "baseline_saved": "150/150",
+  "ranking_changed": false,
+  "automatic_mutation_retry_after_exhaustion": "FORBIDDEN_UNTIL_NEW_DIAGNOSTIC_EVIDENCE",
+  "provider_or_hidden_api_calls_from_assistant": 0,
+  "next": "Read exact v1.0.37 proxy/recovery diagnostic state for this exhausted run. Do not restart search or alter queue/baseline until the transport failure is characterized. New patch requires RED on exact installed v1.0.37 target."
+}
