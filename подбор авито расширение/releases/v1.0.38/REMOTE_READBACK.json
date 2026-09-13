@@ -1,0 +1,15 @@
+{
+  "scope": "INDEPENDENT_FRESH_GITHUB_CHECKOUT_V138",
+  "verified_commit": "17d8018872f6f1834bf5582ee5210797733a7d0a",
+  "version": "1.0.38",
+  "archive": "AVITO_FINDER_v1.0.38_AVITO_STICKY_RECOVERY_2026-09-13.zip",
+  "sha256": "2f1282e2262b322ef5f17a3852a388dd5480363b9fa5a60346f3264084d477f4",
+  "bytes": 489352,
+  "source_files_byte_equal": 146,
+  "worktree_groups_pass": 35,
+  "final_zip_groups_pass": 35,
+  "groups_fail": 0,
+  "sticky_recovery": "PASS",
+  "status": "PASS",
+  "installed_live_acceptance": "NOT_RUN"
+}

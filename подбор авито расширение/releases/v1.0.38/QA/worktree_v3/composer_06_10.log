@@ -1,0 +1,11 @@
+START 13,247-character synthetic report delivers in rich editor
+{"test": "13,247-character synthetic report delivers in rich editor", "status": "PASS", "ms": 2187}
+START blank lines, tabs, double spaces, NBSP, ZWJ and zero-width text preserved
+{"test": "blank lines, tabs, double spaces, NBSP, ZWJ and zero-width text preserved", "status": "PASS", "ms": 2129}
+START concurrent duplicate and repeated delivery ID yield one click
+{"test": "concurrent duplicate and repeated delivery ID yield one click", "status": "PASS", "ms": 2141}
+START protect against edit during staging: real_input
+{"test": "protect against edit during staging: real_input", "status": "PASS", "ms": 2124}
+START protect against edit during staging: no_button
+{"test": "protect against edit during staging: no_button", "status": "PASS", "ms": 8125}
+{"scope": "OFFLINE_CHROMIUM_SYNTHETIC_RICH_EDITOR_WITH_MODEL_REPARSE", "installed_extension": false, "live_chatgpt": false, "pass": 5, "fail": 0, "page_errors": []}

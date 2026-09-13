@@ -1,0 +1,16 @@
+{'test': 'manifest schema and version checked (installation not claimed)', 'status': 'PASS', 'elapsed_ms': 0}
+{'test': 'whole-page diagnosis reads full body, not delivery button; hidden/input text excluded from HTML', 'status': 'PASS', 'elapsed_ms': 446}
+{'test': 'semantic main root preferred to body', 'status': 'PASS', 'elapsed_ms': 142}
+{'test': 'public configuration and direct-delivery button collected without clicking', 'status': 'PASS', 'elapsed_ms': 148}
+{'test': 'exact visible interactive delivery control works even when Avito marker changed', 'status': 'PASS', 'elapsed_ms': 146}
+{'test': 'disabled delivery control is not direct-delivery confirmation', 'status': 'PASS', 'elapsed_ms': 157}
+{'test': 'seller icebreaker is not direct-delivery confirmation', 'status': 'PASS', 'elapsed_ms': 146}
+{'test': 'delayed DOM renders are awaited; real order and listing IDs preserved', 'status': 'PASS', 'elapsed_ms': 671}
+{'test': 'requested 35 visible-rendered records are not silently capped at 30', 'status': 'PASS', 'elapsed_ms': 176}
+{'test': 'missing DOM is an explicit bounded error, not completed empty selection', 'status': 'PASS', 'elapsed_ms': 433}
+{'test': 'explicit visible empty-result state is distinguished from unloaded page', 'status': 'PASS', 'elapsed_ms': 137}
+{'test': 'visible IP-block propagates through normal-tempo collection', 'status': 'PASS', 'elapsed_ms': 134}
+{'test': 'visible rate-limit page is classified separately from IP block and CAPTCHA', 'status': 'PASS', 'elapsed_ms': 138}
+{'test': 'CAPTCHA remains manual; no collection or automatic solution', 'status': 'PASS', 'elapsed_ms': 137}
+{'test': 'STOP cancels pending work before click and allows a fresh read command', 'status': 'PASS', 'elapsed_ms': 345}
+{'test': 'reinjecting the same adapter does not duplicate message handlers', 'status': 'PASS', 'elapsed_ms': 159}

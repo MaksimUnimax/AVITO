@@ -1,0 +1,337 @@
+--- v1.0.33/manifest.json
++++ v1.0.34/manifest.json
+@@ -2,8 +2,8 @@
+   "manifest_version": 3,
+   "name": "Avito Finder",
+   "short_name": "Avito Finder",
+-  "version": "1.0.33",
+-  "version_name": "1.0.33-captcha-command-gate",
++  "version": "1.0.34",
++  "version_name": "1.0.34-writing-block-body-stability",
+   "description": "Avito Finder: bounded, cancellable visible-UI execution, same-chat reports, verified proxy configuration and fresh-document recovery; manual CAPTCHA.",
+   "minimum_chrome_version": "120",
+   "permissions": [
+--- v1.0.33/service_worker.js
++++ v1.0.34/service_worker.js
+@@ -18,7 +18,7 @@
+ const PROXY_DATA_SAVER_RESOURCE_TYPES = Object.freeze(["image", "media", "font", "object", "ping"]);
+ const PROXY_AUTH_MAX_ATTEMPTS_PER_REQUEST = 3;
+ const CAPTURE_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+-const CAPTURE_VERSION = "0.6.16";
++const CAPTURE_VERSION = "0.6.17";
+ const AVITO_READY_TIMEOUT_MS = 30000;
+ const AVITO_READY_POLL_MS = 750;
+ const AVITO_IP_BLOCK_AUTO_RECOVERY_MAX = 4;
+@@ -1121,7 +1121,22 @@
+     } else if(state.status==='WAITING_FOR_AVITO_PAGE_READY') await reconcilePendingAvitoReadiness();
+     else if(state.status==='WAITING_FOR_UI_CLICK_RECONCILIATION') await reconcilePendingUiClickHandoff();
+     else if(state.status==='COMMAND_CAPTURED') await queueAvitoTask(state,{mode:state.command_mode,ui_plan:state.ui_action_plan,diagnostic:state.diagnostic_request});
+-    else if(state.status==='FORM_TEXT_CAPTURED_UNVALIDATED') return blockAvitoPageReady(state,'COMMAND_INTERRUPTED_BEFORE_VALIDATION');
++    else if(state.status==='FORM_TEXT_CAPTURED_UNVALIDATED') {
++      // Migration from <=1.0.33. No irreversible Avito action can have occurred
++      // before this state; forget the provisional consumption and let the same
++      // Writing Block be captured again after deterministic validation.
++      const waiting = await saveState({
++        ...state,
++        status: 'WAITING_FOR_NEXT_ASSISTANT_FORM',
++        phase: 'LOCAL_VALIDATION_INTERRUPTION_RECOVERED',
++        operation_id: null,
++        last_consumed_form_key: null,
++        assistant_turn_id: null,
++        blocked_reason: null
++      });
++      await log('FORM_TEXT_CAPTURED_UNVALIDATED_RECOVERED_READ_ONLY', { search_id: waiting.search_id, anchor_turn_id: waiting.anchor_turn_id });
++      return;
++    }
+   });
+ }
+ 
+@@ -3427,7 +3442,66 @@
+     await log("STALE_FORM_CANDIDATE_IGNORED", { search_id: state.search_id, expected_anchor_turn_id: state.anchor_turn_id, actual_anchor_turn_id: candidate.anchor_turn_id || null, assistant_turn_id: candidate.assistant_turn_id || null, sender_tab_id: sender?.tab?.id ?? null });
+     return { ok: true, data: { ignored: true, reason: "STALE_ANCHOR_CANDIDATE", debug: { expected_anchor_turn_id: state.anchor_turn_id, actual_anchor_turn_id: candidate.anchor_turn_id || null, anchor_matches: false } } };
+   }
+-  if (!['WAITING_FOR_ASSISTANT_WRITING_BLOCK','WAITING_FOR_NEXT_ASSISTANT_FORM','PAUSED_CHAT_CONTEXT_CHANGED'].includes(state.status)) return {ok:true,data:{ignored:true,reason:'COMMAND_ALREADY_IN_FLIGHT'}};
++  const promptWaitingStatuses = ['WAITING_FOR_ASSISTANT_WRITING_BLOCK','WAITING_FOR_NEXT_ASSISTANT_FORM','PAUSED_CHAT_CONTEXT_CHANGED'];
++  if (!promptWaitingStatuses.includes(state.status)) {
++    // v1.0.34 migration/recovery: a truncated same-turn Writing Block could be
++    // prematurely validated by older builds and leave an UNSENT validation
++    // report staged in the primary composer. If the exact same assistant turn
++    // later exposes a strictly larger payload, discard only that Finder-owned
++    // unsent validation stage and allow the complete payload to supersede it.
++    const candidateBytes = Number(candidate.payload_bytes || 0);
++    const priorLengthMatch = String(state.last_consumed_form_key || '').match(/\|(\d+):[0-9a-f]+$/iu);
++    const priorCapturedLength = Number(priorLengthMatch?.[1] || 0);
++    const sameAssistantTurn = Boolean(state.assistant_turn_id && candidate.assistant_turn_id && state.assistant_turn_id === candidate.assistant_turn_id);
++    const unsentValidationStage = Boolean(
++      state.report_kind === 'validation_error' &&
++      ['VALIDATION_ERROR_REPORT_READY','REPORT_DELIVERY_BLOCKED','REPORT_DELIVERY_IN_PROGRESS','REPORT_READY_IN_COMPOSER'].includes(state.status) &&
++      state.report_send_attempted !== true &&
++      state.report &&
++      sameAssistantTurn &&
++      candidate.payload_extracted === true &&
++      candidateBytes > priorCapturedLength &&
++      priorCapturedLength > 0
++    );
++    if (unsentValidationStage) {
++      const discarded = await sendChat(state.chatgpt_tab_id, {
++        type: 'AF_CAPTURE_DISCARD_OWNED_REPORT_STAGE',
++        search_id: state.search_id,
++        delivery_id: state.report_delivery_id || '',
++        report_text: state.report,
++        report_fingerprint: Core.fingerprint(state.report),
++        expected_identity: contextFromState(state)
++      });
++      if (discarded?.ok && discarded?.cleared === true) {
++        await log('TRUNCATED_VALIDATION_SUPERSEDED_BY_LARGER_SAME_TURN_PAYLOAD', {
++          search_id: state.search_id,
++          assistant_turn_id: candidate.assistant_turn_id || null,
++          prior_captured_length: priorCapturedLength,
++          replacement_payload_bytes: candidateBytes,
++          prior_report_send_attempted: state.report_send_attempted === true
++        });
++        state = await saveState({
++          ...state,
++          status: 'WAITING_FOR_NEXT_ASSISTANT_FORM',
++          phase: 'WRITING_BLOCK_PAYLOAD_SUPERSEDE',
++          report: null,
++          report_kind: null,
++          report_delivery_id: null,
++          report_send_attempted: null,
++          report_send_receipt: null,
++          report_ack_budget: null,
++          blocked_reason: null,
++          last_consumed_form_key: null,
++          operation_id: null,
++          allow_new_operation: true
++        });
++      } else {
++        return {ok:true,data:{ignored:true,reason:'COMMAND_ALREADY_IN_FLIGHT'}};
++      }
++    } else {
++      return {ok:true,data:{ignored:true,reason:'COMMAND_ALREADY_IN_FLIGHT'}};
++    }
++  }
+   if (candidate.manual_interruption === true && state.manual_gate_kind === "CAPTCHA") {
+     const nextAnchorTurnId = String(candidate.next_user_turn_id || "").trim();
+     if (!nextAnchorTurnId || nextAnchorTurnId.length > 200) {
+@@ -3480,12 +3554,28 @@
+     return { ok: true, data: { ignored: true, reason: "DUPLICATE_FORM_CANDIDATE" } };
+   }
+   await log("FULL_WRITING_BLOCK_TEXT_RECEIVED", { search_id: state.search_id, anchor_turn_id: state.anchor_turn_id, assistant_turn_id: candidate.assistant_turn_id || null, payload_bytes: Number(candidate.payload_bytes || 0), payload_extracted: candidate.payload_extracted === true, text_fingerprint: Core.fingerprint(text), form_key: formKey, poll_generation: candidate.poll_generation ?? null });
+-  state = await saveState({ ...state, status: "FORM_TEXT_CAPTURED_UNVALIDATED", phase: "LOCAL_EXTENSION_VALIDATION", operation_id: `${state.search_id}:${formKey}`, allow_new_operation: true, connection_recovery: null, terminal_report_operation_id: null, assistant_turn_id: candidate.assistant_turn_id || null, last_consumed_form_key: formKey, blocked_reason: null });
+-  const parsed = Core.parseCommandForm(text); await log("LOCAL_COMMAND_VALIDATION_COMPLETED", { search_id: state.search_id, valid: parsed.valid, errors: parsed.errors, mode: parsed.mode, mode_source: parsed.mode_source, candidate_count: parsed.candidate_count, candidate_count_source: parsed.candidate_count_source, text_fingerprint: Core.fingerprint(text), form_key: formKey });
++  // Pure parsing happens before durable command ownership. A service-worker
++  // termination can therefore never strand the run in an unvalidated state or
++  // consume a form key before deterministic local validation completes.
++  const parsed = Core.parseCommandForm(text);
++  await log("LOCAL_COMMAND_VALIDATION_COMPLETED", { search_id: state.search_id, valid: parsed.valid, errors: parsed.errors, mode: parsed.mode, mode_source: parsed.mode_source, candidate_count: parsed.candidate_count, candidate_count_source: parsed.candidate_count_source, text_fingerprint: Core.fingerprint(text), form_key: formKey });
++  const capturedState = {
++    ...state,
++    operation_id: `${state.search_id}:${formKey}`,
++    allow_new_operation: true,
++    connection_recovery: null,
++    terminal_report_operation_id: null,
++    assistant_turn_id: candidate.assistant_turn_id || null,
++    last_consumed_form_key: formKey,
++    captured_payload_bytes: claimedPayloadBytes,
++    captured_text_fingerprint: Core.fingerprint(text),
++    blocked_reason: null
++  };
+   if (!parsed.valid) {
+-    const delivered = await returnValidationErrorToPinnedChat(state, parsed, text);
++    const delivered = await returnValidationErrorToPinnedChat(capturedState, parsed, text);
+     return { ok: true, data: { accepted: true, disposition: "continuation_started", continuation_anchor_turn_id: delivered.anchor_turn_id || null, validation_error_reported: delivered.status === "WAITING_FOR_NEXT_ASSISTANT_FORM", reason: "COMMAND_INVALID_AFTER_FULL_COPY" } };
+   }
++  state = capturedState;
+   if (parsed.mode === "SEARCH") {
+     const report = "Avito Finder: режим SEARCH является устаревшим и не выполняется. Для поиска используйте AVITO_UI, публичную Страницу и явные Шаги. Avito не изменялся.";
+     const staged = await saveState({ ...state, status: "SEARCH_NOT_IMPLEMENTED_REPORT_READY", phase: "COMMAND_CAPTURED", command_mode: "SEARCH", blocked_reason: "SEARCH_NOT_IMPLEMENTED", report, report_kind: "validation_error" });
+@@ -3554,7 +3644,14 @@
+ async function view() { const raw = await storageGet([STATE_KEY, LOG_KEY, INSPECTION_KEY]); return { ok: true, state: Core.makeState(raw[STATE_KEY] || {}), logs: raw[LOG_KEY] || [], inspection: raw[INSPECTION_KEY] || null, proxy: await proxyView() }; }
+ async function recoverContinuousPromptPoll(message, sender) {
+   let state = await getState();
+-  if (!["WAITING_FOR_NEXT_ASSISTANT_FORM", "WAITING_FOR_ASSISTANT_WRITING_BLOCK", "PAUSED_CHAT_CONTEXT_CHANGED"].includes(state.status) || !state.search_id || !state.anchor_turn_id) {
++  const validationSupersedeWait = Boolean(
++    state.report_kind === 'validation_error' &&
++    ['VALIDATION_ERROR_REPORT_READY','REPORT_DELIVERY_BLOCKED','REPORT_DELIVERY_IN_PROGRESS','REPORT_READY_IN_COMPOSER'].includes(state.status) &&
++    state.report_send_attempted !== true &&
++    state.assistant_turn_id &&
++    state.last_consumed_form_key
++  );
++  if (!["WAITING_FOR_NEXT_ASSISTANT_FORM", "WAITING_FOR_ASSISTANT_WRITING_BLOCK", "PAUSED_CHAT_CONTEXT_CHANGED"].includes(state.status) && !validationSupersedeWait || !state.search_id || !state.anchor_turn_id) {
+     return { ok: true, data: { resume: false } };
+   }
+   const expected = contextFromState(state);
+@@ -3574,8 +3671,8 @@
+     });
+     await log("CHATGPT_CONTEXT_RECOVERED", { search_id: state.search_id, anchor_turn_id: state.anchor_turn_id, chatgpt_tab_id: state.chatgpt_tab_id, actual_chat_path: actual.chat_path });
+   }
+-  if (!["WAITING_FOR_NEXT_ASSISTANT_FORM","WAITING_FOR_ASSISTANT_WRITING_BLOCK"].includes(state.status)) return { ok: true, data: { resume: false, recovered: true, state } };
+-  await log("NEXT_FORM_POLL_RECOVERY_GRANTED", { search_id: state.search_id, anchor_turn_id: state.anchor_turn_id, chatgpt_tab_id: state.chatgpt_tab_id });
++  if (!["WAITING_FOR_NEXT_ASSISTANT_FORM","WAITING_FOR_ASSISTANT_WRITING_BLOCK"].includes(state.status) && !validationSupersedeWait) return { ok: true, data: { resume: false, recovered: true, state } };
++  await log(validationSupersedeWait ? "VALIDATION_SUPERSEDE_POLL_RECOVERY_GRANTED" : "NEXT_FORM_POLL_RECOVERY_GRANTED", { search_id: state.search_id, anchor_turn_id: state.anchor_turn_id, chatgpt_tab_id: state.chatgpt_tab_id });
+   return { ok: true, data: { resume: true, search_id: state.search_id, conversation_id: state.conversation_id, anchor_turn_id: state.anchor_turn_id, expected_assistant_turn_id: state.expected_assistant_turn_id || null, expected_identity: expected } };
+ }
+ async function contextBlockedFromContent(message, sender) {
+--- v1.0.33/chatgpt_content.js
++++ v1.0.34/chatgpt_content.js
+@@ -10,7 +10,7 @@
+   // runtime context. A version guard that simply returns would then prevent a
+   // fresh adapter from being injected into the same tab. New injection must
+   // supersede, dispose and replace the previous adapter instead.
+-  const CONTENT_SCRIPT_VERSION = "0.6.16";
++  const CONTENT_SCRIPT_VERSION = "0.6.17";
+   const CONTENT_SCRIPT_PROTOCOL = "avito_finder_bridge_exact_capture_v1";
+   const CONTENT_RUNTIME_KEY = "__AVITO_FINDER_BRIDGE_EXACT_CAPTURE_RUNTIME__";
+   const CONTENT_RUNTIME_ID = `${CONTENT_SCRIPT_VERSION}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+@@ -28,7 +28,16 @@
+   const SEND_BUTTON_RENDER_WAIT_MS = 2000;
+   const SEND_BUTTON_DISCOVERY_TIMEOUT_MS = 6000;
+   const SEND_BUTTON_DISCOVERY_POLL_MS = 100;
+-  const PROMPT_STABILITY_MS = 2000;
++  const PROMPT_STABILITY_MS = Number(globalThis.__AF_TEST_PROMPT_STABILITY_MS ?? 2000);
++  // Copy/control readiness is not sufficient evidence that the Writing Block body
++  // has stopped streaming. ChatGPT can expose the toolbar while the block text is
++  // still growing. Require multiple identical local body samples before handing a
++  // command to the Worker. Invalid-looking payloads get a longer settle window
++  // because a truncated command commonly parses as UI_PLAN_STEP_REQUIRED.
++  const PROMPT_PAYLOAD_SAMPLE_MS = Number(globalThis.__AF_TEST_PROMPT_PAYLOAD_SAMPLE_MS ?? 600);
++  const PROMPT_PAYLOAD_STABILITY_MS = Number(globalThis.__AF_TEST_PROMPT_PAYLOAD_STABILITY_MS ?? 1800);
++  const PROMPT_INVALID_PAYLOAD_STABILITY_MS = Number(globalThis.__AF_TEST_PROMPT_INVALID_PAYLOAD_STABILITY_MS ?? 4000);
++  const PROMPT_PAYLOAD_MIN_SAMPLES = Number(globalThis.__AF_TEST_PROMPT_PAYLOAD_MIN_SAMPLES ?? 3);
+   const PROMPT_ACTIVE_RECHECK_MS = 750;
+   const PROMPT_MUTATION_DEBOUNCE_MS = 250;
+   const MANUAL_PROFILE_KIND = "manual_selected_button_v142";
+@@ -2307,10 +2316,6 @@
+         return;
+       }
+ 
+-      candidate.stable = true;
+-      candidate.copy_gate_confirmed = true;
+-      candidate.assistant_finality_confirmed = true;
+-      candidate.prompt_source = "anchored_completed_writing_block_dom";
+       const candidateSection = turnSections().find((section) =>
+         section.getAttribute("data-turn-id") === candidate.assistant_turn_id
+       ) || null;
+@@ -2320,7 +2325,6 @@
+       candidate.payload_bytes = Number.isInteger(localPayload.bytes) ? localPayload.bytes : 0;
+       candidate.payload_extraction_error = localPayload.ok === true ? "" : (localPayload.error || "WRITING_BLOCK_LOCAL_BODY_UNAVAILABLE");
+       candidate.poll_generation = generation;
+-      candidate.form_key = `${candidate.anchor_turn_id || ""}|${candidate.assistant_turn_id || ""}|${localTextFingerprint(candidate.prompt_text || "")}`;
+       if (candidate.payload_extracted !== true || Core.normalizeText(candidate.prompt_text || "").length === 0) {
+         candidate.rejection_reason = "EMPTY_WRITING_BLOCK_PAYLOAD_IGNORED";
+         recordDiagnostic("PROMPT_EMPTY_WRITING_BLOCK_IGNORED", candidate);
+@@ -2330,6 +2334,51 @@
+         schedulePromptCheck(PROMPT_ACTIVE_RECHECK_MS, false, generation);
+         return;
+       }
++
++      // v1.0.34: Copy readiness and toolbar stability do not prove body finality.
++      // Sample the actual local Writing Block body repeatedly and require the exact
++      // same fingerprint for a bounded stability window before validation. This is
++      // still local DOM observation; no command is sent to the Worker during settle.
++      const payloadFingerprint = localTextFingerprint(candidate.prompt_text || "");
++      const now = Date.now();
++      let preview = null;
++      try { preview = Core.parseCommandForm(candidate.prompt_text || ""); } catch (_) { preview = null; }
++      const invalidLooking = preview ? preview.valid !== true : true;
++      const requiredPayloadStableMs = invalidLooking ? PROMPT_INVALID_PAYLOAD_STABILITY_MS : PROMPT_PAYLOAD_STABILITY_MS;
++      if (!candidateFirstSeen || candidateFirstSeen.payload_fingerprint !== payloadFingerprint) {
++        candidateFirstSeen = {
++          ...(candidateFirstSeen || {}),
++          structural_signature: candidate.structural_signature,
++          first_seen_ms: candidateFirstSeen?.first_seen_ms || now,
++          payload_fingerprint: payloadFingerprint,
++          payload_first_seen_ms: now,
++          payload_sample_count: 1,
++          payload_bytes: candidate.payload_bytes
++        };
++        candidate.payload_stability_ms = 0;
++        candidate.payload_sample_count = 1;
++        candidate.local_preview_valid = preview?.valid === true;
++        recordDiagnostic("PROMPT_PAYLOAD_STABILITY_STARTED", candidate);
++        schedulePromptStabilityCheck(PROMPT_PAYLOAD_SAMPLE_MS, generation);
++        return;
++      }
++      candidateFirstSeen.payload_sample_count = Number(candidateFirstSeen.payload_sample_count || 1) + 1;
++      const payloadStableForMs = now - Number(candidateFirstSeen.payload_first_seen_ms || now);
++      candidate.payload_stability_ms = payloadStableForMs;
++      candidate.payload_sample_count = candidateFirstSeen.payload_sample_count;
++      candidate.local_preview_valid = preview?.valid === true;
++      if (candidateFirstSeen.payload_sample_count < PROMPT_PAYLOAD_MIN_SAMPLES || payloadStableForMs < requiredPayloadStableMs) {
++        recordDiagnostic("PROMPT_PAYLOAD_STABILITY_WAIT", candidate);
++        schedulePromptStabilityCheck(Math.min(PROMPT_PAYLOAD_SAMPLE_MS, Math.max(1, requiredPayloadStableMs - payloadStableForMs)), generation);
++        return;
++      }
++
++      candidate.stable = true;
++      candidate.copy_gate_confirmed = true;
++      candidate.assistant_finality_confirmed = true;
++      candidate.prompt_source = "anchored_completed_writing_block_dom_payload_stable";
++      candidate.form_key = `${candidate.anchor_turn_id || ""}|${candidate.assistant_turn_id || ""}|${payloadFingerprint}`;
++      recordDiagnostic("PROMPT_PAYLOAD_STABILITY_CONFIRMED", candidate);
+       const response = await request("AUTOMATION_PROMPT_CANDIDATE", { candidate });
+       // The Worker can start the next same-chat wait while this older request is
+       // still resolving (notably after a validator-error report). Never let this
+@@ -2722,6 +2771,48 @@
+         }
+       })();
+       return true;
++    }
++
++
++    if (message?.type === "AF_CAPTURE_DISCARD_OWNED_REPORT_STAGE") {
++      (async () => {
++        try {
++          const expectedIdentity = message.expected_identity;
++          const reportText = typeof message.report_text === "string" ? message.report_text : "";
++          assertExpectedConversation(expectedIdentity, "BEFORE_DISCARD_OWNED_REPORT_STAGE");
++          const composerContext = findPrimaryComposerContext();
++          if (!isPrimaryComposerContextValid(composerContext)) throw bridgeError("Primary composer unavailable.", "PRIMARY_COMPOSER_MISSING");
++          const composer = composerContext.composer;
++          const stage = readComposerBridgeStage(composer);
++          const actualText = getComposerText(composer);
++          const expectedFingerprint = localTextFingerprint(reportText);
++          const owned = Boolean(stage &&
++            stage.run_id === String(message.search_id || "") &&
++            (!message.delivery_id || stage.delivery_id === String(message.delivery_id || "")) &&
++            stage.text_fingerprint === localTextFingerprint(actualText) &&
++            composerTextMatchesReport(actualText, reportText) &&
++            (!message.report_fingerprint || stage.report_fingerprint === String(message.report_fingerprint || "") || stage.report_fingerprint === expectedFingerprint));
++          if (!owned) {
++            sendResponse({ ok: true, cleared: false, reason: "OWNED_REPORT_STAGE_NOT_CONFIRMED" });
++            return;
++          }
++          beginComposerInputGuard(composer);
++          setComposerText(composer, "");
++          clearComposerBridgeStage(composer);
++          composerInputGuards.get(composer)?.dispose();
++          composerInputGuards.delete(composer);
++          recordDiagnostic("OWNED_VALIDATION_REPORT_STAGE_DISCARDED", {
++            run_id: String(message.search_id || ""),
++            delivery_id: String(message.delivery_id || ""),
++            report_fingerprint: expectedFingerprint,
++            event_source: "larger_same_turn_writing_block_superseded_unsent_validation"
++          });
++          sendResponse({ ok: true, cleared: true });
++        } catch (err) {
++          sendResponse({ ok: false, error: err.message, code: err.code || "DISCARD_OWNED_REPORT_STAGE_FAILED" });
++        }
++      })();
++      return true;
+     }
+ 
+     if (message?.type === "AF_CAPTURE_SEND_REPORT") {
+--- v1.0.33/avito_content.js
++++ v1.0.34/avito_content.js
+@@ -1,8 +1,8 @@
+-/* Avito Finder v1.0.33 — versioned public-DOM adapter with rate-limit classification, direct-delivery proof and bounded cancellable reads. */
++/* Avito Finder v1.0.34 — versioned public-DOM adapter with rate-limit classification, direct-delivery proof and bounded cancellable reads. */
+ /* global chrome, AvitoFinderCore */
+ (function avitoContent() {
+   "use strict";
+-  const ADAPTER_VERSION = "1.0.33";
++  const ADAPTER_VERSION = "1.0.34";
+   const previous = globalThis.__avitoFinderAvitoRuntime;
+   if (previous?.version === ADAPTER_VERSION && !previous.disposed) return;
+   previous?.dispose?.();

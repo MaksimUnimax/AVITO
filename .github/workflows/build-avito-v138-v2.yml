@@ -1,0 +1,179 @@
+name: Build and verify Avito Finder v1.0.38 sticky recovery v2
+on:
+  push:
+    branches: [fix/v138-avito-sticky-recovery-2026-09-13]
+    paths: ['.github/workflows/build-avito-v138-v2.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: avito-v138-sticky-recovery-v2
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      checked_commit: ${{ steps.persist.outputs.commit }}
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      BRANCH: fix/v138-avito-sticky-recovery-2026-09-13
+      BASE: подбор авито расширение/releases/v1.0.37/v137_work
+      RELEASE: подбор авито расширение/releases/v1.0.38
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v138-avito-sticky-recovery-2026-09-13
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Prepare Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+      - name: Verify exact v1.0.37 authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,zipfile
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.37'); b=json.loads((r/'BUILD_v1.0.37.json').read_text()); z=r/b['archive']
+          assert b['archive_sha256']=='4eaf64038ffd6c5b08ed7d97fdb0d13848edd8a7a9db04ad928f74b1f371ac9d'
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==b['archive_sha256']
+          with zipfile.ZipFile(z) as f: assert f.testzip() is None and len(f.namelist())==144
+          assert json.loads((Path('подбор авито расширение/releases/v1.0.37/v137_work/manifest.json')).read_text())['version']=='1.0.37'
+          PY
+      - name: RED — exact v1.0.37 creates every-request recovery endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RELEASE/QA/red_v2"
+          set +e
+          AF_SOURCE_ROOT="$BASE" node --test "$RELEASE/tests/sticky_recovery_v138.test.js" > "$RELEASE/QA/red_v2/sticky_recovery.tap" 2>&1
+          RC=$?
+          set -e
+          cat "$RELEASE/QA/red_v2/sticky_recovery.tap"
+          test "$RC" -eq 1
+          grep -q '# fail 1' "$RELEASE/QA/red_v2/sticky_recovery.tap"
+      - name: Materialize exact minimal v1.0.38
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RELEASE/v138_work" "$RELEASE/QA/worktree_v2" "$RELEASE/QA/final_zip_v2"
+          python tools/materialize_avito_v138.py "$BASE" "$RELEASE"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('подбор авито расширение/releases/v1.0.38/MATERIALIZATION.json').read_text())
+          assert d['production_runtime_changed']==['avito_content.js','manifest.json','service_worker.js'],d
+          PY
+      - name: GREEN targeted sticky recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          AF_SOURCE_ROOT="$RELEASE/v138_work" node --test "$RELEASE/tests/sticky_recovery_v138.test.js" | tee "$RELEASE/QA/targeted_green_v2.tap"
+          grep -q '# pass 1' "$RELEASE/QA/targeted_green_v2.tap"
+          grep -q '# fail 0' "$RELEASE/QA/targeted_green_v2.tap"
+      - name: Full existing regression — worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          AF_QA_OUTPUT="$RELEASE/QA/worktree_v2" python -u "$RELEASE/v138_work/tests/run_all_v136.py"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('подбор авито расширение/releases/v1.0.38/QA/worktree_v2/summary.json').read_text())
+          assert d['complete'] and d['pass']==35 and d['fail']==0,d
+          PY
+      - name: Package final ZIP and rerun from fresh extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$RELEASE/AVITO_FINDER_v1.0.38_AVITO_STICKY_RECOVERY_2026-09-13.zip"
+          python tools/package_avito_v138.py "$RELEASE/v138_work" "$ZIP"
+          FINAL=$(mktemp -d); export FINAL
+          python - <<'PY'
+          import hashlib,json,os,zipfile
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.38'); b=json.loads((r/'BUILD_v1.0.38.json').read_text()); z=r/b['archive']
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==b['archive_sha256']
+          with zipfile.ZipFile(z) as f:
+              assert f.testzip() is None and len(f.namelist())==b['source_files']; f.extractall(os.environ['FINAL'])
+          PY
+          AF_SOURCE_ROOT="$FINAL/v138_work" node --test "$RELEASE/tests/sticky_recovery_v138.test.js" | tee "$RELEASE/QA/final_targeted_green_v2.tap"
+          AF_QA_OUTPUT="$RELEASE/QA/final_zip_v2" python -u "$FINAL/v138_work/tests/run_all_v136.py"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.38'); a=json.loads((r/'QA/worktree_v2/summary.json').read_text()); b=json.loads((r/'QA/final_zip_v2/summary.json').read_text()); build=json.loads((r/'BUILD_v1.0.38.json').read_text())
+          assert a['complete'] and a['pass']==35 and a['fail']==0
+          assert b['complete'] and b['pass']==35 and b['fail']==0
+          receipt={'version':'1.0.38','status':'FINAL_ZIP_OFFLINE_QA_PASS_LIVE_UNVERIFIED','archive':build['archive'],'sha256':build['archive_sha256'],'bytes':build['archive_bytes'],'source_files':build['source_files'],'targeted_sticky_recovery':'PASS','worktree_groups_pass':35,'worktree_groups_fail':0,'final_zip_groups_pass':35,'final_zip_groups_fail':0,'installed_live_acceptance':'NOT_RUN','live_provider_calls':0}
+          (r/'CHECKPOINT.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          PY
+      - name: Persist source ZIP and QA
+        id: persist
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- "$RELEASE" tools/materialize_avito_v138.py tools/package_avito_v138.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: persist Avito Finder v1.0.38 sticky recovery candidate'
+            git push origin HEAD:"$BRANCH"
+          fi
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-v138-sticky-recovery-v2
+          path: подбор авито расширение/releases/v1.0.38/
+          if-no-files-found: error
+  remote-readback:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.checked_commit }}
+          fetch-depth: 0
+      - name: Independent byte/hash/QA readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,subprocess,zipfile
+          from pathlib import Path
+          r=Path('подбор авито расширение/releases/v1.0.38'); b=json.loads((r/'BUILD_v1.0.38.json').read_text()); z=r/b['archive']
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==b['archive_sha256'] and len(z.read_bytes())==b['archive_bytes']
+          q1=json.loads((r/'QA/worktree_v2/summary.json').read_text()); q2=json.loads((r/'QA/final_zip_v2/summary.json').read_text()); assert q1['pass']==35 and q1['fail']==0 and q2['pass']==35 and q2['fail']==0
+          with zipfile.ZipFile(z) as f:
+              assert f.testzip() is None and len(f.namelist())==b['source_files']
+              for n,h in b['source_hashes'].items():
+                  x=f.read('v138_work/'+n); y=(r/'v138_work'/n).read_bytes(); assert x==y and hashlib.sha256(x).hexdigest()==h,n
+          o=json.loads((r/'v138_work/BUILD_ORIGIN_v1.0.38.json').read_text()); assert o['runtime_changed']==['avito_content.js','manifest.json','service_worker.js'] and o['recovery_created_rotation']==-1
+          receipt={'scope':'INDEPENDENT_FRESH_GITHUB_CHECKOUT_V138','verified_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'version':'1.0.38','archive':b['archive'],'sha256':b['archive_sha256'],'bytes':b['archive_bytes'],'source_files_byte_equal':b['source_files'],'worktree_groups_pass':35,'final_zip_groups_pass':35,'groups_fail':0,'sticky_recovery':'PASS','status':'PASS','installed_live_acceptance':'NOT_RUN'}
+          (r/'REMOTE_READBACK.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          PY
+      - name: Persist readback receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          git add -- 'подбор авито расширение/releases/v1.0.38/REMOTE_READBACK.json'
+          git commit -m 'qa: persist independent v1.0.38 remote readback'
+          git push origin HEAD:fix/v138-avito-sticky-recovery-2026-09-13
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-v138-remote-verified-v2
+          path: подбор авито расширение/releases/v1.0.38/
+          if-no-files-found: error
