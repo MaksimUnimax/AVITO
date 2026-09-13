@@ -1,0 +1,170 @@
+name: Finalize Rule 20 full history audit
+on:
+  push:
+    branches: [audit/full-history-2026-09-13]
+    paths:
+      - 'tools/finalize_full_history_audit.py'
+      - '.github/workflows/finalize-full-history-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download the three accepted evidence sets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/current /tmp/early /tmp/nested /tmp/final
+          mkdir -p /tmp/current /tmp/early /tmp/nested /tmp/final
+          gh run download 34740844051 -n avito-full-history-audit-v2 -D /tmp/current
+          gh run download 34741618622 -n avito-early-history-evidence -D /tmp/early
+          gh run download 34741795769 -n avito-nested-history-audit -D /tmp/nested
+          test -f /tmp/current/FULL_HISTORY_RAW.json
+          test -f /tmp/early/EARLY_HISTORY.json
+          test -f /tmp/nested/NESTED_HISTORY.json
+      - name: Generate final audit authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/finalize_full_history_audit.py /tmp/current /tmp/early /tmp/nested /tmp/final
+          python3 - <<'PY'
+          import json, pathlib, hashlib
+          d=pathlib.Path('/tmp/final')
+          j=json.loads((d/'PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json').read_text())
+          r=json.loads((d/'PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13_RECEIPT.json').read_text())
+          assert j['status']=='PASS'
+          assert j['runtime_patch_during_audit'] is False
+          assert j['current_release']=='1.0.38'
+          assert j['current_release_live_acceptance']=='NOT_RUN_LIVE_UNVERIFIED'
+          assert r['status']=='PASS'
+          assert r['md_sha256']==hashlib.sha256((d/'PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md').read_bytes()).hexdigest()
+          assert r['json_sha256']==hashlib.sha256((d/'PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json').read_bytes()).hexdigest()
+          print(json.dumps(r, indent=2))
+          PY
+      - name: Persist audit authority onto fresh main without runtime changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          base=$(git rev-parse origin/main)
+          git worktree add --detach /tmp/main-work "$base"
+          cd /tmp/main-work
+          audit_dir='подбор авито расширение/history_audit/2026-09-13'
+          mkdir -p "$audit_dir/current_history" "$audit_dir/early_history" "$audit_dir/nested_history" "$audit_dir/diffs_current" "$audit_dir/diffs_pre1"
+          cp /tmp/final/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md "$audit_dir/"
+          cp /tmp/final/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json "$audit_dir/"
+          cp /tmp/final/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13_RECEIPT.json "$audit_dir/"
+          cp /tmp/current/FULL_HISTORY_RAW.json "$audit_dir/current_history/"
+          cp /tmp/current/SUMMARY.json "$audit_dir/current_history/"
+          cp /tmp/current/INVENTORY.md "$audit_dir/current_history/"
+          cp /tmp/early/EARLY_HISTORY.json "$audit_dir/early_history/"
+          cp /tmp/early/EARLY_TEXT_HITS.json "$audit_dir/early_history/"
+          cp /tmp/nested/NESTED_HISTORY.json "$audit_dir/nested_history/"
+          cp /tmp/nested/SUMMARY.json "$audit_dir/nested_history/"
+          cp /tmp/nested/NESTED_HISTORY.md "$audit_dir/nested_history/"
+          if [ -d /tmp/current/diffs ]; then cp -a /tmp/current/diffs/. "$audit_dir/diffs_current/"; fi
+          if [ -d /tmp/nested/diffs ]; then cp -a /tmp/nested/diffs/. "$audit_dir/diffs_pre1/"; fi
+          cp /tmp/final/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md 'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md'
+          cp /tmp/final/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json 'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json'
+          python3 - <<'PY'
+          from pathlib import Path
+          agent=Path('AGENTS.md')
+          text=agent.read_text()
+          block='''# Rule 20 full-history audit authority\n\n`FULL_HISTORY_AUDIT=PASS` for the 2026-09-13 pre-patch authority. Before any future runtime patch, read in full:\n\n- `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md`;\n- `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json`;\n- `подбор авито расширение/history_audit/2026-09-13/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13_RECEIPT.json`;\n- Rule 20 in `PATCH_ENGINEERING_RULES.md`.\n\nThe audit PASS closes only the historical-analysis gate. It does **not** make v1.0.38 live-accepted: v1.0.38 remains `LIVE_UNVERIFIED / installed Chrome E2E NOT_RUN`. Every future patch still requires a new exact live observation → RED regression on the exact installed target before runtime changes. Historical source gaps/mismatches in the audit must not be silently filled.\n\n'''
+          if not text.startswith('# Rule 20 full-history audit authority'):
+              agent.write_text(block+text)
+          progress=Path('подбор авито расширение/ТЕКУЩИЙ_ПРОГРЕСС.md')
+          p=progress.read_text()
+          pblock='''# FULL_HISTORY_AUDIT=PASS — Rule 20 authority\n\nДата: 2026-09-13. Полный исторический аудит завершён и сохранён в `history_audit/2026-09-13/`. Охвачены 61 архивный historical variant / 56 уникальных pre-1.0 версий, reachable Git history, runtime/test/history commits, refs/PR, exact-source версии, adjacent diffs и explicit source gaps. Ключевой пропуск предыдущего процесса: `rotation=0` существовал минимум в exact v1.0.23/v1.0.24 и был унаследован до v1.0.37; v1.0.23 проверял canary egress change, но не стабильность multi-request Avito session.\n\nЭтот PASS разрешает только считать Rule 20 выполненным для текущей истории. Он НЕ является live acceptance v1.0.38. Текущий v1.0.38 остаётся `LIVE_UNVERIFIED / installed Chrome E2E NOT_RUN`. Любой следующий runtime patch требует нового живого FAIL и точного RED на текущем installed target.\n\n---\n\n'''
+          if not p.startswith('# FULL_HISTORY_AUDIT=PASS'):
+              progress.write_text(pblock+p)
+          PY
+          # Audit commit is docs/data only. Executable runtime is forbidden.
+          changed=$(git -c core.quotepath=false status --short | sed -E 's/^...//')
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -E '(^|/)(manifest\.json|service_worker\.js|chatgpt_content\.js|avito_content\.js|core\.js|proxy_manager\.js|recovery\.js|popup\.js|popup\.html|popup\.css)$'; then
+            echo FINAL_AUDIT_RUNTIME_CHANGE_FORBIDDEN >&2
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add AGENTS.md 'подбор авито расширение/ТЕКУЩИЙ_ПРОГРЕСС.md' 'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md' 'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json' "$audit_dir"
+          git commit -m 'audit: persist complete Rule 20 Avito Finder history authority'
+          git push origin HEAD:main
+          git rev-parse HEAD > /tmp/final/main_audit_commit.txt
+      - name: Upload finalization evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: avito-full-history-audit-final
+          path: |
+            /tmp/final/
+          retention-days: 90
+          if-no-files-found: error
+
+  remote-readback:
+    needs: finalize
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Independently verify main audit authority and create readback receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib, subprocess
+          root=Path('подбор авито расширение/history_audit/2026-09-13')
+          md=root/'PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md'
+          js=root/'PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json'
+          rc=root/'PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13_RECEIPT.json'
+          data=json.loads(js.read_text()); receipt=json.loads(rc.read_text())
+          assert data['status']=='PASS'
+          assert data['runtime_patch_during_audit'] is False
+          assert data['current_release_live_acceptance']=='NOT_RUN_LIVE_UNVERIFIED'
+          assert receipt['md_sha256']==hashlib.sha256(md.read_bytes()).hexdigest()
+          assert receipt['json_sha256']==hashlib.sha256(js.read_bytes()).hexdigest()
+          topmd=Path('подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md')
+          topjs=Path('подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json')
+          assert topmd.read_bytes()==md.read_bytes()
+          assert topjs.read_bytes()==js.read_bytes()
+          # Prove audit history since Rule-20 addition contains no production runtime paths.
+          rule_commit='073130cf4211904fe5ac51d6febf6729f96b0460'
+          out=subprocess.check_output(['git','-c','core.quotepath=false','diff','--name-only',rule_commit+'..HEAD']).decode().splitlines()
+          runtime_names={'manifest.json','service_worker.js','chatgpt_content.js','avito_content.js','core.js','proxy_manager.js','recovery.js','popup.js','popup.html','popup.css'}
+          bad=[p for p in out if Path(p).name in runtime_names]
+          assert not bad,bad
+          result={
+            'schema':'avito_finder_full_history_audit_remote_readback_v1',
+            'status':'PASS',
+            'verified_main_commit':subprocess.check_output(['git','rev-parse','HEAD']).decode().strip(),
+            'md_sha256':hashlib.sha256(md.read_bytes()).hexdigest(),
+            'json_sha256':hashlib.sha256(js.read_bytes()).hexdigest(),
+            'receipt_sha256':hashlib.sha256(rc.read_bytes()).hexdigest(),
+            'top_level_copies_byte_identical':True,
+            'runtime_changes_since_rule20':[],
+            'current_release':'1.0.38',
+            'current_release_live_acceptance':'NOT_RUN_LIVE_UNVERIFIED'
+          }
+          (root/'FULL_HISTORY_AUDIT_REMOTE_READBACK.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(result,ensure_ascii=False,indent=2))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'подбор авито расширение/history_audit/2026-09-13/FULL_HISTORY_AUDIT_REMOTE_READBACK.json'
+          git commit -m 'audit: persist independent Rule 20 remote readback'
+          git push origin HEAD:main
