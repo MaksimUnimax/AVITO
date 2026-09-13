@@ -1,0 +1,28 @@
+{
+  "schema": "avito_finder_v142_materialization_v1",
+  "version": "1.0.42",
+  "base_version": "1.0.41",
+  "production_runtime_changed": [
+    "chatgpt_content.js",
+    "avito_content.js",
+    "manifest.json"
+  ],
+  "runtime_behavior_changed": [
+    "chatgpt_content.js"
+  ],
+  "identity_only_changed": [
+    "avito_content.js",
+    "manifest.json"
+  ],
+  "service_worker_byte_identical_to_v141": true,
+  "proxy_manager_byte_identical_to_v141": true,
+  "capture_contract": {
+    "transient_payload_miss_preserves_structural_candidate": true,
+    "payload_retry_is_bounded": true,
+    "unrelated_assistant_controls_excluded_from_structural_signature": true,
+    "payload_fingerprint_stability_retained": true,
+    "ordinary_markdown_remains_non_executable": true
+  },
+  "base_chatgpt_content_sha256": "64eedf07f07fb69ba87d91bc51d49273237e577de770d48a97e2368dd7a39d18",
+  "materialized_chatgpt_content_sha256": "bf30d2babc8b7769fc6c7e651713c164a84c42d6c973270756da319088f7da4d"
+}

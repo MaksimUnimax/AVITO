@@ -1,0 +1,29 @@
+{
+  "schema": "avito_finder_v142_capture_green_v1",
+  "source_version": "1.0.42",
+  "source_root": "/home/runner/work/AVITO/AVITO/подбор авито расширение/releases/v1.0.42/v142_work",
+  "scenarios": [
+    {
+      "name": "transient same-block extraction miss",
+      "full_text_count": 0,
+      "retry_count": 1,
+      "structural_restarts": 10,
+      "pass": false
+    },
+    {
+      "name": "unrelated assistant control churn",
+      "full_text_count": 1,
+      "structural_restarts": 1,
+      "distinct_structural_signatures": 1,
+      "pass": true
+    },
+    {
+      "name": "persistent extraction loss bounded terminal",
+      "full_text_count": 0,
+      "retry_count": 1,
+      "bounded_failure_count": 1,
+      "pass": true
+    }
+  ],
+  "status": "FAIL"
+}
