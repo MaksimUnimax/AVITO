@@ -1,0 +1,41 @@
+name: Early Avito Finder history audit
+on:
+  push:
+    branches: [audit/full-history-2026-09-13]
+    paths:
+      - 'tools/extract_early_history.py'
+      - '.github/workflows/early-history-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git fetch --all --tags --prune
+      - name: Reconstruct and scan historical packages
+        run: python3 tools/extract_early_history.py early-history-output
+      - name: Show evidence
+        run: |
+          cat early-history-output/EARLY_HISTORY.json | head -c 20000
+          echo
+          cat early-history-output/EARLY_TEXT_HITS.json | head -c 20000
+      - name: Enforce audit-only branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=$(git merge-base origin/main HEAD)
+          changed=$(git -c core.quotepath=false diff --name-only "$base"..HEAD)
+          if printf '%s\n' "$changed" | grep -E '(^|/)(manifest\.json|service_worker\.js|chatgpt_content\.js|avito_content\.js|core\.js|proxy_manager\.js|recovery\.js|popup\.js|popup\.html|popup\.css)$'; then
+            echo AUDIT_BRANCH_RUNTIME_CHANGE_FORBIDDEN >&2; exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avito-early-history-evidence
+          path: early-history-output/
+          retention-days: 90
+          if-no-files-found: error
