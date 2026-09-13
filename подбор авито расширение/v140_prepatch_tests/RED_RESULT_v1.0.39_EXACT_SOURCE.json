@@ -1,0 +1,14 @@
+{
+  "schema": "avito_finder_v140_red_result_v1",
+  "date": "2026-09-13",
+  "target_patch": "1.0.40",
+  "tested_version": "1.0.39",
+  "exact_zip_sha256": "a4a0ae626de4692c62cd76d87be19e34749b488e76afa2764828a025db08bb98",
+  "service_worker_sha256": "5125bbb75212e5a489f69a60a33bf3715d110a74d5c29b61abce63cc0da14ab6",
+  "test": "dedicated_requested_tab_on_ambiguity_v140.test.js",
+  "exit_code": 1,
+  "status": "RED_CONFIRMED",
+  "observed_error": "AVITO_VISIBLE_TAB_AMBIGUOUS_SELECT_ONE_TAB",
+  "expected_new_invariant": "On first user-started target binding with an explicit valid public requested URL, ambiguity among existing Avito tabs must allocate one new dedicated run-owned public tab instead of guessing an existing tab or terminating.",
+  "runtime_changed_before_red": false
+}
