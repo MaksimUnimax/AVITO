@@ -1,0 +1,7 @@
+{
+  "status": "RED_CONFIRMED",
+  "source": "exact v1.0.40",
+  "exit_code": 1,
+  "live_failure": "IP firewall landing misclassified as CAPTCHA because helper text mentions future CAPTCHA",
+  "expected_after_patch": "ip_block=true, captcha=false without a concrete challenge"
+}

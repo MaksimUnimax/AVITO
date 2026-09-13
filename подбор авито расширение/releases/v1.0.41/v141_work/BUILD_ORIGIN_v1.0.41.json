@@ -1,0 +1,45 @@
+{
+  "schema": "avito_finder_v141_materialization_v1",
+  "version": "1.0.41",
+  "base_version": "1.0.40",
+  "base_zip_sha256": "04f9bdc205eaa3578d462005ea15749184c5f7e744bd24a19c43e5a88bc1e017",
+  "production_runtime_changed": [
+    "avito_content.js",
+    "core.js",
+    "manifest.json"
+  ],
+  "runtime_behavior_changed": [
+    "core.js"
+  ],
+  "identity_only_changed": [
+    "avito_content.js",
+    "manifest.json"
+  ],
+  "service_worker_byte_identical_to_v140": true,
+  "proxy_manager_byte_identical_to_v140": true,
+  "test_only_changed": [
+    "tests/ip_block_firewall_classifier_v141.test.js",
+    "tests/ip_block_ui_plan_recovery_v124.test.js",
+    "tests/ip_block_verified_egress_v123.test.js",
+    "tests/proxy_recovery_integrity_v137.test.js",
+    "tests/traffic_lite_zero_media.test.js",
+    "tests/v135_prompt_form_terminal_gate.test.py"
+  ],
+  "classification_contract": {
+    "ip_firewall_future_captcha_hint_is_not_challenge": true,
+    "strong_ip_heading_suppresses_generic_rate_limit_overlap": true,
+    "structural_or_human_robot_captcha_remains_manual_even_with_ip_heading": true,
+    "existing_bounded_ip_recovery_reload_reused_unchanged": true
+  },
+  "changed_files": [
+    "avito_content.js",
+    "core.js",
+    "manifest.json",
+    "tests/ip_block_firewall_classifier_v141.test.js",
+    "tests/ip_block_ui_plan_recovery_v124.test.js",
+    "tests/ip_block_verified_egress_v123.test.js",
+    "tests/proxy_recovery_integrity_v137.test.js",
+    "tests/traffic_lite_zero_media.test.js",
+    "tests/v135_prompt_form_terminal_gate.test.py"
+  ]
+}

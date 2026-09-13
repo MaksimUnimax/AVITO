@@ -1,0 +1,135 @@
+{
+  "scope": "OFFLINE_CHROMIUM_PUBLIC_MESSAGE_LAYOUT_FIXTURES",
+  "installed_extension": false,
+  "live_chatgpt": false,
+  "tests": [
+    {
+      "name": "sent-message body recognition: folded",
+      "status": "PASS",
+      "ms": 2422
+    },
+    {
+      "name": "sent-message body recognition: visible_controls",
+      "status": "PASS",
+      "ms": 2254
+    },
+    {
+      "name": "sent-message body recognition: plain",
+      "status": "PASS",
+      "ms": 2254
+    },
+    {
+      "name": "sent-message body recognition: split_role",
+      "status": "PASS",
+      "ms": 2254
+    },
+    {
+      "name": "sent-message body recognition: hydrating",
+      "status": "PASS",
+      "ms": 2363
+    },
+    {
+      "name": "sent-message body recognition: remount",
+      "status": "PASS",
+      "ms": 2360
+    },
+    {
+      "name": "sent-message body recognition: article",
+      "status": "PASS",
+      "ms": 2256
+    },
+    {
+      "name": "sent-message body recognition: wrapped_controls",
+      "status": "PASS",
+      "ms": 2358
+    },
+    {
+      "name": "sent-message body recognition: label_only",
+      "status": "PASS",
+      "ms": 2353
+    },
+    {
+      "name": "19,495-character folded report acknowledged after one Send",
+      "status": "PASS",
+      "ms": 2369
+    },
+    {
+      "name": "hidden body is not scraped or accepted merely because it exists",
+      "status": "PASS",
+      "ms": 144
+    },
+    {
+      "name": "no false receipt: foreign",
+      "status": "PASS",
+      "ms": 143
+    },
+    {
+      "name": "no false receipt: prefix",
+      "status": "PASS",
+      "ms": 143
+    },
+    {
+      "name": "no false receipt: wrong_price",
+      "status": "PASS",
+      "ms": 142
+    },
+    {
+      "name": "no false receipt: missing_tail",
+      "status": "PASS",
+      "ms": 153
+    },
+    {
+      "name": "no false receipt: duplicate",
+      "status": "PASS",
+      "ms": 148
+    },
+    {
+      "name": "hidden labels and controls excluded from message text",
+      "status": "PASS",
+      "ms": 149
+    },
+    {
+      "name": "expand control pointing outside pending user message never clicked",
+      "status": "PASS",
+      "ms": 446
+    },
+    {
+      "name": "failed durable intent prevents actual Send click",
+      "status": "PASS",
+      "ms": 2147
+    },
+    {
+      "name": "acknowledgement wait fenced after STOP",
+      "status": "PASS",
+      "ms": 2255
+    },
+    {
+      "name": "acknowledgement wait fenced after different_chat",
+      "status": "PASS",
+      "ms": 2262
+    },
+    {
+      "name": "receipt migration/recovery: legacy",
+      "status": "PASS",
+      "ms": 251
+    },
+    {
+      "name": "receipt migration/recovery: receipt_with_evicted_predecessor",
+      "status": "PASS",
+      "ms": 246
+    },
+    {
+      "name": "receipt migration/recovery: unknown_predecessor",
+      "status": "PASS",
+      "ms": 141
+    },
+    {
+      "name": "newer unrelated turn cannot steal matching report anchor",
+      "status": "PASS",
+      "ms": 137
+    }
+  ],
+  "pass": 25,
+  "fail": 0,
+  "page_errors": []
+}

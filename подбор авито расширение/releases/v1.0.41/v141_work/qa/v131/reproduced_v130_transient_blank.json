@@ -1,0 +1,17 @@
+{
+  "source_version": "1.0.30",
+  "simulated_chrome_create_return": {
+    "url": "about:blank",
+    "pendingUrl": "about:blank",
+    "status": "loading"
+  },
+  "requested_create_url": "about:blank",
+  "target_dispatch_count_after_create": 0,
+  "child_url": "about:blank",
+  "child_pending_url": "about:blank",
+  "durable_stage": "CREATED",
+  "result_after_stop": {
+    "error": "SEQUENTIAL_REVIEW_CANCELLED"
+  },
+  "conclusion": "v1.0.30 skipped tabs.update because pendingUrl was truthy, leaving owned child on about:blank until readiness timeout"
+}
