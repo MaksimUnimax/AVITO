@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "version": "1.0.41",
+  "checked_commit": "0e75da5224d01c66906a35ecaa145095c949b30f",
+  "archive_sha256": "4658c589802d0a8a641a1f571bb8d55005d5f05423a7e154b7dcc9909842920c",
+  "archive_bytes": 498304,
+  "source_files": 152,
+  "worktree_groups": "35/35",
+  "final_zip_groups": "35/35",
+  "node": "373/373",
+  "targeted": "3/3",
+  "runtime_behavior_changed": [
+    "core.js"
+  ],
+  "service_worker_byte_identical_to_v140": true,
+  "proxy_manager_byte_identical_to_v140": true,
+  "installed_live_acceptance": "NOT_RUN"
+}
