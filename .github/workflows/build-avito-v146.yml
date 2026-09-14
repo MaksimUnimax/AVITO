@@ -92,7 +92,12 @@ jobs:
           assert origin['base_version']=='1.0.45',origin
           assert origin['runtime_behavior_changed']==['service_worker.js'],origin
           assert origin['runtime_unchanged']==['recovery.js','chatgpt_content.js','core.js','proxy_manager.js'],origin
-          assert len(origin['test_harness_only_changed'])==1,origin
+          expected_test_harness_changes=[
+            'tests/recovery_escalation_v145.test.js: post-exhaustion state expectation only',
+            'tests/contract_audit_v129.test.js: rate-limit DIRECT terminal report state expectation only',
+            'tests/recovery_behavior_v125.test.js: four terminal non-CAPTCHA failure state expectations only'
+          ]
+          assert origin['test_harness_only_changed']==expected_test_harness_changes,origin
           for name in ['recovery.js','chatgpt_content.js','core.js','proxy_manager.js']:
             assert (base/name).read_bytes()==(work/name).read_bytes(),name
           assert (base/'service_worker.js').read_bytes() != (work/'service_worker.js').read_bytes()
