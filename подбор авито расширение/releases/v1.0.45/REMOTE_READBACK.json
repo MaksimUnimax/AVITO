@@ -1,0 +1,15 @@
+{
+  "schema": "avito_finder_v145_remote_readback",
+  "version": "1.0.45",
+  "status": "PASS",
+  "branch": "fix/v145-recovery-escalation-without-avito-retry-2026-09-14",
+  "head": "90a032551493babb719f1128e78e63fe8cab4f95",
+  "archive": "AVITO_FINDER_v1.0.45_TRANSPORT_RECOVERY_ESCALATION_2026-09-14.zip",
+  "archive_sha256": "f747c2415639606862675df9e748ee53031d11a4dbfd5b2ae35d868ab20396c3",
+  "archive_bytes": 515354,
+  "source_files": 160,
+  "targeted_green": "5/5 PASS",
+  "grouped_qa": "35/35 PASS",
+  "final_zip_fresh_extract": "PASS",
+  "installed_live_e2e": "NOT_RUN / LIVE_UNVERIFIED"
+}
