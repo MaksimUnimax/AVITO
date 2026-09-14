@@ -1,0 +1,9 @@
+{
+  "schema": "avito_finder_v144_regression_diagnostic_v1",
+  "source_version": "1.0.44",
+  "node_exit": 1,
+  "cycle_ip_exit": 1,
+  "cycle_rate_exit": 1,
+  "queue_rate_direct_exit": 1,
+  "purpose": "classify full-regression failures after introducing global fail-closed Avito egress authority"
+}

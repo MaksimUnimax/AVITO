@@ -1,0 +1,31 @@
+HOST_STARTED
+CHAT_READY
+AVITO_READY
+START_REQUEST
+START_RESPONSE True
+STATE WAITING_FOR_ASSISTANT_WRITING_BLOCK
+STATE RECOVERING_AVITO_CONNECTION
+STATE REPORT_DELIVERY_IN_PROGRESS
+STATE WAITING_FOR_NEXT_ASSISTANT_FORM
+STATE REPORT_DELIVERY_IN_PROGRESS
+STATE WAITING_FOR_NEXT_ASSISTANT_FORM
+STATE REPORT_DELIVERY_IN_PROGRESS
+STATE WAITING_FOR_NEXT_ASSISTANT_FORM
+{"name": "ip_block_recovery_then_three_pages", "status": "FAIL", "error": "Avito Finder: действие на Avito остановлено безопасно.\n\nЗадача: af-20260914080758-48fz\nЭтап: AVITO_NAVIGATION\nПричина: AVITO_REQUEST_SUPPRESSED_NO_EGRESS_CHANGE\n\nАвтоматические попытки восстановления: 1. Повтор мутаций запрещён.\nIP probe: 185.42.12.34 → 185.42.12.34; без подтверждённой смены IP.\nТранспорт: PROBES_COMPLETE.\nEndpoint/create: данных нет.\nProvider rotation: данных нет.\nСохранённый курсор очереди: не используется; карточек прочитано: 0.\nВерсия: 1.0.44. Смена IP Avito не заявляется без отдельного доказательства.\nРасширение вернуло этот отчёт в тот же чат и продолжает ожидать следующую форму.", "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/AVITO/AVITO/подбор авито расширение/releases/v1.0.44/v144_work/tests/browser_cycle_v127.py\", line 110, in main\n    for i,text in enumerate(pc['sentReports']):assert 'count=30' in text and 'ID='+str(1000000000+30*i+29) in text,text[-1500:]\n                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: Avito Finder: действие на Avito остановлено безопасно.\n\nЗадача: af-20260914080758-48fz\nЭтап: AVITO_NAVIGATION\nПричина: AVITO_REQUEST_SUPPRESSED_NO_EGRESS_CHANGE\n\nАвтоматические попытки восстановления: 1. Повтор мутаций запрещён.\nIP probe: 185.42.12.34 → 185.42.12.34; без подтверждённой смены IP.\nТранспорт: PROBES_COMPLETE.\nEndpoint/create: данных нет.\nProvider rotation: данных нет.\nСохранённый курсор очереди: не используется; карточек прочитано: 0.\nВерсия: 1.0.44. Смена IP Avito не заявляется без отдельного доказательства.\nРасширение вернуло этот отчёт в тот же чат и продолжает ожидать следующую форму.\n", "browser_errors": []}
+Traceback (most recent call last):
+  File "/home/runner/work/AVITO/AVITO/подбор авито расширение/releases/v1.0.44/v144_work/tests/browser_cycle_v127.py", line 124, in <module>
+    if __name__=='__main__':asyncio.run(main())
+                            ~~~~~~~~~~~^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.13.15/x64/lib/python3.13/asyncio/runners.py", line 196, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/opt/hostedtoolcache/Python/3.13.15/x64/lib/python3.13/asyncio/runners.py", line 119, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/hostedtoolcache/Python/3.13.15/x64/lib/python3.13/asyncio/base_events.py", line 726, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/home/runner/work/AVITO/AVITO/подбор авито расширение/releases/v1.0.44/v144_work/tests/browser_cycle_v127.py", line 123, in main
+    out={'scope':'OFFLINE_CROSS_COMPONENT_CYCLE__PRODUCTION_WORKER_VM_AND_REAL_CHROMIUM_DOM__CHROME_APIS_MOCKED','live_provider_calls':0,'installed_extension':False,'tests':results,'pass':sum(r['status']=='PASS' for r in results),'fail':sum(r['status']=='FAIL' for r in results)};OUT.write_text(json.dumps(out,ensure_ascii=False,indent=2));assert not out['fail']
+                                                                                                                                                                                                                                                                                                                                                           ^^^^^^^^^^^^^^^
+AssertionError
