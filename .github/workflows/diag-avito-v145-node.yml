@@ -1,0 +1,32 @@
+name: Diagnose Avito Finder v1.0.45 Node regression
+
+on:
+  push:
+    branches: [fix/v145-recovery-escalation-without-avito-retry-2026-09-14]
+    paths:
+      - '.github/workflows/diag-avito-v145-node.yml'
+  workflow_dispatch:
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v145-recovery-escalation-without-avito-retry-2026-09-14
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Materialize exact v1.0.45
+        run: python tools/materialize_avito_v145.py
+      - name: Exact aggregate Node command
+        shell: bash
+        run: |
+          set -o pipefail
+          cd 'подбор авито расширение/releases/v1.0.45/v145_work'
+          env -u AF_SOURCE_ROOT node --test tests/*.test.js
