@@ -1,0 +1,28 @@
+TAP version 13
+# Subtest: RED v1.0.44: fail-closed same-IP attempt 1 must escalate transport without touching Avito
+not ok 1 - RED v1.0.44: fail-closed same-IP attempt 1 must escalate transport without touching Avito
+  ---
+  duration_ms: 42.979595
+  type: 'test'
+  location: '/home/runner/work/AVITO/AVITO/подбор авито расширение/v145_prepatch_tests/recovery_escalation_red.test.js:18:1'
+  failureType: 'testCodeFailure'
+  error: 'RED_EXPECTED: transport escalation did not advance beyond attempt 1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (/home/runner/work/AVITO/AVITO/подбор авито расширение/v145_prepatch_tests/recovery_escalation_red.test.js:38:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 101.300614

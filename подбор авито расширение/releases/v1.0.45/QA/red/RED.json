@@ -1,0 +1,16 @@
+{
+  "schema": "avito_finder_v145_red",
+  "status": "RED_CONFIRMED",
+  "source_version": "1.0.44",
+  "runtime_changed_before_red": false,
+  "live_task": "af-20260914103145-ps7t",
+  "live_reason": "AVITO_REQUEST_SUPPRESSED_NO_EGRESS_CHANGE",
+  "live_probe_before": "5.164.230.200",
+  "live_probe_after": "5.164.230.200",
+  "live_transport": "PROBES_COMPLETE",
+  "observed_attempt": 1,
+  "provider_rotation_reachable_from_live_path": false,
+  "endpoint_create_reachable_from_live_path": false,
+  "desired_contract": "continue bounded transport-only recovery attempts without any Avito request until changed egress is proven or recovery exhausts",
+  "test": "v145_prepatch_tests/recovery_escalation_red.test.js"
+}
