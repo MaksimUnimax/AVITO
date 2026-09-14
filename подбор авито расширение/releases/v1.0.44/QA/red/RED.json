@@ -1,0 +1,12 @@
+{
+  "schema": "avito_finder_v144_red_v1",
+  "date": "2026-09-14",
+  "source_version": "1.0.43",
+  "source_root": "releases/v1.0.43/v143_work",
+  "target": "v1.0.44 global Avito network request authority",
+  "status": "RED_CONFIRMED",
+  "runtime_changed_before_red": false,
+  "failed_invariant": "blocked egress without proven change can still reach intentional Avito reload/update",
+  "exact_old_transition": "RATE_LIMIT -> COOLDOWN_SAME_ROUTE probe_ip_changed=false -> tabsReload/tabsUpdate -> AVITO_RECOVERY_FRESH_DOCUMENT_REQUESTED",
+  "required_green": "AVITO_REQUEST_SUPPRESSED_NO_EGRESS_CHANGE and zero Avito navigation/reload after block until PROBES_COMPLETE proves different before/after egress"
+}
