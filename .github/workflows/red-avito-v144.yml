@@ -1,0 +1,78 @@
+name: RED Avito Finder v1.0.44 global request authority
+on:
+  push:
+    branches: [fix/v144-global-egress-request-gate-2026-09-14]
+    paths:
+      - '.github/workflows/red-avito-v144.yml'
+      - 'подбор авито расширение/v144_prepatch_tests/**'
+      - 'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.44_2026-09-14.*'
+      - 'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.44_REMOTE_READBACK_2026-09-14.json'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v144-global-egress-request-gate-2026-09-14
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify Rule 20 v1.0.44 gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('подбор авито расширение')
+          a=json.loads((root/'PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.44_2026-09-14.json').read_text())
+          rb=json.loads((root/'PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.44_REMOTE_READBACK_2026-09-14.json').read_text())
+          assert a['status']=='FULL_HISTORY_AUDIT=PASS',a
+          assert a['exact_target_version']=='1.0.43',a
+          assert rb['status']=='PASS' and rb['runtime_changed_before_red'] is False,rb
+          print('Rule20 v1.0.44 gate PASS')
+          PY
+      - name: Exact v1.0.43 must fail global request-authority invariant
+        shell: bash
+        run: |
+          set +e
+          node --test 'подбор авито расширение/v144_prepatch_tests/global_avito_request_authority_v143.test.js' > /tmp/v144-red.tap 2>&1
+          code=$?
+          set -e
+          cat /tmp/v144-red.tap
+          test "$code" -ne 0
+          grep -q 'BROKEN_V143' /tmp/v144-red.tap
+          mkdir -p 'подбор авито расширение/releases/v1.0.44/QA/red'
+          cp /tmp/v144-red.tap 'подбор авито расширение/releases/v1.0.44/QA/red/RED.tap'
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('подбор авито расширение/releases/v1.0.44/QA/red/RED.json')
+          p.write_text(json.dumps({
+            'schema':'avito_finder_v144_red_v1',
+            'date':'2026-09-14',
+            'source_version':'1.0.43',
+            'source_root':'releases/v1.0.43/v143_work',
+            'target':'v1.0.44 global Avito network request authority',
+            'status':'RED_CONFIRMED',
+            'runtime_changed_before_red':False,
+            'failed_invariant':'blocked egress without proven change can still reach intentional Avito reload/update',
+            'exact_old_transition':'RATE_LIMIT -> COOLDOWN_SAME_ROUTE probe_ip_changed=false -> tabsReload/tabsUpdate -> AVITO_RECOVERY_FRESH_DOCUMENT_REQUESTED',
+            'required_green':'AVITO_REQUEST_SUPPRESSED_NO_EGRESS_CHANGE and zero Avito navigation/reload after block until PROBES_COMPLETE proves different before/after egress'
+          },ensure_ascii=False,indent=2)+'\n')
+          PY
+      - name: Persist RED evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- 'подбор авито расширение/releases/v1.0.44/QA/red'
+          if ! git diff --cached --quiet; then
+            git commit -m 'qa: persist exact v1.0.43 global request authority RED'
+            git push origin HEAD:fix/v144-global-egress-request-gate-2026-09-14
+          fi
