@@ -1,0 +1,167 @@
+{
+  "schema": "avito_finder_pre_patch_full_history_audit_v146",
+  "date": "2026-09-14",
+  "status": "FULL_HISTORY_AUDIT=PASS",
+  "target_version": "1.0.46",
+  "target_purpose": "TERMINAL_NON_CAPTCHA_AVITO_FAILURE_CAPTURE_QUIESCENCE",
+  "repository": "MaksimUnimax/AVITO",
+  "branch": "fix/v146-terminal-avito-failure-capture-quiescence-2026-09-14",
+  "exact_base": {
+    "version": "1.0.45",
+    "branch": "fix/v145-recovery-escalation-without-avito-retry-2026-09-14",
+    "head_at_branch_creation": "2f50ffc0b07dd3125c162b6c0ecb01889aa6e078",
+    "release_commit": "90a032551493babb719f1128e78e63fe8cab4f95",
+    "exact_source_root": "подбор авито расширение/releases/v1.0.45/v145_work",
+    "artifact": "подбор авито расширение/releases/v1.0.45/AVITO_FINDER_v1.0.45_TRANSPORT_RECOVERY_ESCALATION_2026-09-14.zip",
+    "artifact_sha256": "f747c2415639606862675df9e748ee53031d11a4dbfd5b2ae35d868ab20396c3",
+    "artifact_bytes": 515354,
+    "post_release_compare": {
+      "base": "90a032551493babb719f1128e78e63fe8cab4f95",
+      "head": "2f50ffc0b07dd3125c162b6c0ecb01889aa6e078",
+      "ahead_by": 1,
+      "behind_by": 0,
+      "runtime_changed": false,
+      "changed_files": [
+        "подбор авито расширение/releases/v1.0.45/QA/remote_targeted_green.tap",
+        "подбор авито расширение/releases/v1.0.45/REMOTE_READBACK.json"
+      ]
+    }
+  },
+  "inherited_exhaustive_authority": {
+    "canonical_full_audit_md": "подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md",
+    "canonical_full_audit_json": "подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.json",
+    "canonical_status": "подбор авито расширение/history_audit/2026-09-13/FULL_HISTORY_AUDIT_STATUS.md",
+    "reachable_commits_at_base_audit": 352,
+    "runtime_test_history_commits_at_base_audit": 193,
+    "refs_at_base_audit": 13,
+    "pull_requests_at_base_audit": 4,
+    "historical_archive_variants": 61,
+    "unique_archived_pre_1_versions": 56,
+    "exact_historical_runtime_manifests": 60,
+    "unambiguous_adjacent_runtime_diffs": 54,
+    "source_gaps_preserved": true
+  },
+  "incremental_rule20_chain_revalidated": [
+    {
+      "target": "1.0.40",
+      "authority": "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.40_2026-09-13.json",
+      "status": "FULL_HISTORY_AUDIT=PASS",
+      "contract_added": "first-target allocation under ambiguous existing Avito tabs"
+    },
+    {
+      "target": "1.0.41",
+      "authority": "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.41_2026-09-13.json",
+      "status": "FULL_HISTORY_AUDIT=PASS",
+      "contract_added": "IP firewall landing is not generic CAPTCHA"
+    },
+    {
+      "target": "1.0.42",
+      "authority": "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.42_2026-09-13.json",
+      "status": "FULL_HISTORY_AUDIT=PASS",
+      "contract_added": "bounded Writing Block payload extraction stability without weakening executable-form gate"
+    },
+    {
+      "target": "1.0.43",
+      "authority": "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.43_2026-09-14.json",
+      "status": "FULL_HISTORY_AUDIT=PASS",
+      "contract_added": "explicit proxy/egress recovery evidence and terminal accounting"
+    },
+    {
+      "target": "1.0.44",
+      "authority": "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.44_2026-09-14.json",
+      "status": "FULL_HISTORY_AUDIT=PASS",
+      "contract_added": "global fail-closed Avito request authority after network block"
+    },
+    {
+      "target": "1.0.45",
+      "authority": "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.45_2026-09-14.json",
+      "status": "FULL_HISTORY_AUDIT=PASS",
+      "contract_added": "transport-only recovery escalation reaches bounded attempts without interleaved target Avito requests"
+    }
+  ],
+  "historical_non_regression_authority": {
+    "v1_0_35": {
+      "authority": "PATCH_REPORT_v1.0.35_RU.md",
+      "defect": "finalized ordinary assistant response without Writing Block could wait indefinitely",
+      "required_preservation": "when prompt polling is legitimately active, finalized assistant response without Writing Block must still yield exactly one ASSISTANT_WRITING_BLOCK_REQUIRED same-chat outcome; ordinary text/Markdown remains non-executable"
+    },
+    "v1_0_44": {
+      "required_preservation": "no Avito request after a block until PROBES_COMPLETE proves a different egress and a newer egress epoch"
+    },
+    "v1_0_45": {
+      "required_preservation": "blocked transport may escalate attempts 1→2→3→4 without interleaved Avito target requests; global v1.0.44 request gate remains authoritative"
+    }
+  },
+  "live_failure": {
+    "task": "af-20260914103145-ps7t",
+    "installed_version": "1.0.44",
+    "triggering_terminal_report": {
+      "stage": "AVITO_NAVIGATION",
+      "reason": "AVITO_REQUEST_SUPPRESSED_NO_EGRESS_CHANGE",
+      "attempts": 1,
+      "transport": "PROBES_COMPLETE",
+      "cards_read": 0
+    },
+    "post_report_pattern": "every subsequent ordinary assistant response is treated as a new required executable assistant form and returns ASSISTANT_WRITING_BLOCK_REQUIRED; harmless DIAGNOSE_DOM forms return the same AVITO_IP_BLOCK snapshot and re-enter the same capture cycle",
+    "repeated_dom_fingerprint": "3568:8a657f63",
+    "classification": "TERMINAL_AVITO_FAILURE_REPORT_REARMS_PROMPT_POLL"
+  },
+  "root_cause": {
+    "state_machine_chain": [
+      "returnAvitoRuntimeFailureToPinnedChat stages report_kind=avito_failure",
+      "deliverReportToPinnedChatUnlocked confirms report delivery",
+      "confirmed delivery unconditionally transitions to WAITING_FOR_NEXT_ASSISTANT_FORM",
+      "worker sends AF_CAPTURE_BEGIN_PROMPT_POLL",
+      "chatgpt_content promptTick sees the next finalized ordinary assistant turn with no Writing Block",
+      "chatgpt_content emits AUTOMATION_PROMPT_FORM_ERROR with ASSISTANT_WRITING_BLOCK_REQUIRED",
+      "worker delivers validation_error and again re-arms WAITING_FOR_NEXT_ASSISTANT_FORM"
+    ],
+    "exact_code_locations": [
+      "releases/v1.0.45/v145_work/service_worker.js:returnAvitoRuntimeFailureToPinnedChat",
+      "releases/v1.0.45/v145_work/service_worker.js:deliverReportToPinnedChatUnlocked",
+      "releases/v1.0.45/v145_work/service_worker.js:reconcileBlockedReportUnlocked",
+      "releases/v1.0.45/v145_work/service_worker.js:handlePromptFormError",
+      "releases/v1.0.45/v145_work/chatgpt_content.js:promptTick finalized-assistant no-Writing-Block branch"
+    ],
+    "causal_summary": "The no-Writing-Block validator is behaving correctly while capture is active; the defect is that a terminal non-CAPTCHA Avito runtime failure is not terminal in the report-delivery state machine. Report delivery unconditionally re-arms assistant-form polling.",
+    "architectural_failure_class": "TERMINAL_REPORT_CONTINUATION_POLICY_MISSING"
+  },
+  "required_invariant_v146": {
+    "terminal_non_captcha_avito_failure": "after same-chat report delivery is confirmed, stop prompt capture and enter a quiescent terminal state; do not start AF_CAPTURE_BEGIN_PROMPT_POLL",
+    "captcha_avito_failure": "preserve manual continuation boundary and continuation-capable prompt lifecycle",
+    "validation_error": "preserve v1.0.35 behavior: one ASSISTANT_WRITING_BLOCK_REQUIRED outcome when capture is legitimately active, followed by the intended next prompt cycle",
+    "normal_results": "diagnostic/inspection/ui-action reports retain existing continuation behavior",
+    "new_run": "explicit user Start after quiescence must be allowed to create a new operation without reviving the old one",
+    "wake": "runtime wake must not restart prompt polling for the quiescent terminal state",
+    "avito_network": "no new Avito request is introduced by this patch"
+  },
+  "permitted_patch_scope_after_red": {
+    "runtime_expected": ["service_worker.js"],
+    "identity_expected_if_release_materialized": ["manifest.json", "avito_content.js"],
+    "do_not_change_without_new_evidence": ["chatgpt_content.js", "core.js", "recovery.js", "proxy_manager.js"],
+    "tests": [
+      "terminal non-CAPTCHA avito_failure report must quiesce capture",
+      "CAPTCHA avito_failure must remain continuation-capable",
+      "validation_error must retain v1.0.35 continuation semantics",
+      "v1.0.45 transport recovery and v1.0.44 request gate regressions must remain green"
+    ]
+  },
+  "required_red_before_runtime_change": [
+    "exact v1.0.45: confirmed terminal non-CAPTCHA avito_failure delivery transitions to WAITING_FOR_NEXT_ASSISTANT_FORM and requests AF_CAPTURE_BEGIN_PROMPT_POLL",
+    "exact v1.0.45: with that poll active, a finalized ordinary assistant turn produces ASSISTANT_WRITING_BLOCK_REQUIRED although the preceding Avito failure was terminal"
+  ],
+  "known_history_gaps_preserved": [
+    "exact package v1.0.6 unresolved due historical SHA conflict",
+    "v1.0.2-v1.0.5 VERSION_NOT_CONFIRMED",
+    "v1.0.20-v1.0.21 VERSION_SPECIFIC_AUTHORITY_NOT_FOUND",
+    "v1.0.14 and v1.0.22 source authority remains limited",
+    "v1.0.25-v1.0.33 have bounded non-exact authority where recorded by canonical audit"
+  ],
+  "provider_calls_during_audit": 0,
+  "runtime_changed_before_red": false,
+  "manifest_changed_before_red": false,
+  "test_expectations_migrated_before_red": false,
+  "release_built_before_red": false,
+  "authorization": "RED creation only after remote readback of this audit; no runtime patch, manifest bump, release build, or test-expectation migration is authorized before exact-v1.0.45 RED",
+  "verdict": "FULL_HISTORY_AUDIT=PASS"
+}
