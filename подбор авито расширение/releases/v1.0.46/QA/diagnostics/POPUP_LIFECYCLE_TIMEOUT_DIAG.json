@@ -1,0 +1,18 @@
+{
+  "schema": "avito_finder_v146_popup_lifecycle_timeout_diag",
+  "status": "HARNESS_TIMEOUT_CONFIRMED_NOT_PRODUCT_FAILURE",
+  "failed_grouped_run": 34841463832,
+  "failed_group": "popup_lifecycle",
+  "failed_group_deadline_seconds": 45,
+  "failed_group_observed_duration_seconds": 45.002,
+  "failed_group_error": "test_deadline_exceeded",
+  "all_groups_before_popup": "PASS",
+  "all_groups_after_popup_in_same_runner": "PASS",
+  "standalone_diagnostic_run": 34842382487,
+  "standalone_result": "PASS",
+  "standalone_cases": "31/31 PASS",
+  "standalone_elapsed_seconds": 19.40540599822998,
+  "runtime_changed_for_diagnostic": false,
+  "test_assertions_changed_for_diagnostic": false,
+  "decision": "increase only run_all_v136 popup_lifecycle process deadline from 45s to 90s; do not change browser_popup_lifecycle.py or any product/runtime behavior"
+}
