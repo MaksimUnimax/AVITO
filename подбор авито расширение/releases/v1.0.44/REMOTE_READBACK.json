@@ -1,0 +1,15 @@
+{
+  "schema": "avito_finder_v144_remote_readback_r2",
+  "version": "1.0.44",
+  "status": "PASS",
+  "branch": "fix/v144-global-egress-request-gate-2026-09-14",
+  "head": "fcf508a27fe4d3d373106a5917eeded22657b8ba",
+  "archive": "AVITO_FINDER_v1.0.44_GLOBAL_EGRESS_REQUEST_AUTHORITY_2026-09-14.zip",
+  "archive_sha256": "81991a45cb96956f5dda6c3286b9236ba1e2f9b0f49c0f985006966c5901bff0",
+  "archive_bytes": 512699,
+  "source_files": 158,
+  "targeted_green": "6/6 PASS",
+  "grouped_qa": "35/35 PASS",
+  "final_zip_fresh_extract": "PASS",
+  "installed_live_e2e": "NOT_RUN / LIVE_UNVERIFIED"
+}
