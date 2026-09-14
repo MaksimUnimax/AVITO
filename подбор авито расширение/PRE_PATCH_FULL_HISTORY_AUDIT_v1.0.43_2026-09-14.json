@@ -1,0 +1,73 @@
+{
+  "schema": "avito_finder_pre_patch_full_history_audit_v143",
+  "date": "2026-09-14",
+  "status": "FULL_HISTORY_AUDIT=PASS",
+  "prospective_target": "v1.0.43 proxy/egress AVITO_IP_BLOCK recovery only",
+  "installed_exact_target": "v1.0.42",
+  "v142_merge_commit": "ca156633ab700060b23c42767ed23fb0b2254df9",
+  "v142_artifact": "AVITO_FINDER_v1.0.42_WRITING_BLOCK_CAPTURE_STABILITY_RECOVERY_2026-09-13.zip",
+  "v142_sha256": "616874dcdd67a05aaa63efbe5a3f670f91646cce9022db7038296525cfd63167",
+  "inherited_authority": [
+    "PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md/json",
+    "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.40_2026-09-13.md/json + remote readback",
+    "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.41_2026-09-13.md/json + remote readback",
+    "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.42_2026-09-13.md/json + remote readback",
+    "PATCH_ENGINEERING_RULES.md Rules 1-20"
+  ],
+  "full_history_counts_inherited": {
+    "historical_archive_variants": 61,
+    "unique_pre_1_0_versions": 56,
+    "exact_historical_runtime_manifests": 60,
+    "unambiguous_adjacent_runtime_diffs": 54
+  },
+  "post_v142_merge_compare": {
+    "ahead_by": 7,
+    "behind_by": 0,
+    "runtime_changed": false,
+    "scope": "authority/progress/live evidence only"
+  },
+  "installed_live_failure": {
+    "task_id": "af-20260914010021-tyyl",
+    "listing_id": "8156773014",
+    "version": "1.0.42",
+    "capture_patch_result": "PASS",
+    "stage": "AVITO_NAVIGATION",
+    "reason": "AVITO_IP_BLOCK_RECOVERY_EXHAUSTED",
+    "automatic_attempts": 4,
+    "cards_read": 0,
+    "post_failure_dom": "AVITO_IP_BLOCK",
+    "captcha_visible": false,
+    "ip_change_claimed": false,
+    "baseline_preserved": "150/150"
+  },
+  "source_proven_current_recovery_facts": [
+    "attempt >=2 may dispatch provider change-IP link and records acknowledgement separately from proof",
+    "attempt >=3 may create/reconcile a new sticky endpoint only when session API key and package ID are available",
+    "endpoint create skip reason is explicit when API key/package is unavailable",
+    "reserveRecoveryEndpoint permits one connection_recovery.create reservation for the operation",
+    "probe_before/probe_after and probe_ip_changed are measured",
+    "fresh Avito document can still be requested when probe_ip_changed is false",
+    "terminal exhaustion report omits per-attempt proxy/egress/create telemetry"
+  ],
+  "unresolved_failure_classes": [
+    "provider rotation acknowledged but egress unchanged",
+    "API key unavailable after extension reload",
+    "endpoint create reconcile failure",
+    "new sticky endpoint applied but egress unchanged",
+    "egress changed but Avito still blocked",
+    "attempt 4 reused already-created endpoint due one-create reservation",
+    "Chrome CONNECT/session reuse",
+    "other transport/auth failure collapsed into generic exhaustion"
+  ],
+  "required_red": [
+    "unchanged egress after provider rotation acknowledgement",
+    "attempt >=3 with API key unavailable",
+    "new sticky endpoint identified/applied",
+    "Avito still blocked after new endpoint",
+    "attempt 4 after existing endpoint-create reservation",
+    "terminal exhaustion report evidence loss"
+  ],
+  "authorized_next_action": "exact-v1.0.42 RED/diagnostic only",
+  "runtime_patch_authorized": false,
+  "rule20": "PASS"
+}
