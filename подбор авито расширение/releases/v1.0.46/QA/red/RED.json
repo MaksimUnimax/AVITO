@@ -1,0 +1,13 @@
+{
+  "schema": "avito_finder_v146_terminal_capture_red",
+  "status": "RED_CONFIRMED",
+  "source_version": "1.0.45",
+  "runtime_changed_before_red": false,
+  "live_task": "af-20260914103145-ps7t",
+  "live_installed_version": "1.0.44",
+  "live_pattern": "terminal avito failure report followed by repeated ASSISTANT_WRITING_BLOCK_REQUIRED on ordinary assistant turns",
+  "exact_source_causal_failure": "confirmed non-CAPTCHA avito_failure delivery transitions to WAITING_FOR_NEXT_ASSISTANT_FORM and starts AF_CAPTURE_BEGIN_PROMPT_POLL",
+  "historical_invariant_preserved": "v1.0.35 finalized no-Writing-Block validation remains required whenever prompt polling is legitimately active",
+  "desired_contract": "confirmed terminal non-CAPTCHA avito_failure quiesces old prompt capture; CAPTCHA and validation_error continuation remain unchanged",
+  "test": "v146_prepatch_tests/terminal_avito_failure_capture_red.test.js"
+}
