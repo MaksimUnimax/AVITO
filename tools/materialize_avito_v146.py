@@ -95,11 +95,10 @@ def main() -> None:
     worker = replace_once(worker, wording_marker, wording_replacement, "terminal failure report wording")
     worker_path.write_text(worker, encoding="utf-8")
 
-    # Release-identity expectations move with the manifest version. One embedded
-    # v1.0.45 transport regression also asserted the old post-exhaustion chat
-    # lifecycle. v1.0.46 deliberately changes only that terminal state while
-    # preserving the transport assertions (attempt=4, unchanged egress, zero
-    # Avito requests, >=3 transport-only escalations).
+    # Identity expectations move with the package version. Runtime expectations
+    # are migrated only when they assert the exact post-terminal-report lifecycle
+    # superseded by the v1.0.46 RED. Transport, request authority, delivery count,
+    # evidence and CAPTCHA/manual continuation assertions remain unchanged.
     version_tests = [
         DEST / "tests" / "v135_prompt_form_terminal_gate.test.py",
         DEST / "tests" / "ip_block_ui_plan_recovery_v124.test.js",
@@ -111,6 +110,7 @@ def main() -> None:
         if path.exists():
             path.write_text(path.read_text(encoding="utf-8").replace("1.0.45", "1.0.46"), encoding="utf-8")
 
+    # v1.0.45 transport regression: only the post-exhaustion chat state changes.
     embedded_transport = DEST / "tests" / "recovery_escalation_v145.test.js"
     embedded_transport_text = embedded_transport.read_text(encoding="utf-8")
     embedded_transport_text = replace_once(
@@ -120,6 +120,44 @@ def main() -> None:
         "v1.0.46 post-exhaustion transport terminal state",
     )
     embedded_transport.write_text(embedded_transport_text, encoding="utf-8")
+
+    # The aggregate diagnostic proved five additional stale lifecycle assertions.
+    # Each one is attached to a terminal non-CAPTCHA avito_failure and changes
+    # only WAITING_FOR_NEXT_ASSISTANT_FORM -> TERMINAL_REPORT_DELIVERED.
+    contract_audit = DEST / "tests" / "contract_audit_v129.test.js"
+    contract_text = contract_audit.read_text(encoding="utf-8")
+    contract_old = "assert.equal(r.status,'WAITING_FOR_NEXT_ASSISTANT_FORM');assert.equal(r.avito_network_authority?.blocked,true);"
+    contract_new = "assert.equal(r.status,'TERMINAL_REPORT_DELIVERED');assert.equal(r.avito_network_authority?.blocked,true);"
+    contract_text = replace_once(contract_text, contract_old, contract_new, "rate-limit DIRECT terminal report state")
+    contract_audit.write_text(contract_text, encoding="utf-8")
+
+    recovery_behavior = DEST / "tests" / "recovery_behavior_v125.test.js"
+    behavior_text = recovery_behavior.read_text(encoding="utf-8")
+    behavior_replacements = [
+        (
+            "assert.equal(r.status,'WAITING_FOR_NEXT_ASSISTANT_FORM');assert.equal(r.connection_recovery.attempt,4);assert.equal(r.connection_recovery.prepared.probe_ip_changed,false);",
+            "assert.equal(r.status,'TERMINAL_REPORT_DELIVERED');assert.equal(r.connection_recovery.attempt,4);assert.equal(r.connection_recovery.prepared.probe_ip_changed,false);",
+            "same-egress exhaustion terminal report state",
+        ),
+        (
+            "assert.equal(r.status,'WAITING_FOR_NEXT_ASSISTANT_FORM');assert.equal(r.connection_recovery.attempt,4);assert.equal(r.connection_recovery.prepared.probe_before,null);",
+            "assert.equal(r.status,'TERMINAL_REPORT_DELIVERED');assert.equal(r.connection_recovery.attempt,4);assert.equal(r.connection_recovery.prepared.probe_before,null);",
+            "unreachable-probe exhaustion terminal report state",
+        ),
+        (
+            "assert.equal((await w.h.getState()).status,'WAITING_FOR_NEXT_ASSISTANT_FORM');});\ntest('mutating plan interruption",
+            "assert.equal((await w.h.getState()).status,'TERMINAL_REPORT_DELIVERED');});\ntest('mutating plan interruption",
+            "recovery exhaustion exactly-one-report terminal state",
+        ),
+        (
+            "assert.equal(w.sent.length,1);assert.equal((await w.h.getState()).status,'WAITING_FOR_NEXT_ASSISTANT_FORM');});\ntest('full worker: UI-plan block",
+            "assert.equal(w.sent.length,1);assert.equal((await w.h.getState()).status,'TERMINAL_REPORT_DELIVERED');});\ntest('full worker: UI-plan block",
+            "terminal readiness failure terminal state",
+        ),
+    ]
+    for old, new, label in behavior_replacements:
+        behavior_text = replace_once(behavior_text, old, new, label)
+    recovery_behavior.write_text(behavior_text, encoding="utf-8")
 
     embedded = DEST / "tests" / "terminal_avito_failure_capture_v146.test.js"
     shutil.copy2(GREEN, embedded)
@@ -141,7 +179,9 @@ def main() -> None:
         "identity_only_changed": ["avito_content.js", "manifest.json"],
         "runtime_unchanged": ["recovery.js", "chatgpt_content.js", "core.js", "proxy_manager.js"],
         "test_harness_only_changed": [
-            "tests/recovery_escalation_v145.test.js: post-exhaustion state expectation migrates from WAITING_FOR_NEXT_ASSISTANT_FORM to TERMINAL_REPORT_DELIVERED; all v1.0.45 transport assertions remain unchanged"
+            "tests/recovery_escalation_v145.test.js: post-exhaustion state expectation only",
+            "tests/contract_audit_v129.test.js: rate-limit DIRECT terminal report state expectation only",
+            "tests/recovery_behavior_v125.test.js: four terminal non-CAPTCHA failure state expectations only"
         ],
         "preserved_contracts": [
             "v1.0.35 finalized assistant without Writing Block remains one terminal validation outcome while prompt polling is active",
