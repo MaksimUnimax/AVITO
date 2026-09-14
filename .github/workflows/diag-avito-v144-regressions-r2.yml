@@ -1,0 +1,71 @@
+name: Diagnose Avito Finder v1.0.44 migrated recovery regressions R2
+
+on:
+  push:
+    branches: [fix/v144-global-egress-request-gate-2026-09-14]
+    paths:
+      - '.github/workflows/diag-avito-v144-regressions-r2.yml'
+      - 'tools/adapt_avito_v144_regressions.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      WORK: подбор авито расширение/releases/v1.0.44/v144_work
+      OUT: /tmp/v144-r2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v144-global-egress-request-gate-2026-09-14
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Prepare Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          echo "CHROMIUM=$BROWSER" >> "$GITHUB_ENV"
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+      - name: Materialize and migrate recovery test contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/materialize_avito_v144.py
+          python tools/adapt_avito_v144_regressions.py
+          test "$(python -c "import json;print(json.load(open('$WORK/manifest.json'))['version'])")" = 1.0.44
+      - name: Targeted invariant GREEN
+        shell: bash
+        run: |
+          set -euo pipefail
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" node --test 'подбор авито расширение/v144_prepatch_tests/global_avito_request_authority_green.test.js'
+      - name: Node regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT"
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" node --test "$WORK"/tests/*.test.js | tee "$OUT/node.log"
+      - name: IP recovery browser cycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" AF_CYCLE_REPORT="$OUT/cycle_ip.json" AF_CYCLE_FILTER='ip_block_recovery_then_three_pages' python -u "$WORK/tests/browser_cycle_v127.py" | tee "$OUT/cycle_ip.log"
+      - name: Rate recovery browser cycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" AF_CYCLE_REPORT="$OUT/cycle_rate.json" AF_CYCLE_FILTER='rate_limit_recovery_then_three_pages' python -u "$WORK/tests/browser_cycle_v127.py" | tee "$OUT/cycle_rate.log"
+      - name: Direct-route rate queue fail-closed cycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" AF_QUEUE_CYCLES_REPORT="$OUT/queue_rate_direct.json" AF_QUEUE_FILTER='rate_limit_mid_queue_restart_direct_route' python -u "$WORK/tests/v129/browser_queue_cycles.py" | tee "$OUT/queue_rate_direct.log"
