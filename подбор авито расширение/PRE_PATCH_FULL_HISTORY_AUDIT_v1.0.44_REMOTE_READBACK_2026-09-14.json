@@ -1,0 +1,11 @@
+{
+  "schema": "avito_finder_v144_rule20_remote_readback",
+  "date": "2026-09-14",
+  "status": "PASS",
+  "branch": "fix/v144-global-egress-request-gate-2026-09-14",
+  "audit_commit": "30db15f60ad87b6e7057d9848cadf3f91ec8a143",
+  "audit_status": "FULL_HISTORY_AUDIT=PASS",
+  "exact_target_version": "1.0.43",
+  "exact_target_commit": "812c35082120cb05f8af717378ffb597ba72ec53",
+  "runtime_changed_before_red": false
+}
