@@ -1,0 +1,50 @@
+{
+  "schema": "avito_finder_pre_patch_full_history_audit_v144",
+  "date": "2026-09-14",
+  "status": "FULL_HISTORY_AUDIT=PASS",
+  "target_version": "1.0.44",
+  "target_purpose": "GLOBAL_AVITO_NETWORK_REQUEST_AUTHORITY_AFTER_BLOCK",
+  "current_main_commit": "bb53feb3769701bd0c7a41f78770454ccfa10699",
+  "exact_target_version": "1.0.43",
+  "exact_target_commit": "812c35082120cb05f8af717378ffb597ba72ec53",
+  "exact_source_root": "подбор авито расширение/releases/v1.0.43/v143_work",
+  "v143_artifact_sha256": "593d31edfb136c68a50e4aa45a157c1e3d296f3beb395e0444c5b4de4c4aca3f",
+  "inherited_history": {
+    "archive_variants": 61,
+    "unique_pre_1_0_versions": 56,
+    "exact_historical_runtime_manifests": 60,
+    "unambiguous_adjacent_runtime_diffs": 54
+  },
+  "root_cause": "Avito request authority is distributed. Exact v1.0.43 RATE_LIMIT recovery creates COOLDOWN_SAME_ROUTE with probe_ip_changed=false, then can issue tabsReload/tabsUpdate and AVITO_RECOVERY_FRESH_DOCUMENT_REQUESTED without a common egress-permission gate.",
+  "historical_origin": "v1.0.23 introduced verified egress/no-reload-without-proof locally; v1.0.28 added independent rate-limit retry semantics; the invariant was never promoted to a universal pre-request gate.",
+  "required_invariant": "After a blocking network response, no intentional Avito network request may be issued until PROBES_COMPLETE proves probe_before and probe_after are known and different and the new egress epoch is newer than the blocked epoch.",
+  "fail_closed_states": [
+    "PROBES_UNAVAILABLE",
+    "PROBES_PARTIAL",
+    "PROBE_TIMEOUT",
+    "ROTATION_ACK_SAME_IP",
+    "ENDPOINT_CREATED_SAME_OR_UNKNOWN_EGRESS"
+  ],
+  "red_matrix": [
+    "AVITO_IP_BLOCK",
+    "HTTP_429",
+    "RATE_LIMIT",
+    "PROBES_UNAVAILABLE",
+    "PROBE_TIMEOUT",
+    "PROVIDER_ROTATION_ACK_WITHOUT_IP_CHANGE",
+    "ENDPOINT_CREATED_BUT_SAME_EGRESS",
+    "TRANSPORT_PARTIAL"
+  ],
+  "red_expected_on_v143": "HTTP_429 + probe_ip_changed=false -> AVITO_RECOVERY_FRESH_DOCUMENT_REQUESTED",
+  "green_expected_on_v144": "HTTP_429 + probe_ip_changed=false -> AVITO_REQUEST_SUPPRESSED_NO_EGRESS_CHANGE; Avito network requests after block=0",
+  "preserve": [
+    "baseline_150_150",
+    "OLD_50",
+    "saved_TOP",
+    "queue_cursor",
+    "collected_kompyuter_p1_30"
+  ],
+  "installed_live_acceptance_required": true,
+  "installed_live_acceptance_currently_available_in_this_chat": false,
+  "source_gaps_inherited_unchanged": true
+}
