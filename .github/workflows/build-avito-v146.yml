@@ -92,6 +92,7 @@ jobs:
           assert origin['base_version']=='1.0.45',origin
           assert origin['runtime_behavior_changed']==['service_worker.js'],origin
           assert origin['runtime_unchanged']==['recovery.js','chatgpt_content.js','core.js','proxy_manager.js'],origin
+          assert len(origin['test_harness_only_changed'])==1,origin
           for name in ['recovery.js','chatgpt_content.js','core.js','proxy_manager.js']:
             assert (base/name).read_bytes()==(work/name).read_bytes(),name
           assert (base/'service_worker.js').read_bytes() != (work/'service_worker.js').read_bytes()
@@ -119,11 +120,12 @@ jobs:
             json.dumps({'schema':'avito_finder_v146_targeted_green','status':'PASS','tests':'6/6 PASS'},indent=2)+'\n')
           PY
 
-      - name: Preserve v1.0.45 transport escalation GREEN
+      - name: Preserve exact v1.0.45 transport GREEN and verify v1.0.46 transport
         shell: bash
         run: |
           set -euo pipefail
-          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" node --test 'подбор авито расширение/v145_prepatch_tests/recovery_escalation_green.test.js' | tee "$RELEASE/QA/preserved_v145_transport_green.tap"
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/подбор авито расширение/releases/v1.0.45/v145_work" node --test 'подбор авито расширение/v145_prepatch_tests/recovery_escalation_green.test.js' | tee "$RELEASE/QA/preserved_exact_v145_transport_green.tap"
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" node --test "$WORK/tests/recovery_escalation_v145.test.js" | tee "$RELEASE/QA/current_v146_transport_green.tap"
 
       - name: Full historical regression — worktree
         shell: bash
@@ -170,7 +172,7 @@ jobs:
             'preserved_v135_form_terminal_gate':True,
             'preserved_v144_global_request_gate':True,
             'preserved_v145_transport_escalation':True,
-            'targeted_green':'6/6 PASS','preserved_v145_green':'5/5 PASS','worktree_grouped_qa':'35/35 PASS',
+            'targeted_green':'6/6 PASS','preserved_exact_v145_green':'5/5 PASS','current_v146_transport_green':'5/5 PASS','worktree_grouped_qa':'35/35 PASS',
             'service_worker_sha256':sha(work/'service_worker.js'),'recovery_sha256':sha(work/'recovery.js'),
             'proxy_manager_sha256':sha(work/'proxy_manager.js'),'chatgpt_content_sha256':sha(work/'chatgpt_content.js'),
             'core_sha256':sha(work/'core.js'),'avito_content_sha256':sha(work/'avito_content.js'),'manifest_sha256':sha(work/'manifest.json'),
@@ -199,7 +201,8 @@ jobs:
             f.extractall(os.environ['FINAL'])
           PY
           AF_SOURCE_ROOT="$FINAL/v146_work" node --test 'подбор авито расширение/v146_prepatch_tests/terminal_avito_failure_capture_green.test.js' | tee "$RELEASE/QA/final_targeted_green.tap"
-          AF_SOURCE_ROOT="$FINAL/v146_work" node --test 'подбор авито расширение/v145_prepatch_tests/recovery_escalation_green.test.js' | tee "$RELEASE/QA/final_preserved_v145_transport_green.tap"
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/подбор авито расширение/releases/v1.0.45/v145_work" node --test 'подбор авито расширение/v145_prepatch_tests/recovery_escalation_green.test.js' | tee "$RELEASE/QA/final_preserved_exact_v145_transport_green.tap"
+          AF_SOURCE_ROOT="$FINAL/v146_work" node --test "$FINAL/v146_work/tests/recovery_escalation_v145.test.js" | tee "$RELEASE/QA/final_current_v146_transport_green.tap"
           AF_QA_OUTPUT="$RELEASE/QA/final_zip" python -u "$FINAL/v146_work/tests/run_all_v136.py"
           python - <<'PY'
           import json
@@ -212,7 +215,8 @@ jobs:
           assert b['complete'] and b['fail']==0 and b['pass']==35,b
           build['final_zip_grouped_qa']='35/35 PASS'
           build['final_targeted_green']='6/6 PASS'
-          build['final_preserved_v145_green']='5/5 PASS'
+          build['final_preserved_exact_v145_green']='5/5 PASS'
+          build['final_current_v146_transport_green']='5/5 PASS'
           build['final_zip_fresh_extract']='PASS'
           (rel/'BUILD_v1.0.46.json').write_text(json.dumps(build,ensure_ascii=False,indent=2)+'\n')
           print('fresh-extract QA PASS 35/35')
@@ -251,7 +255,8 @@ jobs:
           git fetch origin "$BRANCH"
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/$BRANCH)"
           AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" node --test 'подбор авито расширение/v146_prepatch_tests/terminal_avito_failure_capture_green.test.js' | tee "$RELEASE/QA/remote_targeted_green.tap"
-          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" node --test 'подбор авито расширение/v145_prepatch_tests/recovery_escalation_green.test.js' | tee "$RELEASE/QA/remote_preserved_v145_transport_green.tap"
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/подбор авито расширение/releases/v1.0.45/v145_work" node --test 'подбор авито расширение/v145_prepatch_tests/recovery_escalation_green.test.js' | tee "$RELEASE/QA/remote_preserved_exact_v145_transport_green.tap"
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" node --test "$WORK/tests/recovery_escalation_v145.test.js" | tee "$RELEASE/QA/remote_current_v146_transport_green.tap"
           python - <<'PY'
           import hashlib,json,subprocess
           from pathlib import Path
@@ -262,15 +267,16 @@ jobs:
             assert sha(work/name)==build[key],(name,sha(work/name),build[key])
           assert json.loads((work/'manifest.json').read_text())['version']=='1.0.46'
           assert build['final_targeted_green']=='6/6 PASS'
-          assert build['final_preserved_v145_green']=='5/5 PASS'
+          assert build['final_preserved_exact_v145_green']=='5/5 PASS'
+          assert build['final_current_v146_transport_green']=='5/5 PASS'
           assert build['final_zip_grouped_qa']=='35/35 PASS'
           assert build['final_zip_fresh_extract']=='PASS'
-          rb={'schema':'avito_finder_v146_remote_readback','version':'1.0.46','status':'PASS','branch':'fix/v146-terminal-avito-failure-capture-quiescence-2026-09-14','head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'archive':build['archive'],'archive_sha256':build['archive_sha256'],'archive_bytes':build['archive_bytes'],'source_files':build['source_files'],'targeted_green':build['final_targeted_green'],'preserved_v145_green':build['final_preserved_v145_green'],'grouped_qa':build['final_zip_grouped_qa'],'final_zip_fresh_extract':build['final_zip_fresh_extract'],'installed_live_e2e':'NOT_RUN / LIVE_UNVERIFIED'}
+          rb={'schema':'avito_finder_v146_remote_readback','version':'1.0.46','status':'PASS','branch':'fix/v146-terminal-avito-failure-capture-quiescence-2026-09-14','head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'archive':build['archive'],'archive_sha256':build['archive_sha256'],'archive_bytes':build['archive_bytes'],'source_files':build['source_files'],'targeted_green':build['final_targeted_green'],'preserved_exact_v145_green':build['final_preserved_exact_v145_green'],'current_v146_transport_green':build['final_current_v146_transport_green'],'grouped_qa':build['final_zip_grouped_qa'],'final_zip_fresh_extract':build['final_zip_fresh_extract'],'installed_live_e2e':'NOT_RUN / LIVE_UNVERIFIED'}
           (rel/'REMOTE_READBACK.json').write_text(json.dumps(rb,ensure_ascii=False,indent=2)+'\n')
           print(json.dumps(rb,ensure_ascii=False,indent=2))
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- "$RELEASE/REMOTE_READBACK.json" "$RELEASE/QA/remote_targeted_green.tap" "$RELEASE/QA/remote_preserved_v145_transport_green.tap"
+          git add -- "$RELEASE/REMOTE_READBACK.json" "$RELEASE/QA/remote_targeted_green.tap" "$RELEASE/QA/remote_preserved_exact_v145_transport_green.tap" "$RELEASE/QA/remote_current_v146_transport_green.tap"
           git commit -m 'qa: persist v1.0.46 independent remote readback'
           git push origin "HEAD:$BRANCH"
