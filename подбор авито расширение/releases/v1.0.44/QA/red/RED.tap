@@ -2,7 +2,7 @@ TAP version 13
 # Subtest: exact v1.0.43 rate-limit recovery must not issue a fresh Avito request without proven egress change
 not ok 1 - exact v1.0.43 rate-limit recovery must not issue a fresh Avito request without proven egress change
   ---
-  duration_ms: 2.681994
+  duration_ms: 2.824547
   type: 'test'
   location: '/home/runner/work/AVITO/AVITO/подбор авито расширение/v144_prepatch_tests/global_avito_request_authority_v143.test.js:18:1'
   failureType: 'testCodeFailure'
@@ -22,7 +22,7 @@ not ok 1 - exact v1.0.43 rate-limit recovery must not issue a fresh Avito reques
 # Subtest: all intentional Avito navigation after a network block must cross one common request-authority gate
 not ok 2 - all intentional Avito navigation after a network block must cross one common request-authority gate
   ---
-  duration_ms: 0.424195
+  duration_ms: 0.433305
   type: 'test'
   location: '/home/runner/work/AVITO/AVITO/подбор авито расширение/v144_prepatch_tests/global_avito_request_authority_v143.test.js:29:1'
   failureType: 'testCodeFailure'
@@ -4077,7 +4077,7 @@ not ok 2 - all intentional Avito navigation after a network block must cross one
 # Subtest: blocked recovery must fail closed when probes are unavailable, partial, timed out, same-IP, or unproven
 not ok 3 - blocked recovery must fail closed when probes are unavailable, partial, timed out, same-IP, or unproven
   ---
-  duration_ms: 0.237512
+  duration_ms: 0.24206
   type: 'test'
   location: '/home/runner/work/AVITO/AVITO/подбор авито расширение/v144_prepatch_tests/global_avito_request_authority_v143.test.js:37:1'
   failureType: 'testCodeFailure'
@@ -8137,4 +8137,4 @@ not ok 3 - blocked recovery must fail closed when probes are unavailable, partia
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 71.209963
+# duration_ms 76.91632
