@@ -1,0 +1,21 @@
+{
+  "schema": "avito_finder_rule20_remote_readback_v146",
+  "status": "PASS",
+  "branch": "fix/v146-terminal-avito-failure-capture-quiescence-2026-09-14",
+  "readback_head": "f568302e39148da90a556e945ce1d66cdd873a8a",
+  "files": {
+    "json": {
+      "path": "подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.46_2026-09-14.json",
+      "blob_sha": "a0b667652b446e404d16babcc104187ee9e8f3d8",
+      "status": "FULL_HISTORY_AUDIT=PASS"
+    },
+    "md": {
+      "path": "подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.46_2026-09-14.md",
+      "blob_sha": "2c516221907cfefd473e2625ad1cedd21a98a2a1",
+      "status": "FULL_HISTORY_AUDIT=PASS"
+    }
+  },
+  "runtime_changed_before_red": false,
+  "provider_calls_during_audit": 0,
+  "next_authorized_action": "create exact-v1.0.45 RED regression; runtime patch still forbidden until RED is observed"
+}
