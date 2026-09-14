@@ -1,0 +1,23 @@
+{
+  "schema": "avito_finder_v143_popup_timeout_diag",
+  "status": "PASS",
+  "results": [
+    {
+      "source": "v142",
+      "exit_code": 0,
+      "duration_seconds": 29.608,
+      "pass": true
+    },
+    {
+      "source": "v143",
+      "exit_code": 0,
+      "duration_seconds": 9.077,
+      "pass": true
+    }
+  ],
+  "popup_js_byte_identical": true,
+  "popup_html_byte_identical": true,
+  "original_grouped_deadline_seconds": 30,
+  "diagnostic_deadline_seconds": 60,
+  "interpretation": "The v1.0.43 runtime patch does not change popup assets. A pass under 60s after the grouped 30.002s kill demonstrates the 30s process deadline is too close to normal popup-lifecycle duration; assertions remain unchanged."
+}

@@ -1,0 +1,10 @@
+{
+  "schema": "avito_finder_v143_release_intent_v1",
+  "version": "1.0.43",
+  "role": "DIAGNOSTIC_CORRECTIVE_BUILD",
+  "fixes": "terminal recovery evidence loss after AVITO_IP_BLOCK_RECOVERY_EXHAUSTED",
+  "does_not_fix": "underlying AVITO_IP_BLOCK recovery exhaustion",
+  "recovery_behavior_changed": false,
+  "required_next_evidence": "one exact installed Mini ITX run returning probe/transport/create/rotation telemetry in the pinned chat",
+  "blind_retry_forbidden": true
+}

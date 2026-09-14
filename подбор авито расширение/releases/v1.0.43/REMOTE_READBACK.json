@@ -1,0 +1,15 @@
+{
+  "schema": "avito_finder_v143_remote_readback",
+  "version": "1.0.43",
+  "status": "PASS",
+  "branch": "fix/v143-ip-recovery-egress-proof-2026-09-14",
+  "head": "ad99196096e92879ccfa0ad2bbe4d8a54d1fe443",
+  "archive": "AVITO_FINDER_v1.0.43_IP_RECOVERY_EVIDENCE_PRESERVATION_2026-09-14.zip",
+  "archive_sha256": "593d31edfb136c68a50e4aa45a157c1e3d296f3beb395e0444c5b4de4c4aca3f",
+  "archive_bytes": 507760,
+  "source_files": 156,
+  "targeted_green": "2/2 PASS",
+  "grouped_qa": "35/35 PASS",
+  "recovery_behavior_changed": false,
+  "installed_live_e2e": "NOT_RUN / LIVE_UNVERIFIED"
+}

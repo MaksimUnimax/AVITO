@@ -1,0 +1,38 @@
+{
+  "version": "1.0.35",
+  "version_name": "1.0.35-assistant-form-terminal-gate",
+  "base_exact_zip_sha256": "27e2049522663bc3d2925c7bc847ad04304979e166e8428fafaaa91d37085f5d",
+  "status": "LOCAL_RED_GREEN_PASS_LIVE_UNVERIFIED",
+  "red_green": {
+    "v1.0.34": {
+      "command_count": 0,
+      "form_error_count": 0,
+      "status": "FAIL_AS_EXPECTED"
+    },
+    "v1.0.35": {
+      "command_count": 0,
+      "form_error_count": 1,
+      "status": "PASS"
+    }
+  },
+  "qa": {
+    "node": "347/347 PASS",
+    "avito_dom": "16/16 PASS",
+    "chatgpt_dom": "11/11 PASS",
+    "block01": "12/12 PASS",
+    "block02": "12/12 PASS",
+    "block03": "8/8 PASS",
+    "installed_live_e2e": "NOT_RUN"
+  },
+  "rules": {
+    "root_cause": "PASS",
+    "red_test_before_patch": "PASS",
+    "correct_level": "PASS",
+    "baseline_scope": "PASS",
+    "minimal_diff": "PASS",
+    "historical_regression": "PARTIAL",
+    "final_build": "PASS_LOCAL",
+    "installed_live_e2e": "FAIL_NOT_YET",
+    "exact_source": "PASS"
+  }
+}

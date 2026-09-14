@@ -1,0 +1,23 @@
+{
+  "schema": "avito_finder_v143_checkpoint_v1",
+  "date": "2026-09-14",
+  "version": "1.0.43",
+  "status": "BRANCH_READY_FOR_PR__LIVE_UNVERIFIED",
+  "branch": "fix/v143-ip-recovery-egress-proof-2026-09-14",
+  "build_workflow": 34796154733,
+  "red_workflow": 34795377879,
+  "popup_timeout_diagnostic_workflow": 34796013756,
+  "artifact": "AVITO_FINDER_v1.0.43_IP_RECOVERY_EVIDENCE_PRESERVATION_2026-09-14.zip",
+  "artifact_sha256": "593d31edfb136c68a50e4aa45a157c1e3d296f3beb395e0444c5b4de4c4aca3f",
+  "artifact_bytes": 507760,
+  "source_files": 156,
+  "rule20": "PASS",
+  "exact_v142_red": "RED_CONFIRMED",
+  "targeted_green": "2/2 PASS",
+  "worktree_grouped_qa": "35/35 PASS",
+  "final_zip_grouped_qa": "35/35 PASS",
+  "final_zip_fresh_extract": "PASS",
+  "branch_remote_readback": "PASS",
+  "recovery_behavior_changed": false,
+  "installed_live_e2e": "NOT_RUN / LIVE_UNVERIFIED"
+}

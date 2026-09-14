@@ -1,0 +1,42 @@
+{
+  "schema": "avito_finder_v142_materialization_v3",
+  "version": "1.0.42",
+  "base_version": "1.0.41",
+  "production_runtime_changed": [
+    "chatgpt_content.js",
+    "service_worker.js",
+    "avito_content.js",
+    "manifest.json"
+  ],
+  "runtime_behavior_changed": [
+    "chatgpt_content.js"
+  ],
+  "identity_only_changed": [
+    "service_worker.js",
+    "avito_content.js",
+    "manifest.json"
+  ],
+  "test_only_changed": [
+    "tests/v135_prompt_form_terminal_gate.test.py",
+    "tests/ip_block_ui_plan_recovery_v124.test.js",
+    "tests/ip_block_verified_egress_v123.test.js",
+    "tests/proxy_recovery_integrity_v137.test.js",
+    "tests/traffic_lite_zero_media.test.js",
+    "tests/writing_block_capture_v142.py"
+  ],
+  "service_worker_behavior_delta": "CAPTURE_VERSION 0.6.18 -> 0.6.19 only",
+  "service_worker_byte_identical_to_v141": false,
+  "proxy_manager_byte_identical_to_v141": true,
+  "capture_contract": {
+    "transient_payload_miss_preserves_structural_candidate": true,
+    "payload_retry_is_bounded": true,
+    "unrelated_assistant_controls_excluded_from_structural_signature": true,
+    "payload_fingerprint_stability_retained": true,
+    "ordinary_markdown_remains_non_executable": true,
+    "worker_capture_identity_matches_adapter": true
+  },
+  "base_chatgpt_content_sha256": "64eedf07f07fb69ba87d91bc51d49273237e577de770d48a97e2368dd7a39d18",
+  "materialized_chatgpt_content_sha256": "bf30d2babc8b7769fc6c7e651713c164a84c42d6c973270756da319088f7da4d",
+  "base_service_worker_sha256": "dfdd176e0f8a3a0c4701c5df322b0a7f8184a617496ca4597bf47d903287bac2",
+  "materialized_service_worker_sha256": "09122b88467331d67a2d0f3f77956f60800d0db41e1b73a29f875cdaef724012"
+}

@@ -1,0 +1,1 @@
+v1.0.43 does not change IP-block recovery behavior. It preserves terminal recovery evidence so the next behavior patch can be causal rather than speculative.

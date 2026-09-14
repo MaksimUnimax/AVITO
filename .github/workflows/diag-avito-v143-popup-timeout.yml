@@ -1,0 +1,60 @@
+name: Diagnose Avito Finder v1.0.43 popup lifecycle timeout
+on:
+  push:
+    branches: [fix/v143-ip-recovery-egress-proof-2026-09-14]
+    paths: ['.github/workflows/diag-avito-v143-popup-timeout.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v143-ip-recovery-egress-proof-2026-09-14
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - name: Prepare Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+      - name: Compare baseline and candidate popup lifecycle with non-masking 60s diagnostic deadline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/materialize_avito_v143.py >/tmp/materialize-v143.log
+          python - <<'PY'
+          import hashlib,json,os,subprocess,time
+          from pathlib import Path
+          root=Path('подбор авито расширение/releases')
+          v142=root/'v1.0.42/v142_work';v143=root/'v1.0.43/v143_work'
+          assert (v142/'popup.js').read_bytes()==(v143/'popup.js').read_bytes()
+          assert (v142/'popup.html').read_bytes()==(v143/'popup.html').read_bytes()
+          results=[]
+          for label,src in [('v142',v142),('v143',v143)]:
+            out=Path('/tmp')/f'{label}-popup.json'
+            env=dict(os.environ);env['AF_SOURCE_ROOT']=str(src.resolve());env['AF_POPUP_LIFECYCLE_REPORT']=str(out)
+            started=time.monotonic()
+            p=subprocess.run(['python',str(src/'tests/v129/browser_popup_lifecycle.py')],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=60)
+            dur=round(time.monotonic()-started,3)
+            print(label,'exit',p.returncode,'duration',dur);print(p.stdout)
+            results.append({'source':label,'exit_code':p.returncode,'duration_seconds':dur,'pass':p.returncode==0})
+          evidence={'schema':'avito_finder_v143_popup_timeout_diag','status':'PASS' if all(x['pass'] for x in results) else 'FAIL','results':results,'popup_js_byte_identical':True,'popup_html_byte_identical':True,'original_grouped_deadline_seconds':30,'diagnostic_deadline_seconds':60,'interpretation':'The v1.0.43 runtime patch does not change popup assets. A pass under 60s after the grouped 30.002s kill demonstrates the 30s process deadline is too close to normal popup-lifecycle duration; assertions remain unchanged.'}
+          p=Path('подбор авито расширение/releases/v1.0.43/QA/popup_timeout_diagnostic.json');p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(evidence,ensure_ascii=False,indent=2)+'\n')
+          assert evidence['status']=='PASS',evidence
+          PY
+      - name: Persist diagnostic evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]';git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- 'подбор авито расширение/releases/v1.0.43/QA/popup_timeout_diagnostic.json'
+          git commit -m 'qa: persist v1.0.43 popup timeout diagnostic'
+          git push origin HEAD:fix/v143-ip-recovery-egress-proof-2026-09-14
