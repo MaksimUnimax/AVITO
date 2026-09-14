@@ -1,0 +1,37 @@
+{
+  "schema": "avito_finder_build_v143",
+  "version": "1.0.43",
+  "base_version": "1.0.42",
+  "archive": "AVITO_FINDER_v1.0.43_IP_RECOVERY_EVIDENCE_PRESERVATION_2026-09-14.zip",
+  "archive_sha256": "593d31edfb136c68a50e4aa45a157c1e3d296f3beb395e0444c5b4de4c4aca3f",
+  "archive_bytes": 507760,
+  "source_files": 156,
+  "purpose": "IP recovery terminal evidence preservation; recovery behavior unchanged",
+  "runtime_behavior_changed": [
+    "service_worker.js"
+  ],
+  "identity_only_changed": [
+    "avito_content.js",
+    "manifest.json"
+  ],
+  "runtime_unchanged": [
+    "chatgpt_content.js",
+    "core.js",
+    "proxy_manager.js",
+    "recovery.js"
+  ],
+  "recovery_behavior_changed": false,
+  "capture_version": "0.6.19",
+  "service_worker_sha256": "68944a6dead6ffca9179f3c191edb51de9c91bd33438e8f3da85c57aaff8b8ef",
+  "proxy_manager_sha256": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66",
+  "chatgpt_content_sha256": "bf30d2babc8b7769fc6c7e651713c164a84c42d6c973270756da319088f7da4d",
+  "avito_content_sha256": "c6dd0d0a702f2716cdfde823fad4a5a53e3dc59284638903268e7f880ca9c739",
+  "manifest_sha256": "cf572cdccaab6515e981b71991276a5737e834e180722b5db2fb5f97b95065f0",
+  "targeted_green": "2/2 PASS",
+  "worktree_grouped_qa": "35/35 PASS",
+  "installed_live_e2e": "NOT_RUN / LIVE_UNVERIFIED",
+  "release_role": "DIAGNOSTIC_CORRECTIVE_BUILD",
+  "final_zip_grouped_qa": "35/35 PASS",
+  "final_targeted_green": "2/2 PASS",
+  "final_zip_fresh_extract": "PASS"
+}
