@@ -1,0 +1,88 @@
+name: RED Avito Finder v1.0.46 terminal capture quiescence
+
+on:
+  push:
+    branches: [fix/v146-terminal-avito-failure-capture-quiescence-2026-09-14]
+    paths:
+      - '.github/workflows/red-avito-v146.yml'
+      - 'подбор авито расширение/v146_prepatch_tests/terminal_avito_failure_capture_red.test.js'
+      - 'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.46_2026-09-14.json'
+      - 'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.46_REMOTE_READBACK_2026-09-14.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v146-terminal-avito-failure-capture-quiescence-2026-09-14
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Rule 20 audit, remote readback and exact v1.0.45 base
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('подбор авито расширение')
+          audit=json.loads((root/'PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.46_2026-09-14.json').read_text())
+          readback=json.loads((root/'PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.46_REMOTE_READBACK_2026-09-14.json').read_text())
+          assert audit['status']=='FULL_HISTORY_AUDIT=PASS', audit
+          assert audit['exact_base']['version']=='1.0.45', audit
+          assert audit['runtime_changed_before_red'] is False, audit
+          assert readback['status']=='PASS', readback
+          manifest=json.loads((root/'releases/v1.0.45/v145_work/manifest.json').read_text())
+          assert manifest['version']=='1.0.45', manifest
+          print('v1.0.46 Rule20 + exact v1.0.45 base PASS')
+          PY
+      - name: RED — exact v1.0.45 terminal Avito failure re-arms prompt capture
+        shell: bash
+        run: |
+          set +e
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/подбор авито расширение/releases/v1.0.45/v145_work" \
+            node --test 'подбор авито расширение/v146_prepatch_tests/terminal_avito_failure_capture_red.test.js' > /tmp/v146-red.tap 2>&1
+          code=$?
+          cat /tmp/v146-red.tap
+          if [ "$code" -eq 0 ]; then
+            echo 'RED DID NOT FAIL'
+            exit 1
+          fi
+          grep -q 'RED_EXPECTED: terminal non-CAPTCHA avito_failure incorrectly starts AF_CAPTURE_BEGIN_PROMPT_POLL' /tmp/v146-red.tap || exit 1
+          echo 'RED_CONFIRMED'
+      - name: Persist RED authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p 'подбор авито расширение/releases/v1.0.46/QA/red'
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('подбор авито расширение/releases/v1.0.46/QA/red/RED.json')
+          p.write_text(json.dumps({
+            'schema':'avito_finder_v146_terminal_capture_red',
+            'status':'RED_CONFIRMED',
+            'source_version':'1.0.45',
+            'runtime_changed_before_red':False,
+            'live_task':'af-20260914103145-ps7t',
+            'live_installed_version':'1.0.44',
+            'live_pattern':'terminal avito failure report followed by repeated ASSISTANT_WRITING_BLOCK_REQUIRED on ordinary assistant turns',
+            'exact_source_causal_failure':'confirmed non-CAPTCHA avito_failure delivery transitions to WAITING_FOR_NEXT_ASSISTANT_FORM and starts AF_CAPTURE_BEGIN_PROMPT_POLL',
+            'historical_invariant_preserved':'v1.0.35 finalized no-Writing-Block validation remains required whenever prompt polling is legitimately active',
+            'desired_contract':'confirmed terminal non-CAPTCHA avito_failure quiesces old prompt capture; CAPTCHA and validation_error continuation remain unchanged',
+            'test':'v146_prepatch_tests/terminal_avito_failure_capture_red.test.js'
+          },ensure_ascii=False,indent=2)+'\n')
+          PY
+          cp /tmp/v146-red.tap 'подбор авито расширение/releases/v1.0.46/QA/red/RED.tap'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- 'подбор авито расширение/releases/v1.0.46/QA/red'
+          git commit -m 'qa: persist v1.0.46 terminal capture RED'
+          git push origin 'HEAD:fix/v146-terminal-avito-failure-capture-quiescence-2026-09-14'
