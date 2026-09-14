@@ -1,0 +1,297 @@
+name: Build and verify Avito Finder v1.0.44 R2 global egress request authority
+
+on:
+  push:
+    branches: [fix/v144-global-egress-request-gate-2026-09-14]
+    paths:
+      - '.github/workflows/build-avito-v144-r2.yml'
+      - 'tools/materialize_avito_v144.py'
+      - 'tools/adapt_avito_v144_regressions.py'
+      - 'tools/fix_avito_v144_direct_rate_assertion.py'
+      - 'подбор авито расширение/v144_prepatch_tests/global_avito_request_authority_green.test.js'
+      - 'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.44_2026-09-14.json'
+      - 'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.44_REMOTE_READBACK_2026-09-14.json'
+      - 'подбор авито расширение/releases/v1.0.44/QA/red/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avito-v144-r2-global-egress-request-authority
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    env:
+      BRANCH: fix/v144-global-egress-request-gate-2026-09-14
+      RELEASE: подбор авито расширение/releases/v1.0.44
+      WORK: подбор авито расширение/releases/v1.0.44/v144_work
+      ZIP: подбор авито расширение/releases/v1.0.44/AVITO_FINDER_v1.0.44_GLOBAL_EGRESS_REQUEST_AUTHORITY_2026-09-14.zip
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v144-global-egress-request-gate-2026-09-14
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+
+      - name: Prepare Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          echo "CHROMIUM=$BROWSER" >> "$GITHUB_ENV"
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+
+      - name: Verify Rule 20, remote audit readback and exact-v1.0.43 RED
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('подбор авито расширение')
+          audit=json.loads((root/'PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.44_2026-09-14.json').read_text())
+          audit_rb=json.loads((root/'PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.44_REMOTE_READBACK_2026-09-14.json').read_text())
+          red=json.loads((root/'releases/v1.0.44/QA/red/RED.json').read_text())
+          assert audit['status']=='FULL_HISTORY_AUDIT=PASS',audit
+          assert audit['exact_target_version']=='1.0.43',audit
+          assert audit['exact_target_commit']=='812c35082120cb05f8af717378ffb597ba72ec53',audit
+          assert audit_rb['status']=='PASS',audit_rb
+          assert red['status']=='RED_CONFIRMED' and red['source_version']=='1.0.43',red
+          assert red['runtime_changed_before_red'] is False,red
+          print('Rule20 + remote audit readback + exact v1.0.43 RED PASS')
+          PY
+
+      - name: Materialize v1.0.44 and migrate historical recovery fixtures to the new invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/materialize_avito_v144.py | tee /tmp/materialize-v144.log
+          python tools/adapt_avito_v144_regressions.py | tee /tmp/adapt-v144.log
+          python tools/fix_avito_v144_direct_rate_assertion.py | tee /tmp/fix-direct-v144.log
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          base=Path('подбор авито расширение/releases/v1.0.43/v143_work')
+          work=Path('подбор авито расширение/releases/v1.0.44/v144_work')
+          origin=json.loads((work/'BUILD_ORIGIN_v1.0.44.json').read_text())
+          manifest=json.loads((work/'manifest.json').read_text())
+          assert manifest['version']=='1.0.44',manifest
+          assert origin['base_version']=='1.0.43',origin
+          assert origin['runtime_behavior_changed']==['service_worker.js','recovery.js'],origin
+          assert origin['runtime_unchanged']==['chatgpt_content.js','core.js','proxy_manager.js'],origin
+          assert origin['request_authority_closed_before_rate_limit_backoff'] is True,origin
+          assert len(origin.get('test_harness_only_changed') or [])==4,origin
+          assert (base/'chatgpt_content.js').read_bytes()==(work/'chatgpt_content.js').read_bytes()
+          assert (base/'core.js').read_bytes()==(work/'core.js').read_bytes()
+          assert (base/'proxy_manager.js').read_bytes()==(work/'proxy_manager.js').read_bytes()
+          print('exact v1.0.44 materialization + test-contract migration PASS')
+          PY
+
+      - name: Targeted GREEN — global Avito request authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RELEASE/QA"
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" node --test 'подбор авито расширение/v144_prepatch_tests/global_avito_request_authority_green.test.js' | tee "$RELEASE/QA/targeted_green.tap"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          Path('подбор авито расширение/releases/v1.0.44/QA/targeted_green.json').write_text(
+            json.dumps({'schema':'avito_finder_v144_targeted_green','status':'PASS','tests':'6/6 PASS'},indent=2)+'\n'
+          )
+          PY
+
+      - name: Full historical regression — worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          AF_QA_OUTPUT="$RELEASE/QA/worktree" python -u "$WORK/tests/run_all_v136.py"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('подбор авито расширение/releases/v1.0.44/QA/worktree/summary.json')
+          r=json.loads(p.read_text())
+          assert r['complete'] and r['fail']==0,r
+          assert r['pass']==35,r
+          print('worktree grouped QA PASS 35/35')
+          PY
+
+      - name: Package exact final source and write build authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,zipfile
+          from pathlib import Path
+          rel=Path('подбор авито расширение/releases/v1.0.44')
+          work=rel/'v144_work'
+          zpath=rel/'AVITO_FINDER_v1.0.44_GLOBAL_EGRESS_REQUEST_AUTHORITY_2026-09-14.zip'
+          if zpath.exists(): zpath.unlink()
+          files=sorted(p for p in work.rglob('*') if p.is_file())
+          with zipfile.ZipFile(zpath,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
+            for p in files:
+              info=zipfile.ZipInfo(str(Path('v144_work')/p.relative_to(work)).replace('\\','/'),date_time=(2020,1,1,0,0,0))
+              info.compress_type=zipfile.ZIP_DEFLATED
+              info.external_attr=(0o100644<<16)
+              z.writestr(info,p.read_bytes())
+          sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+          wqa=json.loads((rel/'QA/worktree/summary.json').read_text())
+          origin=json.loads((work/'BUILD_ORIGIN_v1.0.44.json').read_text())
+          build={
+            'schema':'avito_finder_build_v144_r2',
+            'version':'1.0.44',
+            'base_version':'1.0.43',
+            'archive':zpath.name,
+            'archive_sha256':sha(zpath),
+            'archive_bytes':zpath.stat().st_size,
+            'source_files':len(files),
+            'purpose':'global fail-closed Avito network request authority after network block',
+            'runtime_behavior_changed':['service_worker.js','recovery.js'],
+            'identity_only_changed':['avito_content.js','manifest.json'],
+            'runtime_unchanged':['chatgpt_content.js','core.js','proxy_manager.js'],
+            'test_harness_only_changed':origin['test_harness_only_changed'],
+            'request_authority_closed_before_rate_limit_backoff':True,
+            'targeted_green':'6/6 PASS',
+            'worktree_grouped_qa':f"{wqa['pass']}/{wqa['pass']} PASS",
+            'service_worker_sha256':sha(work/'service_worker.js'),
+            'recovery_sha256':sha(work/'recovery.js'),
+            'proxy_manager_sha256':sha(work/'proxy_manager.js'),
+            'chatgpt_content_sha256':sha(work/'chatgpt_content.js'),
+            'core_sha256':sha(work/'core.js'),
+            'avito_content_sha256':sha(work/'avito_content.js'),
+            'manifest_sha256':sha(work/'manifest.json'),
+            'installed_live_e2e':'NOT_RUN / LIVE_UNVERIFIED',
+            'release_role':'ARCHITECTURAL_CORRECTIVE_CANDIDATE'
+          }
+          (rel/'BUILD_v1.0.44.json').write_text(json.dumps(build,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(build,ensure_ascii=False,indent=2))
+          PY
+
+      - name: Fresh-extract targeted GREEN and full regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          FINAL="$RUNNER_TEMP/v144-final"
+          rm -rf "$FINAL"
+          mkdir -p "$FINAL"
+          export FINAL
+          python - <<'PY'
+          import hashlib,json,os,zipfile
+          from pathlib import Path
+          rel=Path('подбор авито расширение/releases/v1.0.44')
+          build=json.loads((rel/'BUILD_v1.0.44.json').read_text())
+          z=rel/build['archive']
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==build['archive_sha256']
+          with zipfile.ZipFile(z) as f:
+            assert f.testzip() is None
+            assert len(f.namelist())==build['source_files']
+            f.extractall(os.environ['FINAL'])
+          PY
+          AF_SOURCE_ROOT="$FINAL/v144_work" node --test 'подбор авито расширение/v144_prepatch_tests/global_avito_request_authority_green.test.js' | tee "$RELEASE/QA/final_targeted_green.tap"
+          AF_QA_OUTPUT="$RELEASE/QA/final_zip" python -u "$FINAL/v144_work/tests/run_all_v136.py"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          rel=Path('подбор авито расширение/releases/v1.0.44')
+          a=json.loads((rel/'QA/worktree/summary.json').read_text())
+          b=json.loads((rel/'QA/final_zip/summary.json').read_text())
+          build=json.loads((rel/'BUILD_v1.0.44.json').read_text())
+          assert a['complete'] and a['fail']==0 and a['pass']==35,a
+          assert b['complete'] and b['fail']==0 and b['pass']==35,b
+          assert a['pass']==b['pass'],(a,b)
+          build['final_zip_grouped_qa']='35/35 PASS'
+          build['final_targeted_green']='6/6 PASS'
+          build['final_zip_fresh_extract']='PASS'
+          (rel/'BUILD_v1.0.44.json').write_text(json.dumps(build,ensure_ascii=False,indent=2)+'\n')
+          print('fresh-extract QA PASS 35/35')
+          PY
+
+      - name: Persist exact source ZIP and QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$RELEASE"
+          git commit -m 'release: materialize Avito Finder v1.0.44 global request authority candidate'
+          git push origin "HEAD:$BRANCH"
+
+  remote_readback:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BRANCH: fix/v144-global-egress-request-gate-2026-09-14
+      RELEASE: подбор авито расширение/releases/v1.0.44
+      WORK: подбор авито расширение/releases/v1.0.44/v144_work
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v144-global-egress-request-gate-2026-09-14
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+
+      - name: Independent remote readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$BRANCH"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/$BRANCH)"
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" node --test 'подбор авито расширение/v144_prepatch_tests/global_avito_request_authority_green.test.js' | tee "$RELEASE/QA/remote_targeted_green.tap"
+          python - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          rel=Path('подбор авито расширение/releases/v1.0.44')
+          work=rel/'v144_work'
+          build=json.loads((rel/'BUILD_v1.0.44.json').read_text())
+          z=rel/build['archive']
+          sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+          assert build['version']=='1.0.44'
+          assert build['worktree_grouped_qa']=='35/35 PASS'
+          assert build['final_zip_grouped_qa']=='35/35 PASS'
+          assert build['targeted_green']=='6/6 PASS'
+          assert build['final_targeted_green']=='6/6 PASS'
+          assert build['final_zip_fresh_extract']=='PASS'
+          assert sha(z)==build['archive_sha256']
+          assert sha(work/'service_worker.js')==build['service_worker_sha256']
+          assert sha(work/'recovery.js')==build['recovery_sha256']
+          assert sha(work/'proxy_manager.js')==build['proxy_manager_sha256']
+          assert sha(work/'chatgpt_content.js')==build['chatgpt_content_sha256']
+          assert sha(work/'core.js')==build['core_sha256']
+          assert json.loads((work/'manifest.json').read_text())['version']=='1.0.44'
+          rb={
+            'schema':'avito_finder_v144_remote_readback_r2',
+            'version':'1.0.44',
+            'status':'PASS',
+            'branch':'fix/v144-global-egress-request-gate-2026-09-14',
+            'head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+            'archive':build['archive'],
+            'archive_sha256':build['archive_sha256'],
+            'archive_bytes':build['archive_bytes'],
+            'source_files':build['source_files'],
+            'targeted_green':build['final_targeted_green'],
+            'grouped_qa':build['final_zip_grouped_qa'],
+            'final_zip_fresh_extract':build['final_zip_fresh_extract'],
+            'installed_live_e2e':'NOT_RUN / LIVE_UNVERIFIED'
+          }
+          (rel/'REMOTE_READBACK.json').write_text(json.dumps(rb,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(rb,ensure_ascii=False,indent=2))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+MaksimUnimax@users.noreply.github.com'
+          git add -- "$RELEASE/REMOTE_READBACK.json" "$RELEASE/QA/remote_targeted_green.tap"
+          git commit -m 'qa: persist v1.0.44 independent remote readback'
+          git push origin "HEAD:$BRANCH"
