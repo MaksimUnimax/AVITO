@@ -1,0 +1,89 @@
+name: RED Avito Finder v1.0.45 recovery escalation
+
+on:
+  push:
+    branches: [fix/v145-recovery-escalation-without-avito-retry-2026-09-14]
+    paths:
+      - '.github/workflows/red-avito-v145.yml'
+      - 'подбор авито расширение/v145_prepatch_tests/recovery_escalation_red.test.js'
+      - 'подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.45_2026-09-14.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v145-recovery-escalation-without-avito-retry-2026-09-14
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify audit authority and exact v1.0.44 base
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('подбор авито расширение')
+          a=json.loads((root/'PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.45_2026-09-14.json').read_text())
+          assert a['status']=='FULL_HISTORY_AUDIT=PASS',a
+          assert a['base_version']=='1.0.44',a
+          assert a['runtime_changed_before_red'] is False,a
+          m=json.loads((root/'releases/v1.0.44/v144_work/manifest.json').read_text())
+          assert m['version']=='1.0.44',m
+          print('v1.0.45 audit + exact v1.0.44 base PASS')
+          PY
+      - name: RED — exact v1.0.44 stops before transport attempt 2
+        id: red
+        shell: bash
+        run: |
+          set +e
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/подбор авито расширение/releases/v1.0.44/v144_work" \
+            node --test 'подбор авито расширение/v145_prepatch_tests/recovery_escalation_red.test.js' > /tmp/v145-red.tap 2>&1
+          code=$?
+          cat /tmp/v145-red.tap
+          if [ "$code" -eq 0 ]; then
+            echo 'RED DID NOT FAIL'
+            exit 1
+          fi
+          grep -q 'RED_EXPECTED: transport escalation did not advance beyond attempt 1' /tmp/v145-red.tap || exit 1
+          echo 'RED_CONFIRMED'
+      - name: Persist RED authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p 'подбор авито расширение/releases/v1.0.45/QA/red'
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('подбор авито расширение/releases/v1.0.45/QA/red/RED.json')
+          p.write_text(json.dumps({
+            'schema':'avito_finder_v145_red',
+            'status':'RED_CONFIRMED',
+            'source_version':'1.0.44',
+            'runtime_changed_before_red':False,
+            'live_task':'af-20260914103145-ps7t',
+            'live_reason':'AVITO_REQUEST_SUPPRESSED_NO_EGRESS_CHANGE',
+            'live_probe_before':'5.164.230.200',
+            'live_probe_after':'5.164.230.200',
+            'live_transport':'PROBES_COMPLETE',
+            'observed_attempt':1,
+            'provider_rotation_reachable_from_live_path':False,
+            'endpoint_create_reachable_from_live_path':False,
+            'desired_contract':'continue bounded transport-only recovery attempts without any Avito request until changed egress is proven or recovery exhausts',
+            'test':'v145_prepatch_tests/recovery_escalation_red.test.js'
+          },ensure_ascii=False,indent=2)+'\n')
+          PY
+          cp /tmp/v145-red.tap 'подбор авито расширение/releases/v1.0.45/QA/red/RED.tap'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- 'подбор авито расширение/releases/v1.0.45/QA/red'
+          git commit -m 'qa: persist v1.0.45 recovery escalation RED'
+          git push origin 'HEAD:fix/v145-recovery-escalation-without-avito-retry-2026-09-14'
