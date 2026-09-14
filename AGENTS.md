@@ -5,100 +5,92 @@
 1. `подбор авито расширение/PATCH_ENGINEERING_RULES.md` — постоянные **20** правил.
 2. `подбор авито расширение/ТЕКУЩИЙ_ПРОГРЕСС.md`.
 3. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_2026-09-13.md` и `.json`.
-4. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.40_2026-09-13.md` и `.json` плюс remote readback.
-5. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.41_2026-09-13.md` и `.json` плюс remote readback.
-6. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.42_2026-09-13.md` и `.json` плюс `PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.42_REMOTE_READBACK_2026-09-13.json`.
-7. `подбор авито расширение/PATCH_REPORT_v1.0.42_RU.md`.
-8. `подбор авито расширение/releases/v1.0.42/` — exact ZIP/source, `BUILD_v1.0.42.json`, `REMOTE_READBACK.json`, live acceptance state и main receipts/readback.
+4. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.40_2026-09-13.md/json` + remote readback.
+5. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.41_2026-09-13.md/json` + remote readback.
+6. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.42_2026-09-13.md/json` + remote readback.
+7. `подбор авито расширение/PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.43_2026-09-14.md/json` + `PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.43_REMOTE_READBACK_2026-09-14.json`.
+8. `подбор авито расширение/PATCH_REPORT_v1.0.43_RU.md`.
+9. `подбор авито расширение/releases/v1.0.43/` — exact ZIP/source, `BUILD_v1.0.43.json`, `REMOTE_READBACK.json`, live gate/checkpoint/receipts.
 
 ## Rule 20
 
-`FULL_HISTORY_AUDIT=PASS` для v1.0.42 pre-patch gate. Он наследует без сужения полный historical authority: 61 архивный вариант, 56 уникальных pre-1.0 версий, 60 exact historical runtime manifests, 54 unambiguous adjacent runtime diffs, critical state-machine evolution и defect→regression ledger. Перед любым следующим executable patch audit снова расширить до текущего HEAD **до изменения runtime**.
+Для v1.0.43 выполнен `FULL_HISTORY_AUDIT=PASS` **до executable change**. Composite authority наследует без сужения полный исторический охват: 61 архивный вариант, 56 unique pre-1.0 versions, 60 exact historical runtime manifests, 54 unambiguous adjacent runtime diffs и critical state-machine / defect→regression ledger. Перед следующим executable recovery-behavior patch Rule20 снова расширить до текущего HEAD.
 
 ## Текущая main authority
 
-**Avito Finder v1.0.42 — Writing Block Capture Stability Recovery**.
+**Avito Finder v1.0.43 — IP Recovery Evidence Preservation.**
 
-ZIP: `подбор авито расширение/releases/v1.0.42/AVITO_FINDER_v1.0.42_WRITING_BLOCK_CAPTURE_STABILITY_RECOVERY_2026-09-13.zip`.
+ZIP:
 
-- SHA-256: `616874dcdd67a05aaa63efbe5a3f670f91646cce9022db7038296525cfd63167`;
-- bytes: `505192`;
-- source files: `154`;
-- PR: `#8`;
-- main merge commit: `ca156633ab700060b23c42767ed23fb0b2254df9`;
-- successful build workflow: `34761221936`;
-- exact-v1.0.41 RED workflow: `34759646978`;
-- targeted Writing Block capture: `3/3 PASS`;
+`подбор авито расширение/releases/v1.0.43/AVITO_FINDER_v1.0.43_IP_RECOVERY_EVIDENCE_PRESERVATION_2026-09-14.zip`
+
+- SHA-256: `593d31edfb136c68a50e4aa45a157c1e3d296f3beb395e0444c5b4de4c4aca3f`;
+- bytes: `507760`;
+- source files: `156`;
+- PR: `#9`;
+- main merge commit: `41fb015dc0eac11c4713ff7740c3d92ee396cfff`;
+- exact-v1.0.42 RED workflow: `34795377879`;
+- final build workflow: `34796154733`;
+- targeted terminal-evidence regression: `2/2 PASS`;
 - worktree grouped QA: `35/35 PASS`;
 - final ZIP fresh-extract grouped QA: `35/35 PASS`;
-- final ZIP targeted capture: `3/3 PASS`;
+- final ZIP targeted regression: `2/2 PASS`;
 - independent branch remote readback: `PASS`;
-- installed owner Chrome E2E: **NOT_RUN / LIVE_UNVERIFIED**.
+- installed v1.0.43 live run: **NOT_RUN / LIVE_UNVERIFIED**.
 
-Status: `MAIN_AUTHORITY / OFFLINE_QA_PASS / REMOTE_BYTES_VERIFIED / LIVE_UNVERIFIED / NOT_READY_UNTIL_INSTALLED_E2E`.
+Status:
 
-## Живой дефект v1.0.41, который исправляет v1.0.42
+`MAIN_AUTHORITY / DIAGNOSTIC_CORRECTIVE_BUILD / OFFLINE_QA_PASS / REMOTE_BYTES_VERIFIED / LIVE_UNVERIFIED`.
 
-Один и тот же видимый Writing Block с готовой локальной Copy-кнопкой мог чередоваться:
+## Что доказано live на v1.0.42
 
-`WRITING_BLOCK_LOCAL_BODY_UNAVAILABLE / payload_bytes=0`
-→ тот же полный payload (`2447` bytes)
-→ `PROMPT_DOM_STABILITY_STARTED`
-→ снова local-body unavailable.
+Task `af-20260914010021-tyyl`, Mini ITX `8156773014`:
 
-Exact v1.0.41 при пустом extraction делал `candidateFirstSeen = null`, поэтому следующий valid sample заново запускал structural gate. Общего extraction budget не было, и цикл мог продолжаться бесконечно.
+- v1.0.42 Writing Block capture patch = PASS: команда была захвачена и дошла до `AVITO_NAVIGATION`; старый capture livelock не повторился;
+- затем `AVITO_IP_BLOCK_RECOVERY_EXHAUSTED` после 4 automatic attempts;
+- cards read = 0;
+- baseline `150/150` сохранён;
+- post-failure DOM несколько раз подтверждён как `AVITO_IP_BLOCK`;
+- heading `Доступ ограничен: проблема с IP`;
+- concrete CAPTCHA отсутствует;
+- публичная карточка не появилась;
+- смена IP не заявлена.
 
-Отдельный exact-v1.0.41 RED доказал, что `writingBlockStructuralSignature()` также зависел от snapshots всех assistant-section buttons, поэтому изменение посторонней suggestion/action кнопки могло перезапускать Writing Block-local stability.
+## Почему нужен v1.0.43
 
-## v1.0.42 correction
+Exact v1.0.42 recovery уже измерял и сохранял `probe_before/probe_after`, `probe_ip_changed`, `transport_status`, endpoint/create state/reason и provider-rotation state, но terminal report после exhaustion отбрасывал эти данные и возвращал только общий reason + attempt count.
 
-Поведенчески изменён только `chatgpt_content.js`:
+Это делало causal recovery patch невозможным без догадки. Exact-v1.0.42 RED подтвердил evidence-loss до изменения runtime.
 
-- transient local-body miss больше не уничтожает уже доказанную structural identity;
-- miss обрабатывается как payload-layer retry;
-- retry ограничен: production default максимум `8` miss или `8000 ms`;
-- exhaustion даёт `PROMPT_PAYLOAD_EXTRACTION_FAILED_BOUNDED` / `FAILED_WITH_EXACT_REASON`;
-- repeated identical payload-fingerprint stability перед validation сохранена;
-- посторонние assistant-turn buttons исключены из Writing Block structural signature.
+v1.0.43 меняет **только terminal failure reporting** в `service_worker.js`:
 
-Identity synchronization:
+- `IP probe: before → after` + доказана/не доказана смена IP;
+- transport `PROBES_COMPLETE/PARTIAL/UNAVAILABLE` + redacted probe errors;
+- endpoint/create state, attempt, reason;
+- provider-rotation state/attempt, без превращения ACK в доказательство смены IP.
 
-- `service_worker.js`: **только** `CAPTURE_VERSION 0.6.18 -> 0.6.19`;
-- `avito_content.js`: release identity `1.0.42`;
-- `manifest.json`: release identity/description `1.0.42`.
+**Recovery algorithm не изменён.** Byte-identical к v1.0.42: `chatgpt_content.js`, `core.js`, `proxy_manager.js`, `recovery.js`. Capture version остаётся `0.6.19`.
 
-`proxy_manager.js` byte-identical к v1.0.41. Navigation, explicit queue, cursor, report delivery и proxy behavior не менялись.
+## Development FAIL не скрывать
 
-## RED / FAIL history — не стирать
+Первый v1.0.43 build `34795512725` = FAIL только из-за `popup_lifecycle` external process deadline `30.002s`. Отдельный diagnostic `34796013756` доказал: unchanged v1.0.42 baseline popup test PASS за `29.608s`, v1.0.43 PASS за `9.077s`, `popup.js/html` byte-identical. Изменён только test-harness outer deadline `30s -> 45s`; assertions и production popup code не менялись.
 
-- v1.0.39 installed multi-tab acceptance = FAIL; v1.0.40 закрыл full first-target allocation.
-- v1.0.40 installed IP-firewall classification = FAIL; v1.0.41 закрыл classifier, не переписывая recovery.
-- v1.0.41 Dell current-page direct read = PASS.
-- v1.0.41 Mini ITX fresh navigation = `AVITO_IP_BLOCK_RECOVERY_EXHAUSTED` после 4 попыток; это **отдельный unresolved proxy/egress track**, не часть v1.0.42.
-- v1.0.41 Writing Block capture = LIVE FAIL по unbounded payload-extraction oscillation.
-- screenshot-only гипотеза про button churn как primary cause была преждевременной; full live journal доказал payload-extraction oscillation как прямую causal chain. Button churn остаётся отдельным доказанным regression risk.
-- exact-v1.0.41 RED run `34759646978` = `RED_CONFIRMED` до runtime patch.
-- промежуточные v1.0.42 build/fixture FAIL сохранены как development evidence и не считаются PASS.
-- final branch build run `34761221936` = SUCCESS, включая worktree/final-ZIP QA и independent readback.
+Финальный exact build `34796154733` = SUCCESS.
 
 ## Сохраняемые границы
 
-- Writing Block — единственная исполняемая assistant-команда; ordinary Markdown/code block = zero commands.
-- Настоящая CAPTCHA — ручная.
-- IP firewall — не CAPTCHA только из-за упоминания слова `капчи`.
-- Proxy transport-only.
-- Blind resend/uncertain mutation запрещены.
+- Writing Block — единственная executable assistant-команда; ordinary Markdown/code block = zero commands.
+- Настоящая CAPTCHA — manual.
+- IP firewall не является CAPTCHA только из-за слова `капчи` в explanatory text.
+- Proxy = transport layer only.
+- Blind retry/resend запрещён.
 - Baseline `150/150` не сбрасывать.
 - TOP_REVALIDATE_PRE: Dell `4750223208`, Mini ITX `8156773014`, Lenovo `8375159229`.
 - Proxy.Market API key session-scoped.
-- v1.0.42 capture patch **не** является исправлением `AVITO_IP_BLOCK_RECOVERY_EXHAUSTED`.
+- **v1.0.43 не является исправлением `AVITO_IP_BLOCK_RECOVERY_EXHAUSTED`.**
 
 ## Следующий gate
 
-Установить exact main v1.0.42 поверх существующей unpacked extension **без удаления extension и без очистки storage/baseline**, выполнить Reload, обновить ChatGPT/Avito и подтвердить `Версия: 1.0.42`.
+Установить exact main v1.0.43 **поверх** текущей unpacked extension, не удаляя extension и не очищая storage/baseline. Reload extension, обновить ChatGPT/Avito, подтвердить `Версия: 1.0.43`.
 
-Повторить исходный installed E2E:
-
-`user action -> assistant Writing Block -> capture -> validator -> Avito action/result -> report -> тот же pinned ChatGPT chat -> готовность принять следующую команду`.
-
-До этого v1.0.42 остаётся `LIVE_UNVERIFIED / NOT_READY_UNTIL_INSTALLED_E2E`. Отдельный proxy/egress recovery failure исследовать только отдельным следующим Rule-20 patch cycle, если он снова воспроизводится после capture acceptance.
+Затем ровно один раз повторить Mini ITX `8156773014`. Если exhaustion повторится, terminal report обязан сам вернуть `IP probe`, transport, endpoint/create и provider rotation. После этого **не делать blind retry**: эти данные становятся causal authority для отдельного следующего recovery-behavior Rule20/RED/patch cycle.
