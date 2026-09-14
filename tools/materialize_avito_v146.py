@@ -95,10 +95,6 @@ def main() -> None:
     worker = replace_once(worker, wording_marker, wording_replacement, "terminal failure report wording")
     worker_path.write_text(worker, encoding="utf-8")
 
-    # Identity expectations move with the package version. Runtime expectations
-    # are migrated only when they assert the exact post-terminal-report lifecycle
-    # superseded by the v1.0.46 RED. Transport, request authority, delivery count,
-    # evidence and CAPTCHA/manual continuation assertions remain unchanged.
     version_tests = [
         DEST / "tests" / "v135_prompt_form_terminal_gate.test.py",
         DEST / "tests" / "ip_block_ui_plan_recovery_v124.test.js",
@@ -110,7 +106,6 @@ def main() -> None:
         if path.exists():
             path.write_text(path.read_text(encoding="utf-8").replace("1.0.45", "1.0.46"), encoding="utf-8")
 
-    # v1.0.45 transport regression: only the post-exhaustion chat state changes.
     embedded_transport = DEST / "tests" / "recovery_escalation_v145.test.js"
     embedded_transport_text = embedded_transport.read_text(encoding="utf-8")
     embedded_transport_text = replace_once(
@@ -121,9 +116,6 @@ def main() -> None:
     )
     embedded_transport.write_text(embedded_transport_text, encoding="utf-8")
 
-    # The aggregate diagnostic proved five additional stale lifecycle assertions.
-    # Each one is attached to a terminal non-CAPTCHA avito_failure and changes
-    # only WAITING_FOR_NEXT_ASSISTANT_FORM -> TERMINAL_REPORT_DELIVERED.
     contract_audit = DEST / "tests" / "contract_audit_v129.test.js"
     contract_text = contract_audit.read_text(encoding="utf-8")
     contract_old = "assert.equal(r.status,'WAITING_FOR_NEXT_ASSISTANT_FORM');assert.equal(r.avito_network_authority?.blocked,true);"
@@ -159,6 +151,17 @@ def main() -> None:
         behavior_text = replace_once(behavior_text, old, new, label)
     recovery_behavior.write_text(behavior_text, encoding="utf-8")
 
+    # Grouped QA run 34841463832 hit only the outer 45-second process deadline
+    # for popup_lifecycle. The unchanged isolated diagnostic run 34842382487
+    # passed all 31 assertions in 19.405s. Increase only the outer harness
+    # allowance; browser_popup_lifecycle.py and every product assertion remain unchanged.
+    run_all = DEST / "tests" / "run_all_v136.py"
+    run_all_text = run_all.read_text(encoding="utf-8")
+    popup_deadline_old = "('popup_lifecycle','v129/browser_popup_lifecycle.py','AF_POPUP_LIFECYCLE_REPORT',45)"
+    popup_deadline_new = "('popup_lifecycle','v129/browser_popup_lifecycle.py','AF_POPUP_LIFECYCLE_REPORT',90)"
+    run_all_text = replace_once(run_all_text, popup_deadline_old, popup_deadline_new, "popup lifecycle CI deadline headroom")
+    run_all.write_text(run_all_text, encoding="utf-8")
+
     embedded = DEST / "tests" / "terminal_avito_failure_capture_v146.test.js"
     shutil.copy2(GREEN, embedded)
     embedded_text = embedded.read_text(encoding="utf-8")
@@ -181,7 +184,8 @@ def main() -> None:
         "test_harness_only_changed": [
             "tests/recovery_escalation_v145.test.js: post-exhaustion state expectation only",
             "tests/contract_audit_v129.test.js: rate-limit DIRECT terminal report state expectation only",
-            "tests/recovery_behavior_v125.test.js: four terminal non-CAPTCHA failure state expectations only"
+            "tests/recovery_behavior_v125.test.js: four terminal non-CAPTCHA failure state expectations only",
+            "tests/run_all_v136.py: popup_lifecycle outer deadline 45s→90s after isolated 31/31 PASS in 19.405s"
         ],
         "preserved_contracts": [
             "v1.0.35 finalized assistant without Writing Block remains one terminal validation outcome while prompt polling is active",
@@ -192,6 +196,7 @@ def main() -> None:
         "new_terminal_state": "TERMINAL_REPORT_DELIVERED",
         "terminal_capture_marker": "TERMINAL_REPORT_CAPTURE_QUIESCED",
         "red_authority": "releases/v1.0.46/QA/red/RED.json",
+        "popup_timeout_diagnostic": "releases/v1.0.46/QA/diagnostics/POPUP_LIFECYCLE_TIMEOUT_DIAG.json",
         "base_hashes": {name: sha256(BASE / name) for name in EXPECTED_BASE_HASHES},
         "materialized_hashes": {name: sha256(DEST / name) for name in EXPECTED_BASE_HASHES},
     }
