@@ -1,0 +1,45 @@
+name: Diagnose Avito Finder v1.0.46 aggregate Node regression
+
+on:
+  push:
+    branches: [fix/v146-terminal-avito-failure-capture-quiescence-2026-09-14]
+    paths:
+      - '.github/workflows/diag-avito-v146-node.yml'
+      - 'tools/materialize_avito_v146.py'
+      - 'подбор авито расширение/v146_prepatch_tests/terminal_avito_failure_capture_green.test.js'
+      - 'подбор авито расширение/releases/v1.0.46/QA/red/RED.json'
+  workflow_dispatch:
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v146-terminal-avito-failure-capture-quiescence-2026-09-14
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify RED authority then materialize exact v1.0.46 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('подбор авито расширение/releases/v1.0.46/QA/red/RED.json')
+          red=json.loads(p.read_text())
+          assert red['status']=='RED_CONFIRMED' and red['source_version']=='1.0.45',red
+          PY
+          python tools/materialize_avito_v146.py
+      - name: Exact aggregate Node command with full TAP
+        shell: bash
+        run: |
+          set -o pipefail
+          cd 'подбор авито расширение/releases/v1.0.46/v146_work'
+          env -u AF_SOURCE_ROOT node --test tests/*.test.js
