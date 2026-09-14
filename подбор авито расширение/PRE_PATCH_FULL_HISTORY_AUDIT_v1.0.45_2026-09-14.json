@@ -1,0 +1,79 @@
+{
+  "schema": "avito_finder_pre_patch_full_history_audit_v145",
+  "status": "FULL_HISTORY_AUDIT=PASS",
+  "target_version": "1.0.45",
+  "base_version": "1.0.44",
+  "base_branch": "fix/v144-global-egress-request-gate-2026-09-14",
+  "base_head_at_branch_create": "0f36b879bbc53804194af7dcb4c5cd8d906e3a31",
+  "repository": "MaksimUnimax/AVITO",
+  "branch": "fix/v145-recovery-escalation-without-avito-retry-2026-09-14",
+  "live_failure": {
+    "task": "af-20260914103145-ps7t",
+    "stage": "AVITO_NAVIGATION",
+    "reason": "AVITO_REQUEST_SUPPRESSED_NO_EGRESS_CHANGE",
+    "attempt": 1,
+    "probe_before": "5.164.230.200",
+    "probe_after": "5.164.230.200",
+    "transport": "PROBES_COMPLETE",
+    "provider_rotation": null,
+    "endpoint_create": null,
+    "cards_read": 0
+  },
+  "historical_authority_revalidated": {
+    "prior_full_audit": "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.44_2026-09-14.json",
+    "archival_variants": 61,
+    "unique_pre_1_0_versions": 56,
+    "exact_runtime_manifests": 60,
+    "unambiguous_adjacent_runtime_diffs": 54,
+    "critical_chain": [
+      "v1.0.18 first bounded IP-block recovery",
+      "v1.0.19 fresh-document/request distinction",
+      "v1.0.23 measured egress and no-reload-without-proof concept",
+      "v1.0.25 unified recovery",
+      "v1.0.28 429/rate-limit joins recovery",
+      "v1.0.29 durable retry/backoff accounting",
+      "v1.0.37 explicit proxy telemetry",
+      "v1.0.38 sticky rotation=-1 recovery endpoint",
+      "v1.0.41 firewall-vs-CAPTCHA classifier",
+      "v1.0.43 terminal recovery evidence",
+      "v1.0.44 global fail-closed Avito network request authority"
+    ],
+    "known_history_gaps_preserved": [
+      "exact package v1.0.6 unresolved due historical SHA conflict",
+      "v1.0.2-v1.0.5 and v1.0.20-v1.0.21 have limited version-specific authority",
+      "v1.0.14 and v1.0.22 source authority remains limited"
+    ]
+  },
+  "new_root_cause": {
+    "summary": "v1.0.44 correctly forbids a fresh Avito request when egress did not change, but the inherited recovery escalation still depends on an Avito retry to trigger the next recovery attempt. Therefore attempt 2 provider rotation and attempt 3 endpoint creation become unreachable after a fail-closed attempt 1.",
+    "source_proof": [
+      "prepareRecoveryProxy only dispatches provider change_ip_link when record.attempt >= 2",
+      "maybeCreateRecoveryEndpoint returns without create when record.attempt < 3",
+      "v1.0.44 attempt 1 with same measured IP terminates before any Avito request and reports back to chat"
+    ],
+    "architectural_failure_class": "RECOVERY_ESCALATION_COUPLED_TO_TARGET_RETRY",
+    "why_v144_exposed_it": "The new global request authority removed the unsafe target retry that previously advanced the state machine indirectly. The safe gate revealed that recovery transport escalation was not self-contained."
+  },
+  "required_invariant_v145": {
+    "transport_recovery_must_progress_without_avito": true,
+    "after_block_until_egress_change": "Avito network requests = 0",
+    "attempt_1": "reconfigure/probe only",
+    "attempt_2": "provider rotation when supported, then probe",
+    "attempt_3": "endpoint create/reconcile when authorized and needed, then probe",
+    "attempt_4": "bounded final transport recovery/probe only; no infinite loop",
+    "success_gate": "Only PROBES_COMPLETE with probe_before != probe_after may authorize one controlled Avito request",
+    "failure_gate": "If all bounded transport attempts fail to prove new egress, terminate with exact reason and preserved cursor/state",
+    "provider_mutation_rule": "No blind duplicate provider mutation after unknown outcome; per-attempt durable reservation remains authoritative"
+  },
+  "red_required_before_runtime_change": [
+    "exact v1.0.44: same-IP attempt 1 returns terminal before attempt 2 provider rotation can run",
+    "exact v1.0.44: same-IP attempt 1 returns terminal before attempt 3 endpoint create can run"
+  ],
+  "scope": {
+    "runtime_expected": ["service_worker.js"],
+    "do_not_change_without_new_evidence": ["core.js", "proxy_manager.js", "chatgpt_content.js", "avito_content.js", "popup contract"],
+    "preserve": ["150/150 baseline", "OLD_50", "saved TOP", "queue/cursor", "current collected results", "manual CAPTCHA boundary", "global v1.0.44 request gate"]
+  },
+  "provider_calls_during_audit": 0,
+  "runtime_changed_before_red": false
+}
