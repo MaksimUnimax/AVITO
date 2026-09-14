@@ -1,0 +1,17 @@
+{
+  "schema": "avito_finder_v143_red_v1",
+  "date": "2026-09-14",
+  "source_version": "1.0.42",
+  "target": "v1.0.43 IP recovery terminal evidence preservation",
+  "status": "RED_CONFIRMED",
+  "runtime_changed_before_red": false,
+  "live_task": "af-20260914010021-tyyl",
+  "live_reason": "AVITO_IP_BLOCK_RECOVERY_EXHAUSTED",
+  "live_post_failure_dom": "AVITO_IP_BLOCK",
+  "failed_invariants": [
+    "terminal exhaustion report exposes measured egress before/after and whether it changed",
+    "terminal exhaustion report exposes endpoint-create skip/unresolved state",
+    "terminal exhaustion report exposes egress diagnostic error when probes are incomplete"
+  ],
+  "next_authorized_action": "minimal diagnostic/evidence-preservation patch only; recovery behavior remains unchanged until new live evidence identifies the failing substep"
+}

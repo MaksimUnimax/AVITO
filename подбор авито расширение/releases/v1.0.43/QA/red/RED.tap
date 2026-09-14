@@ -1,0 +1,66 @@
+TAP version 13
+# Subtest: RED: terminal exhaustion report must preserve measured probe and endpoint evidence
+not ok 1 - RED: terminal exhaustion report must preserve measured probe and endpoint evidence
+  ---
+  duration_ms: 19.415667
+  type: 'test'
+  location: '/home/runner/work/AVITO/AVITO/подбор авито расширение/v143_prepatch_tests/ip_recovery_terminal_evidence_v142.test.js:31:1'
+  failureType: 'testCodeFailure'
+  error: 'report must expose before/after measured egress'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    Avito Finder: действие на Avito остановлено безопасно.
+    
+    Задача: test-run
+    Этап: AVITO_NAVIGATION
+    Причина: AVITO_IP_BLOCK_RECOVERY_EXHAUSTED
+    
+    Автоматические попытки восстановления: 4. Повтор мутаций запрещён.
+    Сохранённый курсор очереди: не используется; карточек прочитано: 0.
+    Версия: 1.0.42. Смена IP Avito не заявляется без отдельного доказательства.
+    Расширение вернуло этот отчёт в тот же чат и продолжает ожидать следующую форму.
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (/home/runner/work/AVITO/AVITO/подбор авито расширение/v143_prepatch_tests/ip_recovery_terminal_evidence_v142.test.js:37:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: RED: terminal exhaustion report must distinguish unresolved create from generic exhaustion
+not ok 2 - RED: terminal exhaustion report must distinguish unresolved create from generic exhaustion
+  ---
+  duration_ms: 4.430462
+  type: 'test'
+  location: '/home/runner/work/AVITO/AVITO/подбор авито расширение/v143_prepatch_tests/ip_recovery_terminal_evidence_v142.test.js:43:1'
+  failureType: 'testCodeFailure'
+  error: 'report must expose the egress diagnostic failure'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    Avito Finder: действие на Avito остановлено безопасно.
+    
+    Задача: test-run
+    Этап: AVITO_NAVIGATION
+    Причина: AVITO_IP_BLOCK_RECOVERY_EXHAUSTED
+    
+    Автоматические попытки восстановления: 4. Повтор мутаций запрещён.
+    Сохранённый курсор очереди: не используется; карточек прочитано: 0.
+    Версия: 1.0.42. Смена IP Avito не заявляется без отдельного доказательства.
+    Расширение вернуло этот отчёт в тот же чат и продолжает ожидать следующую форму.
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (/home/runner/work/AVITO/AVITO/подбор авито расширение/v143_prepatch_tests/ip_recovery_terminal_evidence_v142.test.js:59:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 0
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 85.73809
