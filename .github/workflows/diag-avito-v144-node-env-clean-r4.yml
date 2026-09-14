@@ -1,0 +1,47 @@
+name: Diagnose Avito Finder v1.0.44 env-clean Node gate R4
+
+on:
+  push:
+    branches: [fix/v144-global-egress-request-gate-2026-09-14]
+    paths:
+      - '.github/workflows/diag-avito-v144-node-env-clean-r4.yml'
+      - 'tools/fix_avito_v144_embedded_green_source_root.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node_env_clean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WORK: подбор авито расширение/releases/v1.0.44/v144_work
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v144-global-egress-request-gate-2026-09-14
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Materialize exact test surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/materialize_avito_v144.py
+          python tools/adapt_avito_v144_regressions.py
+          python tools/fix_avito_v144_direct_rate_assertion.py
+          python tools/fix_avito_v144_embedded_green_source_root.py
+      - name: External targeted GREEN still passes
+        shell: bash
+        run: |
+          set -euo pipefail
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" node --test 'подбор авито расширение/v144_prepatch_tests/global_avito_request_authority_green.test.js'
+      - name: Exact aggregate Node command with AF_SOURCE_ROOT sanitized
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$WORK"
+          env -u AF_SOURCE_ROOT node --test tests/*.test.js
