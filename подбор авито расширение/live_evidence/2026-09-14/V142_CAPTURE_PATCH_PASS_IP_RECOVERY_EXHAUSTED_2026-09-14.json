@@ -1,0 +1,23 @@
+{
+  "schema": "avito_finder_v142_installed_live_evidence_v1",
+  "date": "2026-09-14",
+  "version": "1.0.42",
+  "task_id": "af-20260914010021-tyyl",
+  "target_listing_id": "8156773014",
+  "target_listing": "Mini ITX i5-8400T",
+  "assistant_command_boundary": "Writing Block",
+  "capture_patch_result": "PASS",
+  "capture_evidence": "The executable v1.0.42 Writing Block was captured and dispatched; execution reached AVITO_NAVIGATION and returned to the same pinned chat. The prior Writing Block capture livelock did not recur in this run.",
+  "avito_navigation_result": "FAIL",
+  "failure_reason": "AVITO_IP_BLOCK_RECOVERY_EXHAUSTED",
+  "automatic_recovery_attempts": 4,
+  "cards_read": 0,
+  "queue_cursor": "not used",
+  "ip_change_claimed": false,
+  "mutation_repeat_allowed": false,
+  "baseline_preserved": "150/150",
+  "classification": "SEPARATE_NETWORK_PROXY_EGRESS_RECOVERY_FAILURE",
+  "scope_boundary": "This live failure is not evidence that the v1.0.42 Writing Block capture patch failed. It is evidence that the separate IP-block recovery path still fails after four bounded attempts.",
+  "full_installed_e2e": "FAIL_AT_AVITO_NAVIGATION",
+  "next_action": "Do not blind-retry. Diagnose and patch the proxy/egress IP-block recovery path under a new Rule-20 pre-patch cycle."
+}
