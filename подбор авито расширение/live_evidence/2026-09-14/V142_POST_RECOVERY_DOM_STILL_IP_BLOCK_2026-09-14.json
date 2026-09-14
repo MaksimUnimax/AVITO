@@ -1,0 +1,21 @@
+{
+  "schema": "avito_finder_v142_post_recovery_dom_evidence_v1",
+  "date": "2026-09-14",
+  "version": "1.0.42",
+  "task_id": "af-20260914010021-tyyl",
+  "listing_id": "8156773014",
+  "url": "https://www.avito.ru/novosibirsk/nastolnye_kompyutery/minikompyuter_itx_i5-8400tddr4_16ssd_m2_256_nas_8156773014#block",
+  "scope": "PAGE_MAIN_VISIBLE",
+  "status": "AVITO_IP_BLOCK",
+  "dom_root": "body via body_visible_fallback",
+  "visible_heading": "Доступ ограничен: проблема с IP",
+  "visible_controls": ["в поддержку", "yandex.ru/internet"],
+  "captcha_visible": false,
+  "listing_surface_visible": false,
+  "search_surface_used": false,
+  "hidden_api_used": false,
+  "recovery_attempts_preceding_snapshot": 4,
+  "ip_change_claimed": false,
+  "evidence_meaning": "After four bounded recovery attempts, the target Mini ITX page still renders the provider IP-firewall landing. This proves recovery did not restore a public listing surface. It does not identify which proxy/egress substep failed; popup/internal recovery telemetry is still required before any runtime patch.",
+  "next_required_evidence": "Popup AF_PROXY_DIAGNOSTIC showing active profile, key presence, probe before/after, probe_ip_changed, recovery attempt, endpoint/create status and any transport/auth error. API key value must not be shared."
+}
