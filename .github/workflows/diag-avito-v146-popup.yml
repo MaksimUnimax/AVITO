@@ -1,0 +1,53 @@
+name: Diagnose Avito Finder v1.0.46 popup lifecycle deadline
+
+on:
+  push:
+    branches: [fix/v146-terminal-avito-failure-capture-quiescence-2026-09-14]
+    paths:
+      - '.github/workflows/diag-avito-v146-popup.yml'
+  workflow_dispatch:
+
+jobs:
+  popup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v146-terminal-avito-failure-capture-quiescence-2026-09-14
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+      - name: Materialize exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/materialize_avito_v146.py >/tmp/materialize-v146.log
+      - name: Run popup lifecycle with diagnostic headroom
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$GITHUB_WORKSPACE/подбор авито расширение/releases/v1.0.46/v146_work"
+          START=$(python -c 'import time; print(time.time())')
+          AF_SOURCE_ROOT="$WORK" AF_POPUP_LIFECYCLE_REPORT=/tmp/popup-v146.json python -u "$WORK/tests/v129/browser_popup_lifecycle.py" | tee /tmp/popup-v146.log
+          END=$(python -c 'import time; print(time.time())')
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('/tmp/popup-v146.json').read_text())
+          assert r['fail']==0,r
+          print(json.dumps({'popup_pass':r['pass'],'popup_fail':r['fail']},ensure_ascii=False))
+          PY
+          python -c "print('elapsed_seconds=', float('$END')-float('$START'))"
