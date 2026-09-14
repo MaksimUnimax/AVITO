@@ -1,0 +1,35 @@
+{
+  "schema": "avito_finder_v145_materialization_v1",
+  "version": "1.0.45",
+  "base_version": "1.0.44",
+  "purpose": "bounded transport recovery escalation without target Avito retry",
+  "runtime_behavior_changed": [
+    "service_worker.js"
+  ],
+  "identity_only_changed": [
+    "avito_content.js",
+    "manifest.json"
+  ],
+  "runtime_unchanged": [
+    "recovery.js",
+    "chatgpt_content.js",
+    "core.js",
+    "proxy_manager.js"
+  ],
+  "test_harness_only_changed": [
+    "tests/recovery_behavior_v125.test.js: same-egress and unavailable-probe negative cases now require bounded internal transport escalation/exhaustion with zero Avito requests instead of a low-level request-suppression log"
+  ],
+  "preserved_v144_global_request_gate": true,
+  "internal_escalation_marker": "AVITO_RECOVERY_ESCALATED_WITHOUT_TARGET_REQUEST",
+  "red_authority": "releases/v1.0.45/QA/red/RED.json",
+  "base_service_worker_sha256": "9ef0a1b8c8e3094fba0c2b71ca94f5863670f73381d80c5dde150d8210691a77",
+  "materialized_service_worker_sha256": "0e5b569683d4b49fb629d93195ac5fadfe6671ff3d10d2d6481705f09777b584",
+  "base_recovery_sha256": "1ec586819d4ecc0edb7c1c8fdd8af1b7f1262880f553ba8e9cb135c00b58babc",
+  "materialized_recovery_sha256": "1ec586819d4ecc0edb7c1c8fdd8af1b7f1262880f553ba8e9cb135c00b58babc",
+  "base_core_sha256": "01511a35dcec266a155e0b09ab869d1f91b21bf06d6940cef7f0fb8584a40d76",
+  "materialized_core_sha256": "01511a35dcec266a155e0b09ab869d1f91b21bf06d6940cef7f0fb8584a40d76",
+  "base_proxy_manager_sha256": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66",
+  "materialized_proxy_manager_sha256": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66",
+  "base_chatgpt_content_sha256": "bf30d2babc8b7769fc6c7e651713c164a84c42d6c973270756da319088f7da4d",
+  "materialized_chatgpt_content_sha256": "bf30d2babc8b7769fc6c7e651713c164a84c42d6c973270756da319088f7da4d"
+}

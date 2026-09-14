@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: attempt 2 can prove new egress without an intervening Avito request
+ok 1 - attempt 2 can prove new egress without an intervening Avito request
+  ---
+  duration_ms: 42.200273
+  type: 'test'
+  ...
+# Subtest: attempt 3 is reachable without an intervening Avito request
+ok 2 - attempt 3 is reachable without an intervening Avito request
+  ---
+  duration_ms: 29.994513
+  type: 'test'
+  ...
+# Subtest: unchanged egress exhausts bounded transport recovery with zero Avito requests
+ok 3 - unchanged egress exhausts bounded transport recovery with zero Avito requests
+  ---
+  duration_ms: 42.469767
+  type: 'test'
+  ...
+# Subtest: RATE_LIMIT after backoff uses the same transport-only escalation before target retry
+ok 4 - RATE_LIMIT after backoff uses the same transport-only escalation before target retry
+  ---
+  duration_ms: 21.934116
+  type: 'test'
+  ...
+# Subtest: production source keeps attempt-2 provider rotation and attempt-3 endpoint creation behind transport escalation
+ok 5 - production source keeps attempt-2 provider rotation and attempt-3 endpoint creation behind transport escalation
+  ---
+  duration_ms: 1.7443
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 202.731418

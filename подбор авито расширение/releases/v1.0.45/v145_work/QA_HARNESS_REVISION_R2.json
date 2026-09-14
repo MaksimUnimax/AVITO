@@ -1,0 +1,14 @@
+{
+  "version": "1.0.36",
+  "build_revision": "R2_QA_HARNESS_DISPOSAL",
+  "previous_candidate_archive_sha256": "207fcb99afcf163efafb4987cecf945182fea720d90b744332ef2e8a97ae39e7",
+  "runtime_changed_from_r1": [],
+  "cause": "Disposed test VM could re-arm report-acknowledgement timers from already queued promise continuations; all assertions completed but child process did not exit. Fence timers after test teardown; do not force process.exit or alter production timers.",
+  "tests_changed": [
+    "tests/helpers/worker_vm.cjs"
+  ],
+  "tests_added": [
+    "tests/worker_fixture_disposal_v136.test.js"
+  ],
+  "live_acceptance": "NOT_RUN"
+}

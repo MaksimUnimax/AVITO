@@ -1,0 +1,38 @@
+{
+  "schema": "avito_finder_build_v145",
+  "version": "1.0.45",
+  "base_version": "1.0.44",
+  "archive": "AVITO_FINDER_v1.0.45_TRANSPORT_RECOVERY_ESCALATION_2026-09-14.zip",
+  "archive_sha256": "f747c2415639606862675df9e748ee53031d11a4dbfd5b2ae35d868ab20396c3",
+  "archive_bytes": 515354,
+  "source_files": 160,
+  "purpose": "bounded transport recovery escalation without target Avito retry",
+  "runtime_behavior_changed": [
+    "service_worker.js"
+  ],
+  "identity_only_changed": [
+    "avito_content.js",
+    "manifest.json"
+  ],
+  "runtime_unchanged": [
+    "recovery.js",
+    "chatgpt_content.js",
+    "core.js",
+    "proxy_manager.js"
+  ],
+  "preserved_v144_global_request_gate": true,
+  "targeted_green": "5/5 PASS",
+  "worktree_grouped_qa": "35/35 PASS",
+  "service_worker_sha256": "0e5b569683d4b49fb629d93195ac5fadfe6671ff3d10d2d6481705f09777b584",
+  "recovery_sha256": "1ec586819d4ecc0edb7c1c8fdd8af1b7f1262880f553ba8e9cb135c00b58babc",
+  "proxy_manager_sha256": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66",
+  "chatgpt_content_sha256": "bf30d2babc8b7769fc6c7e651713c164a84c42d6c973270756da319088f7da4d",
+  "core_sha256": "01511a35dcec266a155e0b09ab869d1f91b21bf06d6940cef7f0fb8584a40d76",
+  "avito_content_sha256": "ebd7de4ff60919017aee3351473d9706acb13d20d0f829a7dc52b21dd6b522c0",
+  "manifest_sha256": "8af11207ee1caab76957ef0b71eb7f5ebea2cf190e240f26a63d4c5aa157287d",
+  "installed_live_e2e": "NOT_RUN / LIVE_UNVERIFIED",
+  "release_role": "ARCHITECTURAL_CORRECTIVE_CANDIDATE",
+  "final_zip_grouped_qa": "35/35 PASS",
+  "final_targeted_green": "5/5 PASS",
+  "final_zip_fresh_extract": "PASS"
+}

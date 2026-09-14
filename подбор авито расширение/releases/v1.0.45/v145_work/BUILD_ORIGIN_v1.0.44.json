@@ -1,0 +1,38 @@
+{
+  "schema": "avito_finder_v144_materialization_v2",
+  "version": "1.0.44",
+  "base_version": "1.0.43",
+  "purpose": "global fail-closed Avito network request authority after network block",
+  "runtime_behavior_changed": [
+    "service_worker.js",
+    "recovery.js"
+  ],
+  "identity_only_changed": [
+    "avito_content.js",
+    "manifest.json"
+  ],
+  "runtime_unchanged": [
+    "chatgpt_content.js",
+    "core.js",
+    "proxy_manager.js"
+  ],
+  "request_authority_closed_before_rate_limit_backoff": true,
+  "red_authority": "releases/v1.0.44/QA/red/RED.json",
+  "base_service_worker_sha256": "68944a6dead6ffca9179f3c191edb51de9c91bd33438e8f3da85c57aaff8b8ef",
+  "materialized_service_worker_sha256": "9ef0a1b8c8e3094fba0c2b71ca94f5863670f73381d80c5dde150d8210691a77",
+  "base_recovery_sha256": "d49558f8decf4396bb5dd770d9c34608770ea14635166972a4fc8273270b936d",
+  "materialized_recovery_sha256": "1ec586819d4ecc0edb7c1c8fdd8af1b7f1262880f553ba8e9cb135c00b58babc",
+  "base_chatgpt_content_sha256": "bf30d2babc8b7769fc6c7e651713c164a84c42d6c973270756da319088f7da4d",
+  "materialized_chatgpt_content_sha256": "bf30d2babc8b7769fc6c7e651713c164a84c42d6c973270756da319088f7da4d",
+  "base_core_sha256": "01511a35dcec266a155e0b09ab869d1f91b21bf06d6940cef7f0fb8584a40d76",
+  "materialized_core_sha256": "01511a35dcec266a155e0b09ab869d1f91b21bf06d6940cef7f0fb8584a40d76",
+  "base_proxy_manager_sha256": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66",
+  "materialized_proxy_manager_sha256": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66",
+  "test_harness_only_changed": [
+    "tests/helpers/worker_vm.cjs: successful recovery fixture now advances synthetic egress per probe",
+    "tests/recovery_behavior_v125.test.js: same-IP and unavailable-probe cases now assert fail-closed; success cases retain recovery semantics with changed egress",
+    "tests/contract_audit_v129.test.js: DIRECT 429 now asserts fail-closed/no reload instead of cooldown same-route retry",
+    "tests/v129/browser_queue_cycles.py: DIRECT mid-queue 429 now asserts cursor preservation + SEQUENTIAL_RECOVERY_BLOCKED"
+  ],
+  "test_contract_migration_reason": "v1.0.44 promotes no-reload-without-proven-egress from a branch-local behavior to a global invariant; old fixtures that expected successful recovery on same or unavailable egress were invalid under the new contract"
+}

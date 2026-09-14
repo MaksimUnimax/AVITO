@@ -1,0 +1,40 @@
+{
+  "schema": "avito_finder_v140_materialization_v1",
+  "version": "1.0.40",
+  "base_version": "1.0.39",
+  "base_zip_sha256": "a4a0ae626de4692c62cd76d87be19e34749b488e76afa2764828a025db08bb98",
+  "production_runtime_changed": [
+    "avito_content.js",
+    "manifest.json",
+    "service_worker.js"
+  ],
+  "test_only_changed": [
+    "tests/dedicated_requested_tab_on_ambiguity_v140.test.js",
+    "tests/ip_block_ui_plan_recovery_v124.test.js",
+    "tests/ip_block_verified_egress_v123.test.js",
+    "tests/proxy_recovery_integrity_v137.test.js",
+    "tests/run_all_v136.py",
+    "tests/traffic_lite_zero_media.test.js",
+    "tests/v135_prompt_form_terminal_gate.test.py"
+  ],
+  "adapter_identity_qa_deadline_seconds": 45,
+  "adapter_identity_deadline_basis": "same-runner A/B 34747859905; v1.0.39 cold 15.718s, v1.0.40 max 1.883s; first full gate 34747402029 hit old 30.003s envelope",
+  "safe_allocation_contract": {
+    "ambiguous_existing_tabs_are_never_guessed": true,
+    "explicit_public_requested_url_gets_dedicated_new_tab_on_first_binding": true,
+    "diagnostic_navigation_ban_preserved": true,
+    "already_bound_run_cannot_allocate_second_target": true
+  },
+  "changed_files": [
+    "avito_content.js",
+    "manifest.json",
+    "service_worker.js",
+    "tests/dedicated_requested_tab_on_ambiguity_v140.test.js",
+    "tests/ip_block_ui_plan_recovery_v124.test.js",
+    "tests/ip_block_verified_egress_v123.test.js",
+    "tests/proxy_recovery_integrity_v137.test.js",
+    "tests/run_all_v136.py",
+    "tests/traffic_lite_zero_media.test.js",
+    "tests/v135_prompt_form_terminal_gate.test.py"
+  ]
+}
