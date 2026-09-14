@@ -1,0 +1,83 @@
+name: Diagnose Avito Finder v1.0.44 regression failures
+
+on:
+  push:
+    branches: [fix/v144-global-egress-request-gate-2026-09-14]
+    paths:
+      - '.github/workflows/diag-avito-v144-regressions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BRANCH: fix/v144-global-egress-request-gate-2026-09-14
+      WORK: подбор авито расширение/releases/v1.0.44/v144_work
+      OUT: подбор авито расширение/releases/v1.0.44/QA/regression_diagnostic
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v144-global-egress-request-gate-2026-09-14
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Prepare Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'playwright==1.57.0'
+          python -m playwright install --with-deps chromium
+          BROWSER=$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')
+          echo "CHROMIUM=$BROWSER" >> "$GITHUB_ENV"
+          if [ ! -e /usr/bin/chromium ]; then sudo ln -s "$BROWSER" /usr/bin/chromium; fi
+      - name: Materialize v1.0.44
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/materialize_avito_v144.py >/tmp/materialize-v144.json
+          mkdir -p "$OUT"
+      - name: Run exact failing groups and persist evidence
+        shell: bash
+        run: |
+          set +e
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" node --test "$WORK"/tests/*.test.js > "$OUT/node.log" 2>&1
+          NODE_CODE=$?
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" AF_CYCLE_REPORT="$OUT/cycle_ip.json" AF_CYCLE_FILTER='ip_block_recovery_then_three_pages' python -u "$WORK/tests/browser_cycle_v127.py" > "$OUT/cycle_ip.log" 2>&1
+          IP_CODE=$?
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" AF_CYCLE_REPORT="$OUT/cycle_rate.json" AF_CYCLE_FILTER='rate_limit_recovery_then_three_pages' python -u "$WORK/tests/browser_cycle_v127.py" > "$OUT/cycle_rate.log" 2>&1
+          RATE_CODE=$?
+          AF_SOURCE_ROOT="$GITHUB_WORKSPACE/$WORK" AF_QUEUE_CYCLES_REPORT="$OUT/queue_rate_direct.json" AF_QUEUE_FILTER='rate_limit_mid_queue_restart_direct_route' python -u "$WORK/tests/v129/browser_queue_cycles.py" > "$OUT/queue_rate_direct.log" 2>&1
+          QUEUE_CODE=$?
+          set -e
+          echo '===== NODE ====='; cat "$OUT/node.log"
+          echo '===== IP CYCLE ====='; cat "$OUT/cycle_ip.log"
+          echo '===== RATE CYCLE ====='; cat "$OUT/cycle_rate.log"
+          echo '===== DIRECT RATE QUEUE ====='; cat "$OUT/queue_rate_direct.log"
+          export NODE_CODE IP_CODE RATE_CODE QUEUE_CODE
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          out=Path(os.environ['OUT'])
+          data={
+            'schema':'avito_finder_v144_regression_diagnostic_v1',
+            'source_version':'1.0.44',
+            'node_exit':int(os.environ['NODE_CODE']),
+            'cycle_ip_exit':int(os.environ['IP_CODE']),
+            'cycle_rate_exit':int(os.environ['RATE_CODE']),
+            'queue_rate_direct_exit':int(os.environ['QUEUE_CODE']),
+            'purpose':'classify full-regression failures after introducing global fail-closed Avito egress authority'
+          }
+          (out/'summary.json').write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$OUT"
+          git commit -m 'qa: persist v1.0.44 regression failure diagnostics'
+          git push origin "HEAD:$BRANCH"
+          test "$NODE_CODE" -eq 0 -a "$IP_CODE" -eq 0 -a "$RATE_CODE" -eq 0 -a "$QUEUE_CODE" -eq 0
