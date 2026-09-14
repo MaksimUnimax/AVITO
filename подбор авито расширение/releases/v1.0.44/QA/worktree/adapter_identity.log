@@ -1,0 +1,1 @@
+{"scope": "OFFLINE_PRODUCTION_ADAPTER_PING_VS_EXACT_MANIFEST", "manifest_version": "1.0.44", "actual_adapter_ping": {"ok": true, "version": "1.0.44", "busy": false}, "status": "PASS", "code": null, "avito_content_sha256": "36552af22cb0659a015d45f3812965c95194569436b8a007e4ecf2232c8b26c5", "live_provider_calls": 0, "installed_live_acceptance": "NOT_RUN"}

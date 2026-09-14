@@ -1,0 +1,33 @@
+{
+  "schema": "avito_finder_v143_materialization_v2",
+  "version": "1.0.43",
+  "base_version": "1.0.42",
+  "purpose": "preserve exact IP recovery evidence in terminal failure report; no recovery behavior change",
+  "runtime_behavior_changed": [
+    "service_worker.js"
+  ],
+  "identity_only_changed": [
+    "avito_content.js",
+    "manifest.json"
+  ],
+  "runtime_unchanged": [
+    "chatgpt_content.js",
+    "core.js",
+    "proxy_manager.js",
+    "recovery.js"
+  ],
+  "test_harness_only_changed": [
+    "tests/run_all_v136.py popup_lifecycle external deadline 30s -> 45s"
+  ],
+  "popup_timeout_diagnostic": "releases/v1.0.43/QA/popup_timeout_diagnostic.json",
+  "recovery_behavior_changed": false,
+  "terminal_report_behavior_changed": true,
+  "capture_version_unchanged": "0.6.19",
+  "red_authority": "releases/v1.0.43/QA/red/RED.json",
+  "base_service_worker_sha256": "09122b88467331d67a2d0f3f77956f60800d0db41e1b73a29f875cdaef724012",
+  "materialized_service_worker_sha256": "68944a6dead6ffca9179f3c191edb51de9c91bd33438e8f3da85c57aaff8b8ef",
+  "base_proxy_manager_sha256": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66",
+  "materialized_proxy_manager_sha256": "c348fed57f0dcc2b97bab972ccfbf9420fee49b6ac89eb479d40ecad8f620e66",
+  "base_chatgpt_content_sha256": "bf30d2babc8b7769fc6c7e651713c164a84c42d6c973270756da319088f7da4d",
+  "materialized_chatgpt_content_sha256": "bf30d2babc8b7769fc6c7e651713c164a84c42d6c973270756da319088f7da4d"
+}

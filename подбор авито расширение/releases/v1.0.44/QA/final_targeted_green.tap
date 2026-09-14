@@ -1,0 +1,46 @@
+TAP version 13
+# Subtest: blocked egress is fail-closed until complete measured IP change advances epoch
+ok 1 - blocked egress is fail-closed until complete measured IP change advances epoch
+  ---
+  duration_ms: 1.25442
+  type: 'test'
+  ...
+# Subtest: provider ACK, profile identity and elapsed backoff are not request authority
+ok 2 - provider ACK, profile identity and elapsed backoff are not request authority
+  ---
+  duration_ms: 0.251849
+  type: 'test'
+  ...
+# Subtest: common low-level Avito navigation primitives are guarded by one request authority assertion
+ok 3 - common low-level Avito navigation primitives are guarded by one request authority assertion
+  ---
+  duration_ms: 0.74997
+  type: 'test'
+  ...
+# Subtest: network block closes authority before rate-limit backoff can return
+ok 4 - network block closes authority before rate-limit backoff can return
+  ---
+  duration_ms: 0.301251
+  type: 'test'
+  ...
+# Subtest: RATE_LIMIT no longer gets same-route retry authority and measured evidence is persisted before fresh request
+ok 5 - RATE_LIMIT no longer gets same-route retry authority and measured evidence is persisted before fresh request
+  ---
+  duration_ms: 1.128335
+  type: 'test'
+  ...
+# Subtest: unblocked normal operation remains allowed
+ok 6 - unblocked normal operation remains allowed
+  ---
+  duration_ms: 0.156519
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 69.282588
