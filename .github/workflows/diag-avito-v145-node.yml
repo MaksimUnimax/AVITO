@@ -5,6 +5,7 @@ on:
     branches: [fix/v145-recovery-escalation-without-avito-retry-2026-09-14]
     paths:
       - '.github/workflows/diag-avito-v145-node.yml'
+      - 'tools/materialize_avito_v145.py'
   workflow_dispatch:
 
 jobs:
