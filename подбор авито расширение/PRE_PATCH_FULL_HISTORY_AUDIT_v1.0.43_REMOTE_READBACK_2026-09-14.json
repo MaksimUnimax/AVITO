@@ -1,0 +1,13 @@
+{
+  "schema": "avito_finder_v143_rule20_remote_readback",
+  "date": "2026-09-14",
+  "status": "PASS",
+  "main_head_before_receipt": "a8274ce56f437a4f2ed0dfb0d2abbc08b9aa0ac4",
+  "audit_markdown": "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.43_2026-09-14.md",
+  "audit_json": "PRE_PATCH_FULL_HISTORY_AUDIT_v1.0.43_2026-09-14.json",
+  "audit_status": "FULL_HISTORY_AUDIT=PASS",
+  "installed_exact_target": "v1.0.42",
+  "runtime_changed_during_audit": false,
+  "authorized_next_action": "exact-v1.0.42 RED/diagnostic only",
+  "runtime_patch_authorized": false
+}
