@@ -72,6 +72,22 @@ def main() -> None:
         if path.exists():
             path.write_text(path.read_text(encoding="utf-8").replace("1.0.44", "1.0.45"), encoding="utf-8")
 
+    # v1.0.44 negative tests expected the low-level request gate to reject an
+    # attempted Avito navigation. v1.0.45 is safer: it never attempts that
+    # navigation while egress is unchanged/unavailable, and instead exhausts
+    # the bounded transport-only recovery ladder. Preserve the zero-request
+    # assertion, but migrate the evidence expectation to durable escalation.
+    recovery_test_path = DEST / "tests" / "recovery_behavior_v125.test.js"
+    recovery_tests = recovery_test_path.read_text(encoding="utf-8")
+    old_same = "test('same egress on both checks fails closed and never requests a fresh Avito document',async t=>{const sameIp=async()=>({ok:true,status:200,headers:{},json:async()=>({ip:'185.42.12.34'}),text:async()=>'{\"ip\":\"185.42.12.34\"}'});const w=fixture(t,{fetch:sameIp});const s=await w.seed();const r=await w.h.recoverAvitoIpBlockAndReload(s,w.tabs.get(7),1,'test');assert.equal(r.status,'WAITING_FOR_NEXT_ASSISTANT_FORM');assert.equal(r.connection_recovery.prepared.probe_ip_changed,false);assert.equal(r.connection_recovery.prepared.avito_exit_ip_verified,false);assert.equal(w.calls.filter(x=>x[0]==='reload'||x[0]==='navigate').length,0);assert.equal(w.sent.length,1);assert.ok((w.local[C.STORAGE.logs]||[]).some(x=>x.type==='AVITO_REQUEST_SUPPRESSED_NO_EGRESS_CHANGE'));assert.equal(w.effective().value.pacScript.data.includes('127.0.0.1:9'),false);assert.equal(w.effective().value.pacScript.data.includes('api.ipify.org'),false);});"
+    new_same = "test('same egress exhausts transport recovery without any fresh Avito document',async t=>{const sameIp=async()=>({ok:true,status:200,headers:{},json:async()=>({ip:'185.42.12.34'}),text:async()=>'{\"ip\":\"185.42.12.34\"}'});const w=fixture(t,{fetch:sameIp});const s=await w.seed();const r=await w.h.recoverAvitoIpBlockAndReload(s,w.tabs.get(7),1,'test');assert.equal(r.status,'WAITING_FOR_NEXT_ASSISTANT_FORM');assert.equal(r.connection_recovery.attempt,4);assert.equal(r.connection_recovery.prepared.probe_ip_changed,false);assert.equal(r.connection_recovery.prepared.avito_exit_ip_verified,false);assert.equal(w.calls.filter(x=>x[0]==='reload'||x[0]==='navigate'||x[0]==='create').length,0);assert.equal(w.sent.length,1);const escalations=(w.local[C.STORAGE.logs]||[]).filter(x=>x.type==='AVITO_RECOVERY_ESCALATED_WITHOUT_TARGET_REQUEST');assert.ok(escalations.length>=3);assert.ok(escalations.every(x=>x.target_requests_issued===0));assert.equal(w.effective().value.pacScript.data.includes('127.0.0.1:9'),false);assert.equal(w.effective().value.pacScript.data.includes('api.ipify.org'),false);});"
+    recovery_tests = replace_once(recovery_tests, old_same, new_same, "same-egress negative recovery contract")
+
+    old_unavailable = "test('unreachable IP checker fails closed and cannot authorize an Avito retry',async t=>{const w=fixture(t,{fetch:async()=>{throw new Error('fixture checker unavailable');}});const s=await w.seed();const r=await w.h.recoverAvitoIpBlockAndReload(s,w.tabs.get(7),1,'test');assert.equal(r.status,'WAITING_FOR_NEXT_ASSISTANT_FORM');assert.equal(r.connection_recovery.prepared.probe_before,null);assert.equal(w.calls.filter(x=>x[0]==='reload'||x[0]==='navigate').length,0);assert.equal(w.sent.length,1);assert.ok((w.local[C.STORAGE.logs]||[]).some(x=>x.type==='AVITO_REQUEST_SUPPRESSED_NO_EGRESS_CHANGE'));});"
+    new_unavailable = "test('unreachable IP checker exhausts transport recovery and cannot authorize an Avito retry',async t=>{const w=fixture(t,{fetch:async()=>{throw new Error('fixture checker unavailable');}});const s=await w.seed();const r=await w.h.recoverAvitoIpBlockAndReload(s,w.tabs.get(7),1,'test');assert.equal(r.status,'WAITING_FOR_NEXT_ASSISTANT_FORM');assert.equal(r.connection_recovery.attempt,4);assert.equal(r.connection_recovery.prepared.probe_before,null);assert.equal(w.calls.filter(x=>x[0]==='reload'||x[0]==='navigate'||x[0]==='create').length,0);assert.equal(w.sent.length,1);const escalations=(w.local[C.STORAGE.logs]||[]).filter(x=>x.type==='AVITO_RECOVERY_ESCALATED_WITHOUT_TARGET_REQUEST');assert.ok(escalations.length>=3);assert.ok(escalations.every(x=>x.target_requests_issued===0));});"
+    recovery_tests = replace_once(recovery_tests, old_unavailable, new_unavailable, "unavailable-probe negative recovery contract")
+    recovery_test_path.write_text(recovery_tests, encoding="utf-8")
+
     embedded = DEST / "tests" / "recovery_escalation_v145.test.js"
     shutil.copy2(GREEN, embedded)
     embedded_text = embedded.read_text(encoding="utf-8")
@@ -91,6 +107,9 @@ def main() -> None:
         "runtime_behavior_changed": ["service_worker.js"],
         "identity_only_changed": ["avito_content.js", "manifest.json"],
         "runtime_unchanged": ["recovery.js", "chatgpt_content.js", "core.js", "proxy_manager.js"],
+        "test_harness_only_changed": [
+            "tests/recovery_behavior_v125.test.js: same-egress and unavailable-probe negative cases now require bounded internal transport escalation/exhaustion with zero Avito requests instead of a low-level request-suppression log"
+        ],
         "preserved_v144_global_request_gate": True,
         "internal_escalation_marker": "AVITO_RECOVERY_ESCALATED_WITHOUT_TARGET_REQUEST",
         "red_authority": "releases/v1.0.45/QA/red/RED.json",
