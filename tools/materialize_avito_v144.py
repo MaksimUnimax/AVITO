@@ -45,7 +45,12 @@ def main() -> None:
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     avito_path = DEST / "avito_content.js"
-    avito = replace_once(avito_path.read_text(encoding="utf-8"), 'const ADAPTER_VERSION = "1.0.43";', 'const ADAPTER_VERSION = "1.0.44";', "adapter version")
+    avito = replace_once(
+        avito_path.read_text(encoding="utf-8"),
+        'const ADAPTER_VERSION = "1.0.43";',
+        'const ADAPTER_VERSION = "1.0.44";',
+        "adapter version",
+    )
     avito_path.write_text(avito, encoding="utf-8")
 
     recovery_path = DEST / "recovery.js"
@@ -167,13 +172,17 @@ async function assertAvitoNetworkRequestAuthorized(action, tabId, targetUrl) {
 }'''
     worker = replace_once(worker, gettab, helper, "insert common request authority assertion")
 
+    reserve_state = "current=await saveState({...current,connection_recovery:record,avito_ip_block_reload_count:record.attempt});"
+    reserve_state_guarded = "current=await saveState({...current,connection_recovery:record,avito_network_authority:Recovery.beginBlockedEgressEpoch(current.avito_network_authority,interruptionKind,record.attempt),avito_ip_block_reload_count:record.attempt});"
+    worker = replace_once(worker, reserve_state, reserve_state_guarded, "close Avito request authority immediately when network block is registered")
+
     old_entry = "current=await saveState({...current,status:'RECOVERING_AVITO_CONNECTION',phase:'AVITO_CONNECTION_RECOVERY',connection_recovery:{...record,phase:'PREPARING',resume_after:null,continuation:continuation||record.continuation||null,source:source||record.source||null,previous_time_origin:Number(previousTimeOrigin||record.previous_time_origin||0),interruption_kind:interruptionKind||record.interruption_kind||'IP_BLOCK'},avito_ip_block_reload_count:record.attempt});"
-    new_entry = "current=await saveState({...current,status:'RECOVERING_AVITO_CONNECTION',phase:'AVITO_CONNECTION_RECOVERY',connection_recovery:{...record,phase:'PREPARING',resume_after:null,continuation:continuation||record.continuation||null,source:source||record.source||null,previous_time_origin:Number(previousTimeOrigin||record.previous_time_origin||0),interruption_kind:interruptionKind||record.interruption_kind||'IP_BLOCK'},avito_network_authority:Recovery.beginBlockedEgressEpoch(current.avito_network_authority,interruptionKind||record.interruption_kind||'IP_BLOCK',record.attempt),avito_ip_block_reload_count:record.attempt});"
-    worker = replace_once(worker, old_entry, new_entry, "mark blocked egress epoch")
+    new_entry = "current=await saveState({...current,status:'RECOVERING_AVITO_CONNECTION',phase:'AVITO_CONNECTION_RECOVERY',connection_recovery:{...record,phase:'PREPARING',resume_after:null,continuation:continuation||record.continuation||null,source:source||record.source||null,previous_time_origin:Number(previousTimeOrigin||record.previous_time_origin||0),interruption_kind:interruptionKind||record.interruption_kind||'IP_BLOCK'},avito_network_authority:(current.avito_network_authority?.blocked===true?current.avito_network_authority:Recovery.beginBlockedEgressEpoch(current.avito_network_authority,interruptionKind||record.interruption_kind||'IP_BLOCK',record.attempt)),avito_ip_block_reload_count:record.attempt});"
+    worker = replace_once(worker, old_entry, new_entry, "preserve immediate blocked epoch on recovery execution/resume")
 
     old_rate = "const prepared=interruptionKind==='RATE_LIMIT' ? {strategy:'COOLDOWN_SAME_ROUTE',probe_ip_changed:false,avito_exit_ip_verified:false} : await prepareRecoveryProxy(current,(await getState()).connection_recovery,controller.signal);"
     new_rate = "const prepared=await prepareRecoveryProxy(current,(await getState()).connection_recovery,controller.signal);"
-    worker = replace_once(worker, old_rate, new_rate, "rate limit must recover/verify egress")
+    worker = replace_once(worker, old_rate, new_rate, "rate limit must recover and verify egress")
 
     old_state = "connection_recovery:{...current.connection_recovery,phase:'AWAITING_FRESH_DOCUMENT',resume_after:null,prepared},avito_navigation_expected:false"
     new_state = "connection_recovery:{...current.connection_recovery,phase:'AWAITING_FRESH_DOCUMENT',resume_after:null,prepared},avito_network_authority:Recovery.applyAvitoEgressEvidence(current.avito_network_authority,prepared),avito_navigation_expected:false"
@@ -184,7 +193,6 @@ async function assertAvitoNetworkRequestAuthorized(action, tabId, targetUrl) {
     worker = replace_once(worker, export_old, export_new, "test export request authority assertion")
     worker_path.write_text(worker, encoding="utf-8")
 
-    # Advance only extension-version expectations inherited from exact v1.0.43.
     version_tests = [
         DEST / "tests" / "v135_prompt_form_terminal_gate.test.py",
         DEST / "tests" / "ip_block_ui_plan_recovery_v124.test.js",
@@ -199,32 +207,39 @@ async function assertAvitoNetworkRequestAuthorized(action, tabId, targetUrl) {
     shutil.copy2(GREEN, DEST / "tests" / "global_avito_request_authority_v144.test.js")
 
     origin = {
-        "schema":"avito_finder_v144_materialization_v1",
-        "version":"1.0.44",
-        "base_version":"1.0.43",
-        "purpose":"global fail-closed Avito network request authority after network block",
-        "runtime_behavior_changed":["service_worker.js","recovery.js"],
-        "identity_only_changed":["avito_content.js","manifest.json"],
-        "runtime_unchanged":["chatgpt_content.js","core.js","proxy_manager.js"],
-        "red_authority":"releases/v1.0.44/QA/red/RED.json",
-        "base_service_worker_sha256":sha256(BASE/'service_worker.js'),
-        "materialized_service_worker_sha256":sha256(DEST/'service_worker.js'),
-        "base_recovery_sha256":sha256(BASE/'recovery.js'),
-        "materialized_recovery_sha256":sha256(DEST/'recovery.js'),
-        "base_chatgpt_content_sha256":sha256(BASE/'chatgpt_content.js'),
-        "materialized_chatgpt_content_sha256":sha256(DEST/'chatgpt_content.js'),
-        "base_core_sha256":sha256(BASE/'core.js'),
-        "materialized_core_sha256":sha256(DEST/'core.js'),
-        "base_proxy_manager_sha256":sha256(BASE/'proxy_manager.js'),
-        "materialized_proxy_manager_sha256":sha256(DEST/'proxy_manager.js')
+        "schema": "avito_finder_v144_materialization_v2",
+        "version": "1.0.44",
+        "base_version": "1.0.43",
+        "purpose": "global fail-closed Avito network request authority after network block",
+        "runtime_behavior_changed": ["service_worker.js", "recovery.js"],
+        "identity_only_changed": ["avito_content.js", "manifest.json"],
+        "runtime_unchanged": ["chatgpt_content.js", "core.js", "proxy_manager.js"],
+        "request_authority_closed_before_rate_limit_backoff": True,
+        "red_authority": "releases/v1.0.44/QA/red/RED.json",
+        "base_service_worker_sha256": sha256(BASE / "service_worker.js"),
+        "materialized_service_worker_sha256": sha256(DEST / "service_worker.js"),
+        "base_recovery_sha256": sha256(BASE / "recovery.js"),
+        "materialized_recovery_sha256": sha256(DEST / "recovery.js"),
+        "base_chatgpt_content_sha256": sha256(BASE / "chatgpt_content.js"),
+        "materialized_chatgpt_content_sha256": sha256(DEST / "chatgpt_content.js"),
+        "base_core_sha256": sha256(BASE / "core.js"),
+        "materialized_core_sha256": sha256(DEST / "core.js"),
+        "base_proxy_manager_sha256": sha256(BASE / "proxy_manager.js"),
+        "materialized_proxy_manager_sha256": sha256(DEST / "proxy_manager.js"),
     }
-    for name in ('chatgpt_content','core','proxy_manager'):
-        if origin[f'base_{name}_sha256'] != origin[f'materialized_{name}_sha256']:
-            raise RuntimeError(f'{name} unexpectedly changed')
-    if origin['base_service_worker_sha256'] == origin['materialized_service_worker_sha256'] or origin['base_recovery_sha256'] == origin['materialized_recovery_sha256']:
-        raise RuntimeError('required runtime patch did not materialize')
-    (DEST/'BUILD_ORIGIN_v1.0.44.json').write_text(json.dumps(origin,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-    print(json.dumps(origin,ensure_ascii=False,indent=2))
+    for name in ("chatgpt_content", "core", "proxy_manager"):
+        if origin[f"base_{name}_sha256"] != origin[f"materialized_{name}_sha256"]:
+            raise RuntimeError(f"{name} unexpectedly changed")
+    if origin["base_service_worker_sha256"] == origin["materialized_service_worker_sha256"]:
+        raise RuntimeError("service_worker patch did not materialize")
+    if origin["base_recovery_sha256"] == origin["materialized_recovery_sha256"]:
+        raise RuntimeError("recovery policy patch did not materialize")
+    (DEST / "BUILD_ORIGIN_v1.0.44.json").write_text(
+        json.dumps(origin, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print(json.dumps(origin, ensure_ascii=False, indent=2))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
